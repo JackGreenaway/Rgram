@@ -54,6 +54,7 @@ def epanchenkov_kernel(
     mask = np.abs(u) <= 1
     weight = 0.75 * (1 - u**2) * mask
 
-    kernel = np.dot(weight, y_train) / (np.sum(weight, axis=1) + 1e-15)
+    sum_weight = np.sum(weight, axis=1)
+    kernel = np.divide(np.dot(weight, y_train), sum_weight, where=sum_weight > 0)
 
     return kernel
