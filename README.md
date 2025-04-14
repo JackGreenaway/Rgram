@@ -48,7 +48,7 @@ x = np.sort(np.random.uniform(0, 10, 250))
 y = np.sin(x) + np.cos(x) ** 2 + np.random.normal(0, 0.5, size=x.shape)
 
 # Apply regression histogram with quantile binning
-regressogram = regressorgram(x=x, y=y, bins_param=15, bin_type="quantile")
+regressogram = regressorgram(x=x, y=y, bins_param=10, bin_type="naive")
 
 # Smooth the regression histogram output using the Epanechnikov kernel
 kernel = epanchenkov_kernel(x_train=x, y_train=regressogram)
@@ -56,8 +56,12 @@ kernel = epanchenkov_kernel(x_train=x, y_train=regressogram)
 # Plot the regressogram
 plt.plot(x, np.sin(x) + np.cos(x) ** 2, label="True Function", color="green")
 plt.scatter(x, y, s=3, label="Noisy Data", alpha=0.5)
-plt.step(x, regressogram, label="Regression Histogram", color="blue", where="mid")
-plt.plot(np.linspace(x.min(), x.max(), 100), kernel, label="Kernel Smoothed", color="red")
+plt.step(x, regressogram, label="Regression Histogram", color="blue", where="mid", alpha=0.3)
+plt.plot(
+    np.linspace(x.min(), x.max(), 250), kernel, label="Kernel Smoothed", color="red"
+)
 plt.legend()
 plt.show()
 ```
+
+![Example Output](example.png)
