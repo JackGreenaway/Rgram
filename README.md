@@ -1,6 +1,6 @@
 # Rgram
 
-Rgram is a Python library for performing regression histograms and kernel smoothing. This repository is designed to provide tools for data analysis and visualization. It uses `uv` for dependency management.
+Rgram is a Python library for performing regressograms and kernel smoothing. This repository is designed to provide tools for data analysis and visualization. It uses `uv` for dependency management.
 
 ## Features
 
