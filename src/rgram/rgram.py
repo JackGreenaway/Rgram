@@ -49,7 +49,7 @@ def epanchenkov_kernel(
     )
     h = rule_of_thumb(y_train) if not h else h
 
-    u = (x_eval.reshape(-1, 1) - x_train) / rule_of_thumb(y_train)
+    u = (x_eval.reshape(-1, 1) - x_train) / h
 
     mask = np.abs(u) <= 1
     weight = 0.75 * (1 - u**2) * mask
