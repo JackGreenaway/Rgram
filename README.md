@@ -35,7 +35,7 @@ To get started with Rgram, follow these steps:
 
 ## Usage
 
-Here are examples of how to use the `regressorgram` and `epanchenkov_kernel` functions:
+Here are examples of how to use the `regressorgram` and `kernel_smoothing` functions:
 
 ### Example: Regression Histogram with Kernel Smoothing
 ```python
@@ -49,7 +49,7 @@ x = np.sort(np.random.normal(0, 1, n))
 y = 1 + x
 y_noise = y + np.random.normal(0, np.sqrt(2), n)
 
-# Apply regression histogram with quantile binning
+# Apply regression histogram with naive binning
 regressogram = regressorgram(x=x, y=y_noise, bin_type="naive")
 
 # Smooth the regression histogram output using kernel
@@ -65,6 +65,7 @@ ax.step(x, regressogram, label="regressogram", where="mid", lw=0.5)
 
 for kernel in [
     "epanchenkov",
+    # Uncomment the following lines to use additional kernels
     # "nadaraya_watson",
     # "priestley_chao"
 ]:
@@ -81,5 +82,7 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 ```
+
+This example demonstrates how to generate a regressogram and apply kernel smoothing using the Epanechnikov kernel. Uncomment additional kernels to explore their effects.
 
 ![Example Output](example.png)
