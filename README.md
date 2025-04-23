@@ -41,27 +41,44 @@ Here are examples of how to use the `regressorgram` and `epanchenkov_kernel` fun
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from rgram.rgram import regressorgram, epanchenkov_kernel
+from rgram.rgram import regressorgram, kernel_smoothing
 
 # Generate sample data
-x = np.sort(np.random.uniform(0, 10, 250))
-y = np.sin(x) + np.cos(x) ** 2
-y_noise = y + np.random.normal(0, 0.5, size=x.shape)
+n = 50
+x = np.sort(np.random.normal(0, 1, n))
+y = 1 + x
+y_noise = y + np.random.normal(0, np.sqrt(2), n)
 
 # Apply regression histogram with quantile binning
-regressogram = regressorgram(x=x, y=y_noise, bins_param=10, bin_type="naive")
+regressogram = regressorgram(x=x, y=y_noise, bin_type="naive")
 
-# Smooth the regression histogram output using the Epanechnikov kernel
-kernel = epanchenkov_kernel(x_train=x, y_train=regressogram)
+# Smooth the regression histogram output using kernel
+nw_kernel = kernel_smoothing(x_train=x, y_train=regressogram, kernel="nadaraya_watson")
+
+fig, ax = plt.subplots(figsize=(8, 5))
 
 # Plot the regressogram
-plt.plot(x, y, label="True Function", color="green")
-plt.scatter(x, y_noise, s=3, label="Noisy Data", alpha=0.5)
-plt.step(x, regressogram, label="Regression Histogram", color="blue", where="mid", alpha=0.3)
-plt.plot(
-    np.linspace(x.min(), x.max(), 250), kernel, label="Kernel Smoothed", color="red"
-)
+ax.plot(x, y, label="true Function", color="black", lw=0.5)
+ax.scatter(x, y_noise, s=15, alpha=0.3, marker="o", color="black")
+
+ax.step(x, regressogram, label="regressogram", where="mid", lw=0.5)
+
+for kernel in [
+    "epanchenkov",
+    # "nadaraya_watson",
+    # "priestley_chao"
+]:
+    kernel_smoothed = kernel_smoothing(x_train=x, y_train=y_noise, kernel=kernel)
+
+    ax.plot(
+        np.linspace(x.min(), x.max(), n),
+        kernel_smoothed,
+        label=kernel,
+        lw=0.5,
+    )
+
 plt.legend()
+plt.tight_layout()
 plt.show()
 ```
 
