@@ -84,4 +84,6 @@ plt.show()
 
 This example demonstrates how to generate a regressogram and apply kernel smoothing using the Epanechnikov kernel. Uncomment additional kernels to explore their effects.
 
-![Example Output](example.png)
+<p align="center">
+  <img src="example.png" />
+</p>
