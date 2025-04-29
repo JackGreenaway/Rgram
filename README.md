@@ -49,30 +49,29 @@ x = np.sort(np.random.normal(0, 1, n))
 y = 1 + x
 y_noise = y + np.random.normal(0, np.sqrt(2), n)
 
-# Apply regression histogram with naive binning
+# Apply regression histogram with quantile binning
 regressogram = regressorgram(x=x, y=y_noise, bin_type="naive")
 
-# Smooth the regression histogram output using kernel
-nw_kernel = kernel_smoothing(x_train=x, y_train=regressogram, kernel="nadaraya_watson")
-
-fig, ax = plt.subplots(figsize=(8, 5))
+fig, ax = plt.subplots(figsize=(5, 5))
 
 # Plot the regressogram
-ax.plot(x, y, label="true Function", color="black", lw=0.5)
+ax.plot(x, y, label="true function", color="black", lw=0.5)
 ax.scatter(x, y_noise, s=15, alpha=0.3, marker="o", color="black")
 
 ax.step(x, regressogram, label="regressogram", where="mid", lw=0.5)
 
+x_eval = np.linspace(x.min(), x.max(), 1000)
 for kernel in [
     "epanchenkov",
-    # Uncomment the following lines to use additional kernels
     # "nadaraya_watson",
     # "priestley_chao"
 ]:
-    kernel_smoothed = kernel_smoothing(x_train=x, y_train=y_noise, kernel=kernel)
+    kernel_smoothed = kernel_smoothing(
+        x_train=x, y_train=y_noise, x_eval=x_eval, kernel=kernel
+    )
 
     ax.plot(
-        np.linspace(x.min(), x.max(), n),
+        x_eval,
         kernel_smoothed,
         label=kernel,
         lw=0.5,

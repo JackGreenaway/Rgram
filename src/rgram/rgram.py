@@ -55,7 +55,9 @@ def kernel_smoothing(
     if x_train.size == 0 or y_train.size == 0:
         raise ValueError("Input arrays 'x_train' and 'y_train' must not be empty.")
 
-    x_eval = x_eval or np.linspace(x_train.min(), x_train.max(), x_train.shape[0])
+    if x_eval is None:
+        x_eval = np.linspace(x_train.min(), x_train.max(), x_train.shape[0])
+
     h = h or silvermans_rule(y_train)
 
     u = (x_eval[:, None] - x_train) / h
