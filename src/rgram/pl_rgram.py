@@ -24,8 +24,8 @@ def pl_rgram(
 
     Parameters:
         df (pl.LazyFrame | pl.DataFrame): The input data as a Polars LazyFrame or DataFrame.
-        x (str | list[str]): The independent variable(s) to analyze.
-        y (str): The dependent variable to analyze.
+        x (str | list[str]): The independent variable(s) to analyse.
+        y (str): The dependent variable to analyse.
         metric (Callable[[pl.Expr], pl.Expr], optional): A function to compute the metric
             for the dependent variable (default is mean).
         hue (str, optional): A categorical variable for grouping (default is None).
@@ -43,24 +43,32 @@ def pl_rgram(
 
     friedman_rot = (2 * (pl.len().pow(1 / 3))).ceil()
 
-    if bin_style == "index":
-        bin_calc = [
-            (pl.arange(0, pl.len()) // friedman_rot)
-            .over(over_features)
-            .alias("rgram_bin")
-        ]
+    bin_style_dict = {
+        "index": (pl.col("x_val").rank(method="ordinal") // friedman_rot),
+        "dist": (
+            ((pl.col("x_val").rank(method="ordinal") - 1) * friedman_rot) // pl.len()
+        ),
+    }
+    bin_calc = [bin_style_dict[bin_style].over(over_features).alias("rgram_bin")]
 
-    elif bin_style == "dist":
-        bin_calc = [
-            (((pl.col("x_var").rank(method="ordinal") - 1) * friedman_rot) // pl.len())
-            .over(over_features)
-            .cast(float)
-            .alias("rgram_bin")
-        ]
+    # ols_calc_dict = {
+    #     True: [
+    #         pl.col(y)
+    #         .least_squares.ols(
+    #             pl.col("x_val"), mode=mode, add_intercept=True, null_policy="drop"
+    #         )
+    #         .over(over_features)
+    #         .alias(alias)
+    #         for mode, alias in [
+    #             ("predictions", "y_pred_ols"),
+    #             # ("coefficients", "ols_coef")
+    #         ]
+    #     ],
+    #     False: [],
+    # }
 
-    ols_calc = []
-    if add_ols:
-        ols_calc = [
+    ols_calc = (
+        [
             pl.col(y)
             .least_squares.ols(
                 pl.col("x_val"), mode=mode, add_intercept=True, null_policy="drop"
@@ -72,30 +80,30 @@ def pl_rgram(
                 # ("coefficients", "ols_coef")
             ]
         ]
+        if add_ols
+        else []
+    )
 
     rgram = (
-        df.lazy()
-        .select(x + idx_features)
+        df.select(x + idx_features)
         .unpivot(on=x, index=idx_features, variable_name="x_var", value_name="x_val")
-        .sort(by=["x_val"])
         .with_columns(
             [
                 # ensure target is float (important for boolean targets)
                 pl.col(y).cast(float).alias(y),
             ]
-            # index or dist binning
             + bin_calc
         )
         .with_columns(
-            # rgram
             [
                 metric(pl.col(y))
                 .over(over_features + ["rgram_bin"])
                 .alias("y_pred_rgram")
             ]
-            # ols
+            # + ols_calc_dict[add_ols]
             + ols_calc
         )
+        .sort(by=["x_val"])
     )
 
     return rgram
