@@ -6,6 +6,7 @@ Rgram is a Python library for performing regressograms and kernel smoothing. Thi
 
 - Regression histograms with naive and quantile binning.
 - Kernel smoothing using the Epanechnikov kernel.
+- Regression gram (rgram) generation using Polars DataFrame or LazyFrame.
 - Easy-to-use API for data analysis.
 
 ## Requirements
@@ -35,9 +36,8 @@ To get started with Rgram, follow these steps:
 
 ## Usage
 
-Here are examples of how to use the `regressorgram` and `kernel_smoothing` functions:
-
 ### Example: Regression Histogram with Kernel Smoothing
+
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
@@ -50,7 +50,7 @@ y = 1 + x
 y_noise = y + np.random.normal(0, np.sqrt(2), n)
 
 # Apply regression histogram with quantile binning
-regressogram = regressorgram(x=x, y=y_noise, bin_style="index")
+regressogram = regressorgram(x=x, y=y_noise, bin_type="quantile")
 
 fig, ax = plt.subplots(figsize=(5, 5))
 
@@ -87,3 +87,34 @@ This example demonstrates how to generate a regressogram and apply kernel smooth
 <p align="center">
   <img src="example.png" />
 </p>
+
+### Example: Regression Gram (Rgram) with Polars
+
+```python
+import polars as pl
+from rgram.pl_rgram import pl_rgram
+
+# Create a sample Polars DataFrame
+data = {
+    "x1": [1, 2, 3, 4, 5],
+    "x2": [5, 4, 3, 2, 1],
+    "y": [2, 3, 4, 5, 6],
+}
+df = pl.LazyFrame(data)
+
+# Generate a regression gram
+rgram = pl_rgram(
+    df=df,
+    x=["x1", "x2"],
+    y="y",
+    metric=lambda x: x.mean(),
+    hue=None,
+    add_ols=True,
+    bin_style="index",
+)
+
+# Collect the results
+result = rgram.collect()
+print(result)
+```
+
