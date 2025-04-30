@@ -41,7 +41,7 @@ Here are examples of how to use the `regressorgram` and `kernel_smoothing` funct
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
-from rgram.rgram import regressorgram, kernel_smoothing
+from rgram.np_rgram import regressorgram, kernel_smoothing
 
 # Generate sample data
 n = 50
@@ -50,7 +50,7 @@ y = 1 + x
 y_noise = y + np.random.normal(0, np.sqrt(2), n)
 
 # Apply regression histogram with quantile binning
-regressogram = regressorgram(x=x, y=y_noise, bin_type="naive")
+regressogram = regressorgram(x=x, y=y_noise, bin_style="index")
 
 fig, ax = plt.subplots(figsize=(5, 5))
 

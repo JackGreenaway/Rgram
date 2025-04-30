@@ -19,5 +19,10 @@ build-backend = "hatchling.build"
 dev = [
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.1",
+    "polars>=1.28.1",
+    "polars-ols>=0.3.5",
+    "pyarrow>=20.0.0",
     "ruff>=0.11.5",
+    "scipy>=1.15.2",
+    "seaborn>=0.13.2",
 ]
