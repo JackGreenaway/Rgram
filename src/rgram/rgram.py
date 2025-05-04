@@ -21,26 +21,33 @@ def pl_rgram(
     keys: str | list = None,
 ) -> pl.LazyFrame | pl.DataFrame:
     """
-    Creates a regression gram (rgram) to analyze relationships between variables
-    in a Polars DataFrame or LazyFrame.
+    Generate a regression gram (rgram) to analyse relationships between variables.
 
-    Parameters:
-        df (pl.LazyFrame | pl.DataFrame): Input data as a Polars LazyFrame or DataFrame.
-        x (str | list[str]): Independent variable(s) to analyze.
-        y (str): Dependent variable to analyze.
-        metric (Callable[[pl.Expr], pl.Expr], optional): Function to compute the metric
-            for the dependent variable (default: mean).
-        hue (str | list, optional): Categorical variable(s) for grouping (default: None).
-        add_ols (bool, optional): Whether to include Ordinary Least Squares (OLS) regression
-            calculations (default: True).
-        bin_style (Literal["width", "dist"], optional): Binning style, either "width" or "dist"
-            (default: "width").
-        allow_negative_ols (bool, optional): Whether to allow negative OLS predictions
-            (default: False).
-        keys (str | list, optional): Additional grouping keys (default: None).
+    Parameters
+    ----------
+    df : pl.LazyFrame or pl.DataFrame
+        Input data as a Polars LazyFrame or DataFrame.
+    x : str or list of str
+        Independent variable(s) to analyse.
+    y : str
+        Dependent variable to analyse.
+    metric : Callable[[pl.Expr], pl.Expr], default=lambda x: x.mean()
+        Function to compute the metric for the dependent variable.
+    hue : str or list, optional
+        Categorical variable(s) for grouping. Default is None.
+    add_ols : bool, default=True
+        Whether to include Ordinary Least Squares (OLS) regression calculations.
+    bin_style : {'width', 'dist'}, default='width'
+        Binning style, either 'width' or 'dist'.
+    allow_negative_ols : bool, default=False
+        Whether to allow negative OLS predictions.
+    keys : str or list, optional
+        Additional grouping keys. Default is None.
 
-    Returns:
-        pl.LazyFrame | pl.DataFrame: A Polars LazyFrame or DataFrame containing the rgram results.
+    Returns
+    -------
+    pl.LazyFrame or pl.DataFrame
+        A Polars LazyFrame or DataFrame containing the rgram results.
     """
     x = [x] if isinstance(x, str) else x
     hue = [hue] if isinstance(hue, str) else hue
