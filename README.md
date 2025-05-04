@@ -88,7 +88,7 @@ This example demonstrates how to generate a regressogram and apply kernel smooth
   <img src="example.png" />
 </p>
 
-### Example: Regression Gram (Rgram) with Polars
+### Example: Rgram with Polars
 
 ```python
 import polars as pl
