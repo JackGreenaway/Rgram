@@ -4,8 +4,8 @@ Rgram is a Python library for performing regression analysis and visualisation. 
 
 ## Features
 
-- **Regression Gram (`pl_rgram`)**: Analyse relationships between variables with support for binning by index or distribution and optional Ordinary Least Squares (OLS) regression calculations.
-- **Kernel Smoothing (`pl_kernel_smoothing`)**: Perform kernel smoothing using the Epanechnikov kernel for regression analysis.
+- **Regression Gram (`rgram`)**: Analyse relationships between variables with support for binning by index or distribution and optional Ordinary Least Squares (OLS) regression calculations.
+- **Kernel Smoothing (`kernel_smoothing`)**: Perform kernel smoothing using the Epanechnikov kernel for regression analysis.
 - **Flexible API**: Designed for ease of use with Polars DataFrames and LazyFrames.
 
 ## Requirements
