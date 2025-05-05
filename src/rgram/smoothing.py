@@ -24,12 +24,12 @@ def silverman_rot(y: pl.Series | ArrayLike) -> float:
     return 0.9 * min(std, iqr) * (y.shape[0] ** (-1 / 5))
 
 
-def pl_kernel_smoothing(
+def kernel_smoothing(
     x_train: ArrayLike,
     y_train: ArrayLike,
     x_eval: ArrayLike = None,
     h: float = None,
-    kernel: Literal["epanchenkov"] = "epanchenkov",
+    kernel: Literal["epanchenkov", "nadaraya_watson", "priestley_chao"] = "epanchenkov",
 ) -> ArrayLike:
     """
     Perform kernel smoothing using the Epanechnikov kernel.
@@ -48,7 +48,7 @@ def pl_kernel_smoothing(
         Bandwidth for the kernel. If None, it is calculated using Silverman's
         rule of thumb. Default is None.
     kernel : {'epanchenkov'}, optional
-        The kernel type to use. Currently, only 'epanchenkov' is supported.
+        The kernel type to use. Supports 'epanchenkov', 'nadaraya_watson', and 'priestley_chao' kernels.
         Default is 'epanchenkov'.
 
     Returns
@@ -69,6 +69,13 @@ def pl_kernel_smoothing(
 
     training_frame = pl.LazyFrame({"x_train": x_train, "y_train": y_train})
 
+    kernel_technique = {
+        "epanchenkov": (0.75 * (1 - pl.col("u").pow(2)) * (pl.col("u").abs() <= 1)),
+        "nadaraya_watson": (-0.5 * pl.col("u").pow(2)).exp() / h,
+        "priestley_chao": (-0.5 * pl.col("u").pow(2)).exp()
+        * pl.col("x_train").diff().fill_null(strategy="forward"),
+    }
+
     kernel = (
         training_frame.lazy()
         .select(["x_train", "y_train"])
@@ -77,9 +84,8 @@ def pl_kernel_smoothing(
         .with_columns([pl.col("x_eval").sub(pl.col("x_train")).truediv(h).alias("u")])
         .with_columns(
             [
-                (0.75 * (1 - pl.col("u").pow(2)) * (pl.col("u").abs() <= 1)).alias(
-                    "weight"
-                )
+                # (0.75 * (1 - pl.col("u").pow(2)) * (pl.col("u").abs() <= 1)).alias("weight")
+                kernel_technique[kernel].alias("weight")
             ]
         )
         .group_by(["x_eval"])

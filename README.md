@@ -40,7 +40,7 @@ To get started with Rgram, follow these steps:
 
 ```python
 import numpy as np
-from rgram.smoothing import pl_kernel_smoothing
+from rgram.smoothing import kernel_smoothing
 
 # Generate sample data
 x_train = np.array([1, 2, 3, 4, 5])
@@ -48,7 +48,7 @@ y_train = np.array([2, 4, 6, 8, 10])
 x_eval = np.linspace(1, 5, 100)
 
 # Perform kernel smoothing
-smoothed_values = pl_kernel_smoothing(x_train, y_train, x_eval)
+smoothed_values = kernel_smoothing(x_train, y_train, x_eval)
 
 print(smoothed_values)
 ```
@@ -82,7 +82,7 @@ This example demonstrates how to use the `pl_kernel_smoothing` function to smoot
 
 ```python
 import polars as pl
-from rgram.rgram import pl_rgram
+from rgram.rgram import rgram
 
 # Create a sample Polars DataFrame
 data = {
@@ -93,7 +93,7 @@ data = {
 df = pl.LazyFrame(data)
 
 # Generate a regression gram
-rgram = pl_rgram(
+rgram_result = rgram(
     df=df,
     x=["x1", "x2"],
     y="y",
@@ -104,7 +104,7 @@ rgram = pl_rgram(
 )
 
 # Collect the results
-result = rgram.collect()
+result = rgram_result.collect()
 print(result)
 ```
 

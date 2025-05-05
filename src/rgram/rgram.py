@@ -9,7 +9,7 @@ import polars_ols as pls  # noqa: F401
 from typing import Callable, Literal
 
 
-def pl_rgram(
+def rgram(
     df: pl.LazyFrame | pl.DataFrame,
     x: str | list[str],
     y: str,
