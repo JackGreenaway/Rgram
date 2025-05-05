@@ -25,9 +25,9 @@ def silverman_rot(y: pl.Series | ArrayLike) -> float:
 
 
 def kernel_smoothing(
-    x_train: ArrayLike,
-    y_train: ArrayLike,
-    x_eval: ArrayLike = None,
+    x_train: pl.Series | ArrayLike,
+    y_train: pl.Series | ArrayLike,
+    x_eval: pl.Series | ArrayLike = None,
     h: float = None,
     kernel: Literal["epanchenkov", "nadaraya_watson", "priestley_chao"] = "epanchenkov",
 ) -> ArrayLike:
@@ -36,11 +36,11 @@ def kernel_smoothing(
 
     Parameters
     ----------
-    x_train : ArrayLike
+    x_train : pl.Series or ArrayLike
         Training data input (independent variable).
-    y_train : ArrayLike
+    y_train : pl.Series or ArrayLike
         Training data output (dependent variable).
-    x_eval : ArrayLike, optional
+    x_eval : pl.Series or ArrayLike, optional
         Evaluation points where the smoothed values are computed. If None,
         250 evenly spaced points between the minimum and maximum of `x_train`
         are used. Default is None.
@@ -82,12 +82,7 @@ def kernel_smoothing(
         .join(x_eval.lazy(), how="cross")
         .unique()
         .with_columns([pl.col("x_eval").sub(pl.col("x_train")).truediv(h).alias("u")])
-        .with_columns(
-            [
-                # (0.75 * (1 - pl.col("u").pow(2)) * (pl.col("u").abs() <= 1)).alias("weight")
-                kernel_technique[kernel].alias("weight")
-            ]
-        )
+        .with_columns([kernel_technique[kernel].alias("weight")])
         .group_by(["x_eval"])
         .agg(
             [
