@@ -74,7 +74,7 @@ shape: (100, 2)
 └──────────┴──────────┘
 ```
 
-This example demonstrates how to use the `pl_kernel_smoothing` function to smooth data using the Epanechnikov kernel.
+This example demonstrates how to use the `kernel_smoothing` function to smooth data using the Epanechnikov kernel.
 
 ---
 
@@ -128,7 +128,7 @@ shape: (10, 8)
 └─────┴───────┴───────┴───────────┴──────────────┴────────────┴──────┴───────┘
 ```
 
-This example demonstrates how to use the `pl_rgram` function to analyse relationships between variables in a Polars DataFrame or LazyFrame.
+This example demonstrates how to use the `rgram` function to analyse relationships between variables in a Polars DataFrame or LazyFrame.
 
 ---
 
