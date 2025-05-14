@@ -1,7 +1,8 @@
 """
-This module provides the `pl_rgram` function, which generates a regression gram (rgram)
-using Polars DataFrame or LazyFrame. It supports binning by index or distribution and
-optionally adds Ordinary Least Squares (OLS) regression calculations.
+This module provides the `rgram` function, which generates a regression gram (rgram)
+using a Polars DataFrame or LazyFrame. The function supports various binning styles,
+optional Ordinary Least Squares (OLS) regression calculations, and confidence interval
+metrics for analysing relationships between variables.
 """
 
 import polars as pl
@@ -14,10 +15,15 @@ def rgram(
     x: str | list[str],
     y: str,
     metric: Callable[[pl.Expr], pl.Expr] = lambda x: x.mean(),
+    ci_metric: tuple[Callable[[pl.Expr], pl.Expr], Callable[[pl.Expr], pl.Expr]]
+    | None = (
+        lambda x: x.mean() - x.std(),
+        lambda x: x.mean() + x.std(),
+    ),
     hue: str | list = None,
     add_ols: bool = True,
-    bin_style: Literal["width", "dist"] = "width",
-    allow_negative_ols: bool = False,
+    bin_style: Literal["width", "dist", "unique", "int"] = "width",
+    allow_negative_y: Literal[True, False, "auto"] = "auto",
     keys: str | list = None,
 ) -> pl.LazyFrame | pl.DataFrame:
     """
@@ -31,30 +37,60 @@ def rgram(
         Independent variable(s) to analyse.
     y : str
         Dependent variable to analyse.
-    metric : Callable[[pl.Expr], pl.Expr], default=lambda x: x.mean()
+    metric : callable, default=lambda x: x.mean()
         Function to compute the metric for the dependent variable.
-    hue : str or list, optional
-        Categorical variable(s) for grouping. Default is None.
+    ci_metric : tuple of callables or None, default=(lambda x: x.mean() - x.std(), lambda x: x.mean() + x.std())
+        Functions to compute the lower and upper confidence intervals for the dependent
+        variable. If None, confidence intervals are not calculated.
+    hue : str or list, default=None
+        Categorical variable(s) for grouping.
     add_ols : bool, default=True
         Whether to include Ordinary Least Squares (OLS) regression calculations.
-    bin_style : {'width', 'dist'}, default='width'
-        Binning style, either 'width' or 'dist'.
-    allow_negative_ols : bool, default=False
-        Whether to allow negative OLS predictions.
-    keys : str or list, optional
-        Additional grouping keys. Default is None.
+    bin_style : {'width', 'dist', 'unique', 'int'}, default='width'
+        Binning style for the independent variable:
+        - 'width': Fixed-width bins.
+        - 'dist': Distribution-based bins.
+        - 'unique': Unique values as bins.
+        - 'int': Integer-based bins.
+    allow_negative_y : {'auto', True, False}, default='auto'
+        Whether to allow negative OLS predictions:
+        - 'auto': Automatically determine based on the minimum value of `y`.
+        - True: Allow negative predictions.
+        - False: Disallow negative predictions.
+    keys : str or list, default=None
+        Additional grouping keys.
 
     Returns
     -------
     pl.LazyFrame or pl.DataFrame
         A Polars LazyFrame or DataFrame containing the rgram results.
+
+    Notes
+    -----
+    The `rgram` function is designed to analyse relationships between variables by
+    generating a regression gram. It supports various binning styles and can optionally
+    include OLS regression calculations and confidence intervals.
+
+    Examples
+    --------
+    >>> import polars as pl
+    >>> from rgram import rgram
+    >>> df = pl.DataFrame({
+    ...     "x": [1, 2, 3, 4, 5],
+    ...     "y": [2, 4, 6, 8, 10]
+    ... })
+    >>> result = rgram(df, x="x", y="y")
+    >>> result
     """
     x = [x] if isinstance(x, str) else x
-    hue = [hue] if isinstance(hue, str) else hue
+    hue = [hue] if isinstance(hue, str) else hue or []
     keys = [keys] if isinstance(keys, str) else keys
 
-    idx_features = [y]
+    idx_features = [y] if isinstance(y, str) else y
     over_features = ["x_var"]
+
+    if allow_negative_y == "auto":
+        allow_negative_y = df[y].min().item() <= 0
 
     if hue:
         idx_features.extend(hue)
@@ -72,12 +108,59 @@ def rgram(
         "dist": (pl.col("x_val").rank(method="ordinal") * (data_range / friedman_rot))
         // pl.len(),
         "width": (pl.col("x_val") // friedman_rot),
+        "unique": pl.col("x_val"),
+        "int": pl.col("x_val").cast(int),
     }
     bin_calc = [bin_style_dict[bin_style].over(over_features).alias("rgram_bin")]
 
-    ols_calc = (
-        [
-            pl.col(y)
+    rgram = (
+        df.select(x + idx_features)
+        .unpivot(on=x, index=idx_features, variable_name="x_var", value_name="x_val")
+        .unpivot(
+            on=y,
+            index=["x_val", "x_var"] + hue,
+            variable_name="y_var",
+            value_name="y_val",
+        )
+        .filter(pl.col("x_var") != pl.col("y_var"))
+        .with_columns(
+            [
+                pl.col("x_val").cast(float).alias("x_val"),
+                pl.col("y_val").cast(float).alias("y_val"),
+            ]
+            + bin_calc
+        )
+        .with_columns(
+            [
+                metric(pl.col("y_val"))
+                .over(over_features + ["rgram_bin"])
+                .alias("y_pred_rgram")
+            ]
+        )
+    )
+
+    if ci_metric:
+        ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
+
+        ci_calc = [
+            ci_m(pl.col("y_val")).over(over_features + ["rgram_bin"]).alias(alias)
+            for ci_m, alias in zip(ci_metric, ci_cols)
+        ]
+
+        rgram = rgram.with_columns(ci_calc).with_columns(
+            (
+                []
+                if allow_negative_y
+                else [
+                    pl.when(pl.col(col) < 0).then(0).otherwise(pl.col(col)).alias(col)
+                    for col in ci_cols
+                ]
+            )
+        )
+
+    if add_ols:
+        ols_calc = [
+            pl.col("y_val")
             .least_squares.ols(
                 pl.col("x_val").alias("coef"),
                 mode=mode,
@@ -91,51 +174,26 @@ def rgram(
                 ("coefficients", "ols_coef"),
             ]
         ]
-        if add_ols
-        else []
-    )
 
-    rgram = (
-        df.select(x + idx_features)
-        .unpivot(
-            on=x,
-            index=idx_features,
-            variable_name="x_var",
-            value_name="x_val",
-        )
-        .with_columns(
-            [
-                # ensure target is float (important for boolean targets)
-                pl.col(y).cast(float).alias(y),
-            ]
-            + bin_calc
-        )
-        .with_columns(
-            [
-                metric(pl.col(y))
-                .over(over_features + ["rgram_bin"])
-                .alias("y_pred_rgram")
-            ]
-            + ols_calc
-        )
-    )
-
-    if add_ols:
-        rgram = rgram.with_columns(
-            [
-                pl.col("ols_coef").struct.field("coef").alias("coef"),
-                pl.col("ols_coef").struct.field("const").alias("const"),
-            ]
-            + (
+        rgram = (
+            rgram.with_columns(ols_calc)
+            .with_columns(
                 [
-                    pl.when(pl.col("y_pred_ols") < 0)
-                    .then(None)
-                    .otherwise(pl.col("y_pred_ols"))
-                    .alias("y_pred_ols")
+                    pl.col("ols_coef").struct.field("coef").alias("coef"),
+                    pl.col("ols_coef").struct.field("const").alias("const"),
                 ]
-                if not allow_negative_ols
-                else []
+                + (
+                    []
+                    if allow_negative_y
+                    else [
+                        pl.when(pl.col("y_pred_ols") < 0)
+                        .then(None)
+                        .otherwise(pl.col("y_pred_ols"))
+                        .alias("y_pred_ols")
+                    ]
+                )
             )
-        ).drop(["ols_coef"])
+            .drop(["ols_coef"])
+        )
 
     return rgram.sort(by=["x_val"])

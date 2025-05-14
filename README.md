@@ -2,17 +2,18 @@
 
 Rgram is a Python library for performing regression analysis and visualisation. It provides tools for creating regression grams (rgrams) and performing kernel smoothing using Polars, a high-performance DataFrame library. The library is designed to simplify data analysis workflows and is compatible with `uv` for dependency management.
 
+Notes on regressograms can be found in section 4.4 of `García-Portugués, E. (2023). Notes for nonparametric statistics. Carlos III University of Madrid: Madrid, Spain.`
+
 ## Features
 
-- **Regression Gram (`rgram`)**: Analyse relationships between variables with support for binning by index or distribution and optional Ordinary Least Squares (OLS) regression calculations.
+- **Regressogram (`rgram`)**: Analyse relationships between variables with support for binning by index or distribution and optional Ordinary Least Squares (OLS) regression calculations.
 - **Kernel Smoothing (`kernel_smoothing`)**: Perform kernel smoothing using the Epanechnikov kernel for regression analysis.
-- **Flexible API**: Designed for ease of use with Polars DataFrames and LazyFrames.
+- **Flexible API**: Designed for ease of use and high performance thanks to Polars DataFrames and LazyFrames.
 
 ## Requirements
 
 - Python >= 3.11
 - `uv` for dependency management
-- Polars, NumPy, and other dependencies (managed via `uv`)
 
 ## Installation
 
@@ -39,39 +40,43 @@ To get started with Rgram, follow these steps:
 ### Example: Kernel Smoothing with Polars
 
 ```python
+import polars as pl
 import numpy as np
 from rgram.smoothing import kernel_smoothing
 
 # Generate sample data
-x_train = np.array([1, 2, 3, 4, 5])
-y_train = np.array([2, 4, 6, 8, 10])
-x_eval = np.linspace(1, 5, 100)
+n = 100
+x = np.sort(np.random.normal(0, 1, n))
+y = 1 + x
+y_noise = y + np.random.normal(0, np.sqrt(2), n)
+
+df = pl.DataFrame({"x": x, "y": y, "y_noise": y_noise})
 
 # Perform kernel smoothing
-smoothed_values = kernel_smoothing(x_train, y_train, x_eval)
+kernel_smoothed = kernel_smoothing(df=df, x="x", y="y_noise", n_eval_samples=500)
 
-print(smoothed_values)
+print(kernel_smoothed)
 ```
 
 ```
-shape: (100, 2)
-┌──────────┬──────────┐
-│ x_eval   ┆ kernel   │
-│ ---      ┆ ---      │
-│ f64      ┆ f64      │
-╞══════════╪══════════╡
-│ 1.0      ┆ 2.0      │
-│ 1.040404 ┆ 2.0      │
-│ 1.080808 ┆ 2.0143   │
-│ 1.121212 ┆ 2.172075 │
-│ 1.161616 ┆ 2.30444  │
-│ …        ┆ …        │
-│ 4.838384 ┆ 9.69556  │
-│ 4.878788 ┆ 9.827925 │
-│ 4.919192 ┆ 9.9857   │
-│ 4.959596 ┆ 10.0     │
-│ 5.0      ┆ 10.0     │
-└──────────┴──────────┘
+shape: (474, 2)
+┌───────────┬───────────┐
+│ x_eval    ┆ kernel    │
+│ ---       ┆ ---       │
+│ f64       ┆ f64       │
+╞═══════════╪═══════════╡
+│ -2.951255 ┆ -2.412448 │
+│ -2.940726 ┆ -2.412448 │
+│ -2.930197 ┆ -2.412448 │
+│ -2.919668 ┆ -2.412448 │
+│ -2.90914  ┆ -2.412448 │
+│ …         ┆ …         │
+│ 2.260485  ┆ 2.101231  │
+│ 2.271013  ┆ 2.103863  │
+│ 2.281542  ┆ 2.106533  │
+│ 2.292071  ┆ 2.109262  │
+│ 2.3026    ┆ 2.112069  │
+└───────────┴───────────┘
 ```
 
 This example demonstrates how to use the `kernel_smoothing` function to smooth data using the Epanechnikov kernel.
@@ -82,53 +87,80 @@ This example demonstrates how to use the `kernel_smoothing` function to smooth d
 
 ```python
 import polars as pl
+import numpy as np
+import matplotlib.pyplot as plt
 from rgram.rgram import rgram
+from rgram.smoothing import kernel_smoothing
 
-# Create a sample Polars DataFrame
-data = {
-    "x1": [1, 2, 3, 4, 5],
-    "x2": [5, 4, 3, 2, 1],
-    "y": [2, 3, 4, 5, 6],
-}
-df = pl.LazyFrame(data)
+# Generate sample data
+n = 100
+x = np.sort(np.random.normal(0, 1, n))
+y = 1 + x
+y_noise = y + np.random.normal(0, np.sqrt(2), n)
 
-# Generate a regression gram
-rgram_result = rgram(
-    df=df,
-    x=["x1", "x2"],
-    y="y",
-    metric=lambda x: x.mean(),
-    hue=None,
-    add_ols=True,
-    bin_style="width",
+df = pl.DataFrame({"x": x, "y": y, "y_noise": y_noise})
+
+# Apply regression histogram with quantile binning
+regressogram = rgram(
+    df=df, x=["x"], y=["y_noise"], bin_style="dist", allow_negative_y="auto"
 )
 
-# Collect the results
-result = rgram_result.collect()
-print(result)
+fig, ax = plt.subplots(figsize=(5, 5))
+
+# Plot the regressogram
+ax.plot(x, y, label="true function", color="black", lw=0.5)
+ax.scatter(x, y_noise, s=15, alpha=0.3, marker="o", color="black")
+
+ax.step(
+    regressogram["x_val"],
+    regressogram["y_pred_rgram"],
+    label="regressogram",
+    where="mid",
+    lw=0.5,
+)
+
+# Perform kernel smoothing on the regressogram
+kernel_smoothed = kernel_smoothing(
+    df=regressogram, x="x_val", y="y_pred_rgram", hue=["x_var", "y_var"]
+)
+
+ax.plot(
+    kernel_smoothed["x_eval"],
+    kernel_smoothed["kernel"],
+    label="kernel smoothing",
+    lw=0.5,
+)
+
+# Add confidence intervals
+kernel_smoothed_ci = kernel_smoothing(
+    df=regressogram.unpivot(
+        on=["y_pred_rgram_lci", "y_pred_rgram_uci"],
+        index=["x_var", "y_var", "x_val"],
+        variable_name="ci",
+        value_name="y_pred_rgram_ci",
+    ),
+    x="x_val",
+    y="y_pred_rgram_ci",
+    hue=["x_var", "y_var", "ci"],
+)
+
+ax.fill_between(
+    x=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_uci")["x_eval"],
+    y1=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_lci")["kernel"],
+    y2=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_uci")["kernel"],
+    alpha=0.2,
+)
+
+plt.legend()
+plt.tight_layout()
+plt.show()
 ```
 
-```
-shape: (10, 8)
-┌─────┬───────┬───────┬───────────┬──────────────┬────────────┬──────┬───────┐
-│ y   ┆ x_var ┆ x_val ┆ rgram_bin ┆ y_pred_rgram ┆ y_pred_ols ┆ coef ┆ const │
-│ --- ┆ ---   ┆ ---   ┆ ---       ┆ ---          ┆ ---        ┆ ---  ┆ ---   │
-│ f64 ┆ str   ┆ i64   ┆ f64       ┆ f64          ┆ f64        ┆ f64  ┆ f64   │
-╞═════╪═══════╪═══════╪═══════════╪══════════════╪════════════╪══════╪═══════╡
-│ 2.0 ┆ x1    ┆ 1     ┆ 0.0       ┆ 2.5          ┆ 2.0        ┆ 1.0  ┆ 1.0   │
-│ 6.0 ┆ x2    ┆ 1     ┆ 0.0       ┆ 5.5          ┆ 6.0        ┆ -1.0 ┆ 7.0   │
-│ 3.0 ┆ x1    ┆ 2     ┆ 0.0       ┆ 2.5          ┆ 3.0        ┆ 1.0  ┆ 1.0   │
-│ 5.0 ┆ x2    ┆ 2     ┆ 0.0       ┆ 5.5          ┆ 5.0        ┆ -1.0 ┆ 7.0   │
-│ 4.0 ┆ x1    ┆ 3     ┆ 1.0       ┆ 4.5          ┆ 4.0        ┆ 1.0  ┆ 1.0   │
-│ 4.0 ┆ x2    ┆ 3     ┆ 1.0       ┆ 3.5          ┆ 4.0        ┆ -1.0 ┆ 7.0   │
-│ 5.0 ┆ x1    ┆ 4     ┆ 1.0       ┆ 4.5          ┆ 5.0        ┆ 1.0  ┆ 1.0   │
-│ 3.0 ┆ x2    ┆ 4     ┆ 1.0       ┆ 3.5          ┆ 3.0        ┆ -1.0 ┆ 7.0   │
-│ 6.0 ┆ x1    ┆ 5     ┆ 2.0       ┆ 6.0          ┆ 6.0        ┆ 1.0  ┆ 1.0   │
-│ 2.0 ┆ x2    ┆ 5     ┆ 2.0       ┆ 2.0          ┆ 2.0        ┆ -1.0 ┆ 7.0   │
-└─────┴───────┴───────┴───────────┴──────────────┴────────────┴──────┴───────┘
-```
+<p align="center">
+  <img src="example.png">
+</p>
 
-This example demonstrates how to use the `rgram` function to analyse relationships between variables in a Polars DataFrame or LazyFrame.
+This example demonstrates how to use the `rgram` function to create a regressogram and apply kernel smoothing for visualisation.
 
 ---
 
