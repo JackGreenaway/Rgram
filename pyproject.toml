@@ -1,19 +1,15 @@
 [project]
 name = "rgram"
 version = "0.1.0"
-description = "Add your description here"
+description = "A Python library for regressograms and kernel smoothing, designed for data analysis and visualisation."
 readme = "README.md"
 authors = [
     { name = "Jack" }
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "numpy>=2.2.4",
     "polars>=1.28.1",
     "polars-ols>=0.3.5",
-    "pyarrow>=20.0.0",
-    "scipy>=1.15.3",
-    "seaborn>=0.13.2",
 ]
 
 [build-system]
@@ -22,7 +18,10 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "scipy>=1.15.3",
+    "seaborn>=0.13.2",
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.1",
+    "pyarrow>=20.0.0",
     "ruff>=0.11.5",
 ]

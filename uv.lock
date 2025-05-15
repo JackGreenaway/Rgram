@@ -886,36 +886,34 @@ name = "rgram"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "numpy" },
     { name = "polars" },
     { name = "polars-ols" },
-    { name = "pyarrow" },
-    { name = "scipy" },
-    { name = "seaborn" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "ipykernel" },
     { name = "matplotlib" },
+    { name = "pyarrow" },
     { name = "ruff" },
+    { name = "scipy" },
+    { name = "seaborn" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "numpy", specifier = ">=2.2.4" },
     { name = "polars", specifier = ">=1.28.1" },
     { name = "polars-ols", specifier = ">=0.3.5" },
-    { name = "pyarrow", specifier = ">=20.0.0" },
-    { name = "scipy", specifier = ">=1.15.3" },
-    { name = "seaborn", specifier = ">=0.13.2" },
 ]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "matplotlib", specifier = ">=3.10.1" },
+    { name = "pyarrow", specifier = ">=20.0.0" },
     { name = "ruff", specifier = ">=0.11.5" },
+    { name = "scipy", specifier = ">=1.15.3" },
+    { name = "seaborn", specifier = ">=0.13.2" },
 ]
 
 [[package]]
