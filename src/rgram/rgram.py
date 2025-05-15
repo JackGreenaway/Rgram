@@ -83,21 +83,27 @@ def rgram(
     >>> result = rgram(df, x="x", y="y")
     >>> result
     """
-    x = [x] if isinstance(x, str) else x
-    hue = [hue] if isinstance(hue, str) else hue or []
-    keys = [keys] if isinstance(keys, str) else keys
 
-    idx_features = [y] if isinstance(y, str) else y
+    def to_list(val):
+        if val is None:
+            return []
+
+        return [val] if isinstance(val, str) else val
+
+    x = to_list(x)
+    hue = to_list(hue)
+    keys = to_list(keys)
+    idx_features = to_list(y)
     over_features = ["x_var"]
-
-    if allow_negative_y == "auto":
-        allow_negative_y = df[y].min().item() <= 0
 
     if hue:
         idx_features.extend(hue)
         over_features.extend(hue)
     if keys:
         idx_features.extend(keys)
+
+    if allow_negative_y == "auto":
+        allow_negative_y = df[y].min().item() <= 0
 
     friedman_rot = 2 * (
         pl.col("x_val").quantile(0.75).sub(pl.col("x_val").quantile(0.25))

@@ -27,7 +27,7 @@ def kernel_smoothing(
     df: pl.DataFrame | pl.LazyFrame,
     x: str,
     y: str,
-    hue: list[str] = [],
+    hue: list[str] | None = None,
     n_eval_samples: int = 500,
 ) -> pl.DataFrame | pl.LazyFrame:
     """
@@ -41,7 +41,7 @@ def kernel_smoothing(
         Name of the column representing the independent variable.
     y : str
         Name of the column representing the dependent variable.
-    hue : list of str, default=[]
+    hue : list of str or None, optional
         List of column names to group the data by before applying smoothing.
     n_eval_samples : int, default=500
         Number of evenly spaced evaluation points for the independent variable.
@@ -76,6 +76,8 @@ def kernel_smoothing(
     >>> smoothed_df = kernel_smoothing(df, x="x", y="y", n_eval_samples=100)
     >>> smoothed_df.head()
     """
+
+    hue = hue or []
 
     def over_function(x: pl.Expr) -> pl.Expr:
         if hue:
