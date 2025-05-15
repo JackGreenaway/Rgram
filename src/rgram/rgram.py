@@ -1,10 +1,3 @@
-"""
-This module provides the `rgram` function, which generates a regression gram (rgram)
-using a Polars DataFrame or LazyFrame. The function supports various binning styles,
-optional Ordinary Least Squares (OLS) regression calculations, and confidence interval
-metrics for analysing relationships between variables.
-"""
-
 import polars as pl
 import polars_ols as pls  # noqa: F401
 from typing import Callable, Literal
@@ -23,7 +16,7 @@ def rgram(
     hue: str | list = None,
     calc_ols: bool = True,
     calc_cum_sum: bool = True,
-    bin_style: Literal["width", "dist", "unique", "int"] = "width",
+    bin_style: Literal["width", "dist", "unique", "int"] = "dist",
     allow_negative_y: Literal[True, False, "auto"] = "auto",
     keys: str | list = None,
 ) -> pl.LazyFrame | pl.DataFrame:
