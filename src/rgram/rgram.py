@@ -21,7 +21,8 @@ def rgram(
         lambda x: x.mean() + x.std(),
     ),
     hue: str | list = None,
-    add_ols: bool = True,
+    calc_ols: bool = True,
+    calc_cum_sum: bool = True,
     bin_style: Literal["width", "dist", "unique", "int"] = "width",
     allow_negative_y: Literal[True, False, "auto"] = "auto",
     keys: str | list = None,
@@ -44,7 +45,7 @@ def rgram(
         variable. If None, confidence intervals are not calculated.
     hue : str or list, default=None
         Categorical variable(s) for grouping.
-    add_ols : bool, default=True
+    calc_ols : bool, default=True
         Whether to include Ordinary Least Squares (OLS) regression calculations.
     bin_style : {'width', 'dist', 'unique', 'int'}, default='width'
         Binning style for the independent variable:
@@ -158,7 +159,12 @@ def rgram(
             )
         )
 
-    if add_ols:
+    if calc_cum_sum:
+        rgram = rgram.sort(by=["x_val"], descending=False).with_columns(
+            pl.col("y_val").cum_sum().over(over_features)
+        )
+
+    if calc_ols:
         ols_calc = [
             pl.col("y_val")
             .least_squares.ols(
