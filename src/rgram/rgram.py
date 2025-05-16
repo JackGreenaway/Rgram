@@ -1,11 +1,11 @@
 import polars as pl
 import polars_ols as pls  # noqa: F401
-from typing import Callable, Literal
+from typing import Callable, Literal, Sequence
 
 
 def rgram(
     df: pl.LazyFrame | pl.DataFrame,
-    x: str | list[str],
+    x: str | Sequence[str],
     y: str,
     metric: Callable[[pl.Expr], pl.Expr] = lambda x: x.mean(),
     ci_metric: tuple[Callable[[pl.Expr], pl.Expr], Callable[[pl.Expr], pl.Expr]]
@@ -13,12 +13,12 @@ def rgram(
         lambda x: x.mean() - x.std(),
         lambda x: x.mean() + x.std(),
     ),
-    hue: str | list = None,
+    hue: str | Sequence[str] = None,
     calc_ols: bool = True,
     calc_cum_sum: bool = True,
     bin_style: Literal["width", "dist", "unique", "int"] = "dist",
     allow_negative_y: Literal[True, False, "auto"] = "auto",
-    keys: str | list = None,
+    keys: str | Sequence[str] = None,
 ) -> pl.LazyFrame | pl.DataFrame:
     """
     Generate a regression gram (rgram) to analyse relationships between variables.
@@ -80,24 +80,52 @@ def rgram(
     def to_list(val):
         if val is None:
             return []
-
-        return [val] if isinstance(val, str) else val
+        if isinstance(val, str):
+            return [val]
+        return list(val)
 
     x = to_list(x)
     hue = to_list(hue)
     keys = to_list(keys)
+
+    # y: ensure it's a string, or a list of length 1
+    if isinstance(y, (list, tuple, set)):
+        if len(y) != 1:
+            raise ValueError(
+                "y must be a string or a list/sequence with exactly one value"
+            )
+        y = list(y)[0]
+    if not isinstance(y, str):
+        raise ValueError("y must be a string")
+
     idx_features = to_list(y)
     over_features = ["x_var"]
 
     if hue:
-        idx_features.extend(hue)
-        over_features.extend(hue)
+        idx_features += hue
+        over_features += hue
     if keys:
-        idx_features.extend(keys)
+        idx_features += keys
+
+    if not isinstance(df, (pl.DataFrame, pl.LazyFrame)):
+        raise ValueError("df must be a Polars DataFrame or LazyFrame")
+
+    if bin_style not in {"width", "dist", "unique", "int"}:
+        raise ValueError(f"bin_style '{bin_style}' not recognized")
+
+    for col in x + idx_features:
+        if col not in df.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
 
     if allow_negative_y == "auto":
-        allow_negative_y = df[y].min().item() <= 0
+        min_y = (
+            df[y].min()
+            if isinstance(df, pl.DataFrame)
+            else df.select(pl.col(y).min()).collect()[0, 0]
+        )
+        allow_negative_y = min_y <= 0
 
+    # prepare binning
     friedman_rot = 2 * (
         pl.col("x_val").quantile(0.75).sub(pl.col("x_val").quantile(0.25))
         / pl.len().pow(1 / 3)
@@ -105,16 +133,20 @@ def rgram(
     data_range = pl.col("x_val").max() - pl.col("x_val").min()
 
     bin_style_dict = {
-        "dist": (pl.col("x_val").rank(method="ordinal") * (data_range / friedman_rot))
+        "dist": (
+            pl.col("x_val").rank(method="ordinal") * (data_range / friedman_rot)
+        ).floor()
         // pl.len(),
-        "width": (pl.col("x_val") // friedman_rot),
+        "width": (pl.col("x_val") // friedman_rot).floor(),
         "unique": pl.col("x_val"),
         "int": pl.col("x_val").cast(int),
     }
     bin_calc = [bin_style_dict[bin_style].over(over_features).alias("rgram_bin")]
 
+    # main pipeline
     rgram = (
-        df.select(x + idx_features)
+        (df.lazy() if isinstance(df, pl.DataFrame) else df)
+        .select(x + idx_features)
         .unpivot(on=x, index=idx_features, variable_name="x_var", value_name="x_val")
         .unpivot(
             on=y,
@@ -131,35 +163,29 @@ def rgram(
             + bin_calc
         )
         .with_columns(
-            [
-                metric(pl.col("y_val"))
-                .over(over_features + ["rgram_bin"])
-                .alias("y_pred_rgram")
-            ]
+            metric(pl.col("y_val"))
+            .over(over_features + ["rgram_bin"])
+            .alias("y_pred_rgram")
         )
     )
 
     if ci_metric:
         ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
-
         ci_calc = [
             ci_m(pl.col("y_val")).over(over_features + ["rgram_bin"]).alias(alias)
             for ci_m, alias in zip(ci_metric, ci_cols)
         ]
-
-        rgram = rgram.with_columns(ci_calc).with_columns(
-            (
-                []
-                if allow_negative_y
-                else [
+        rgram = rgram.with_columns(ci_calc)
+        if not allow_negative_y:
+            rgram = rgram.with_columns(
+                [
                     pl.when(pl.col(col) < 0).then(0).otherwise(pl.col(col)).alias(col)
                     for col in ci_cols
                 ]
             )
-        )
 
     if calc_cum_sum:
-        rgram = rgram.sort(by=["x_val"], descending=False).with_columns(
+        rgram = rgram.sort(by=["x_val"]).with_columns(
             pl.col("y_val").cum_sum().over(over_features)
         )
 
@@ -179,7 +205,6 @@ def rgram(
                 ("coefficients", "ols_coef"),
             ]
         ]
-
         rgram = (
             rgram.with_columns(ols_calc)
             .with_columns(

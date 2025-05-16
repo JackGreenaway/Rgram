@@ -1,11 +1,12 @@
 import polars as pl
+from typing import Sequence
 
 
 def kernel_smoothing(
     df: pl.DataFrame | pl.LazyFrame,
     x: str,
     y: str,
-    hue: list[str] | None = None,
+    hue: Sequence[str] | None = None,
     n_eval_samples: int = 500,
 ) -> pl.DataFrame | pl.LazyFrame:
     """
@@ -55,41 +56,41 @@ def kernel_smoothing(
     >>> smoothed_df.head()
     """
 
-    hue = hue or []
+    if not isinstance(df, (pl.DataFrame, pl.LazyFrame)):
+        raise ValueError("df must be a Polars DataFrame or LazyFrame")
 
-    def over_function(x: pl.Expr) -> pl.Expr:
-        if hue:
-            return (x).over(hue)
+    for col in [x, y] + (list(hue) if hue else []):
+        if col not in df.columns:
+            raise ValueError(f"Column '{col}' not found in DataFrame")
 
-        return x
+    hue = list(hue) if hue else []
+
+    def over_function(expr: pl.Expr) -> pl.Expr:
+        return expr.over(hue) if hue else expr
+
+    ldf = df.lazy() if isinstance(df, pl.DataFrame) else df
+
+    # calculate bandwidth h using silverman's rule of thumb
+    h_expr = over_function(
+        0.9
+        * pl.min_horizontal(
+            [
+                pl.col(x).std(),
+                (pl.col(x).quantile(0.75) - pl.col(x).quantile(0.25)) / 1.34,
+            ]
+        )
+        * (pl.len() ** (-1 / 5))
+    ).alias("h")
+
+    # generate evaluation points
+    x_eval_expr = over_function(
+        pl.linear_spaces(
+            pl.col(x).min(), pl.col(x).max(), n_eval_samples, as_array=True
+        )
+    ).alias("x_eval")
 
     ks_df = (
-        df.with_columns(
-            [
-                over_function(
-                    0.9
-                    * pl.min_horizontal(
-                        [
-                            pl.col(x).std(),
-                            (
-                                (pl.col(x).quantile(0.75) - pl.col(x).quantile(0.25))
-                                / 1.34
-                            ),
-                        ]
-                    )
-                    * (pl.len() ** (-1 / 5))
-                ).alias("h")
-            ]
-        )
-        .with_columns(
-            [
-                over_function(
-                    pl.linear_spaces(
-                        pl.col(x).min(), pl.col(x).max(), n_eval_samples, as_array=True
-                    )
-                ).alias("x_eval")
-            ]
-        )
+        ldf.with_columns([h_expr, x_eval_expr])
         .explode("x_eval")
         .with_columns([(pl.col("x_eval") - pl.col(x)).truediv("h").alias("u")])
         .filter(pl.col("u").abs() <= 1)
@@ -98,11 +99,11 @@ def kernel_smoothing(
         .agg(
             [
                 ((pl.col(y) * pl.col("weight")).sum() / pl.col("weight").sum()).alias(
-                    "kernel"
-                ),
+                    "y_kernel"
+                )
             ]
         )
-        .sort(by="x_eval")
+        .sort("x_eval")
     )
 
     return ks_df

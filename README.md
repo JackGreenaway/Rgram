@@ -89,8 +89,9 @@ This example demonstrates how to use the `kernel_smoothing` function to smooth d
 import polars as pl
 import numpy as np
 import matplotlib.pyplot as plt
-from rgram.rgram import rgram
-from rgram.smoothing import kernel_smoothing
+
+from src.rgram.rgram import rgram
+from src.rgram.smoothing import kernel_smoothing
 
 # Generate sample data
 n = 100
@@ -103,7 +104,7 @@ df = pl.DataFrame({"x": x, "y": y, "y_noise": y_noise})
 # Apply regression histogram with quantile binning
 regressogram = rgram(
     df=df, x=["x"], y=["y_noise"], bin_style="dist", allow_negative_y="auto"
-)
+).collect()
 
 fig, ax = plt.subplots(figsize=(5, 5))
 
@@ -122,11 +123,11 @@ ax.step(
 # Perform kernel smoothing on the regressogram
 kernel_smoothed = kernel_smoothing(
     df=regressogram, x="x_val", y="y_pred_rgram", hue=["x_var", "y_var"]
-)
+).collect()
 
 ax.plot(
     kernel_smoothed["x_eval"],
-    kernel_smoothed["kernel"],
+    kernel_smoothed["y_kernel"],
     label="kernel smoothing",
     lw=0.5,
 )
@@ -142,12 +143,12 @@ kernel_smoothed_ci = kernel_smoothing(
     x="x_val",
     y="y_pred_rgram_ci",
     hue=["x_var", "y_var", "ci"],
-)
+).collect()
 
 ax.fill_between(
     x=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_uci")["x_eval"],
-    y1=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_lci")["kernel"],
-    y2=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_uci")["kernel"],
+    y1=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_lci")["y_kernel"],
+    y2=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_uci")["y_kernel"],
     alpha=0.2,
 )
 
