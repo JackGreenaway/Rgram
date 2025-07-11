@@ -1,6 +1,6 @@
 # Rgram
 
-Rgram is a Python library for performing regression analysis and visualisation. It provides tools for creating regression grams (rgrams) and performing kernel smoothing using Polars, a high-performance DataFrame library. The library is designed to simplify data analysis workflows and is compatible with `uv` for dependency management.
+Rgram is a Python library for performing regression analysis and visualisation. It provides tools for creating regressograms (rgrams) and performing kernel smoothing using Polars, a high-performance DataFrame library. The library is designed to simplify data analysis workflows and is compatible with `uv` for dependency management.
 
 Notes on regressograms can be found in section 4.4 of `García-Portugués, E. (2023). Notes for nonparametric statistics. Carlos III University of Madrid: Madrid, Spain.`
 
@@ -32,136 +32,100 @@ To get started with Rgram, follow these steps:
 
 3. Verify the installation:
    ```bash
-   uv check
+   uv sync
    ```
 
 ## Usage
 
-### Example: Kernel Smoothing with Polars
-
-```python
-import polars as pl
-import numpy as np
-from rgram.smoothing import kernel_smoothing
-
-# Generate sample data
-n = 100
-x = np.sort(np.random.normal(0, 1, n))
-y = 1 + x
-y_noise = y + np.random.normal(0, np.sqrt(2), n)
-
-df = pl.DataFrame({"x": x, "y": y, "y_noise": y_noise})
-
-# Perform kernel smoothing
-kernel_smoothed = kernel_smoothing(df=df, x="x", y="y_noise", n_eval_samples=500)
-
-print(kernel_smoothed)
-```
-
-```
-shape: (474, 2)
-┌───────────┬───────────┐
-│ x_eval    ┆ kernel    │
-│ ---       ┆ ---       │
-│ f64       ┆ f64       │
-╞═══════════╪═══════════╡
-│ -2.951255 ┆ -2.412448 │
-│ -2.940726 ┆ -2.412448 │
-│ -2.930197 ┆ -2.412448 │
-│ -2.919668 ┆ -2.412448 │
-│ -2.90914  ┆ -2.412448 │
-│ …         ┆ …         │
-│ 2.260485  ┆ 2.101231  │
-│ 2.271013  ┆ 2.103863  │
-│ 2.281542  ┆ 2.106533  │
-│ 2.292071  ┆ 2.109262  │
-│ 2.3026    ┆ 2.112069  │
-└───────────┴───────────┘
-```
-
-This example demonstrates how to use the `kernel_smoothing` function to smooth data using the Epanechnikov kernel.
-
 ---
 
-### Example: Regressograms with Polars
+### Example: Regressograms and Kernel Smoothing with Polars
 
+> Generate sample data
 ```python
 import polars as pl
 import numpy as np
 import matplotlib.pyplot as plt
 
-from src.rgram.rgram import rgram
-from src.rgram.smoothing import kernel_smoothing
+from rgram.rgram import Regressogram, KernelSmoother
 
-# Generate sample data
-n = 100
+plt.style.use("ggplot")
+
+n = 50
 x = np.sort(np.random.normal(0, 1, n))
 y = 1 + x
-y_noise = y + np.random.normal(0, np.sqrt(2), n)
+y_noise = y + np.random.normal(0, 2, n)
+```
 
+<div align="center">
+  <img src="examples/base_function.png" alt="base function">
+</div>
+
+> Fit regressogram to noisy data
+```python
 df = pl.DataFrame({"x": x, "y": y, "y_noise": y_noise})
 
-# Apply regression histogram with quantile binning
-regressogram = rgram(
-    df=df, x=["x"], y=["y_noise"], bin_style="dist", allow_negative_y="auto"
-).collect()
+rgramer = Regressogram(data=df, x="x", y="y_noise")
+rgram = rgramer.calculate().collect()
 
-fig, ax = plt.subplots(figsize=(5, 5))
+fig, ax = plt.subplots(figsize=(6, 5))
 
-# Plot the regressogram
-ax.plot(x, y, label="true function", color="black", lw=0.5)
+ax.plot(x, y, lw=0.5, label="true function")
 ax.scatter(x, y_noise, s=15, alpha=0.3, marker="o", color="black")
-
-ax.step(
-    regressogram["x_val"],
-    regressogram["y_pred_rgram"],
-    label="regressogram",
-    where="mid",
-    lw=0.5,
+ax.step(rgram["x_val"], rgram["y_pred_rgram"], lw=0.5, label="rgram")
+ax.fill_between(
+    rgram["x_val"],
+    rgram["y_pred_rgram_uci"],
+    rgram["y_pred_rgram_lci"],
+    alpha=0.2,
+    label="ci",
 )
 
-# Perform kernel smoothing on the regressogram
-kernel_smoothed = kernel_smoothing(
-    df=regressogram, x="x_val", y="y_pred_rgram", hue=["x_var", "y_var"]
-).collect()
+ax.set_xlabel("x variable"), ax.set_ylabel("y variable")
+ax.legend()
+fig.tight_layout()
+plt.show()
 
-ax.plot(
-    kernel_smoothed["x_eval"],
-    kernel_smoothed["y_kernel"],
-    label="kernel smoothing",
-    lw=0.5,
-)
+```
+<div align="center">
+  <img src="examples/rgram.png" alt="rgram">
+</div>
 
-# Add confidence intervals
-kernel_smoothed_ci = kernel_smoothing(
-    df=regressogram.unpivot(
-        on=["y_pred_rgram_lci", "y_pred_rgram_uci"],
-        index=["x_var", "y_var", "x_val"],
-        variable_name="ci",
-        value_name="y_pred_rgram_ci",
-    ),
-    x="x_val",
-    y="y_pred_rgram_ci",
-    hue=["x_var", "y_var", "ci"],
-).collect()
+> Kernel smoothing on regressogram output
+```python
+smoother = KernelSmoother(data=rgram, x="x_val", y="y_pred_rgram")
+ks_rgram = smoother.calculate().collect()
+
+fig, ax = plt.subplots(figsize=(6, 5))
+
+ax.plot(x, y, lw=0.5, label="true function")
+ax.scatter(x, y_noise, s=15, alpha=0.3, marker="o", color="black")
+ax.plot(ks_rgram["x_eval"], ks_rgram["y_kernel"], lw=0.5, label="smoothed rgram")
+
+cis = []
+for col in ["y_pred_rgram_lci", "y_pred_rgram_uci"]:
+    smoother = KernelSmoother(data=rgram, x="x_val", y=col)
+    cis += [smoother.calculate().collect()]
 
 ax.fill_between(
-    x=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_uci")["x_eval"],
-    y1=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_lci")["y_kernel"],
-    y2=kernel_smoothed_ci.filter(pl.col("ci") == "y_pred_rgram_uci")["y_kernel"],
+    cis[0]["x_eval"],
+    cis[0]["y_kernel"],
+    cis[1]["y_kernel"],
     alpha=0.2,
+    label="smoothed ci",
 )
 
-plt.legend()
-plt.tight_layout()
+ax.set_xlabel("x variable"), ax.set_ylabel("y variable")
+ax.legend()
+fig.tight_layout()
 plt.show()
 ```
 
-<p align="center">
-  <img src="example.png">
-</p>
+<div align="center">
+  <img src="examples/smoothed_rgram.png" alt="smoothed rgram">
+</div>
 
-This example demonstrates how to use the `rgram` function to create a regressogram and apply kernel smoothing for visualisation.
+This example demonstrates how to use the `Regressogram` and `KernelSmoother` classes to create a regressogram and apply kernel smoothing for visualization.
 
 ---
 
