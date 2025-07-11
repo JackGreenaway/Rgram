@@ -1,5 +1,6 @@
 import polars as pl
 from typing import Sequence
+import warnings
 
 
 def kernel_smoothing(
@@ -55,6 +56,13 @@ def kernel_smoothing(
     >>> smoothed_df = kernel_smoothing(df, x="x", y="y", n_eval_samples=100)
     >>> smoothed_df.head()
     """
+
+    warnings.warn(
+        "kernel_smoothing is deprecated and will be removed in a future release."
+        "Use KernelSmoother from rgram.rgram instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     if not isinstance(df, (pl.DataFrame, pl.LazyFrame)):
         raise ValueError("df must be a Polars DataFrame or LazyFrame")

@@ -1,6 +1,7 @@
 import polars as pl
 import polars_ols as pls  # noqa: F401
 from typing import Callable, Literal, Sequence
+import warnings
 
 
 def rgram(
@@ -76,6 +77,13 @@ def rgram(
     >>> result = rgram(df, x="x", y="y")
     >>> result
     """
+
+    warnings.warn(
+        "rgram is deprecated and will be removed in a future release."
+        "Use Regressogram from rgram.rgram instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
 
     def to_list(val):
         if val is None:

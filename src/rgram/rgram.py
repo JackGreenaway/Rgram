@@ -494,6 +494,7 @@ class KernelSmoother(BaseUtils):
             .group_by(["x_eval"] + (self.hue or []))
             .agg(
                 [
+                    # Epanechnikov kernel
                     (
                         (pl.col(self.y) * pl.col("weight")).sum()
                         / pl.col("weight").sum()
