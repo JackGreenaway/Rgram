@@ -125,7 +125,7 @@ plt.show()
   <img src="examples/smoothed_rgram.png" alt="smoothed rgram">
 </div>
 
-This example demonstrates how to use the `Regressogram` and `KernelSmoother` classes to create a regressogram and apply kernel smoothing for visualization.
+This example demonstrates how to use the `Regressogram` and `KernelSmoother` classes to create a regressogram and apply kernel smoothing for visualisation.
 
 ---
 
