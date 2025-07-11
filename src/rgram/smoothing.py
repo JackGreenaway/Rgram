@@ -1,0 +1,142 @@
+import polars as pl
+import polars_ols as pls  # noqa: F401
+
+from src.rgram.base import BaseUtils
+
+from typing import Sequence
+
+
+class KernelSmoother(BaseUtils):
+    """
+    KernelSmoother
+
+    Epanechnikov kernel regression smoother for one-dimensional data.
+
+    Parameters
+    ----------
+    data : pl.DataFrame or pl.LazyFrame
+        Input data.
+    x : str
+        Feature column.
+    y : str
+        Target column.
+    hue : sequence of str, optional
+        Optional grouping variable(s).
+    n_eval_samples : int, default=100
+        Number of evaluation points for the smoother.
+
+    Methods
+    -------
+    calculate()
+        Compute the kernel smoother and return a LazyFrame with results.
+    """
+
+    def __init__(
+        self,
+        data: pl.DataFrame | pl.LazyFrame,
+        x: str,
+        y: str,
+        hue: Sequence[str] | None = None,
+        n_eval_samples: int = 100,
+    ) -> None:
+        """
+        Construct a KernelSmoother instance.
+
+        Parameters
+        ----------
+        data : pl.DataFrame or pl.LazyFrame
+            Input data.
+        x : str
+            Feature column.
+        y : str
+            Target column.
+        hue : sequence of str, optional
+            Optional grouping variable(s).
+        n_eval_samples : int, default=100
+            Number of evaluation points for the smoother.
+        """
+        self.data = data.lazy()
+        self.x = self._to_list(x)
+        self.y = self._to_list(y)
+        self.hue = self._to_list(hue)
+        self.n_eval_samples = n_eval_samples
+
+    def _calculate_bandwidth(self) -> pl.Expr:
+        """
+        Calculate the kernel bandwidth using Silverman's rule of thumb.
+
+        Returns
+        -------
+        pl.Expr
+            The bandwidth expression.
+        """
+        # Compute std and IQR only once for efficiency
+        std_expr = pl.col(self.x).std()
+        iqr_expr = (
+            pl.col(self.x).quantile(0.75) - pl.col(self.x).quantile(0.25)
+        ) / 1.34
+        bw = self._over_function(
+            0.9 * pl.min_horizontal([std_expr, iqr_expr]) * (pl.len() ** (-1 / 5))
+        ).alias("h")
+        return bw
+
+    def _calculate_x_eval(self) -> pl.Expr:
+        """
+        Calculate the evaluation points for the kernel smoother.
+
+        Returns
+        -------
+        pl.Expr
+            The evaluation points expression.
+        """
+        x_eval = self._over_function(
+            pl.linear_spaces(
+                pl.col(self.x).min(),
+                pl.col(self.x).max(),
+                self.n_eval_samples,
+                as_array=True,
+            )
+        ).alias("x_eval")
+
+        return x_eval
+
+    def calculate(self) -> pl.LazyFrame:
+        """
+        Compute the kernel smoother and return a LazyFrame with results.
+
+        Returns
+        -------
+        pl.LazyFrame
+            The kernel smoothed results.
+        """
+        bw = self._calculate_bandwidth()
+        x_eval = self._calculate_x_eval()
+
+        ks = (
+            self.data.with_columns([bw, x_eval])
+            .explode("x_eval")
+            .with_columns(
+                [
+                    ((pl.col("x_eval") - pl.col(self.x)) / pl.col("h")).alias("u"),
+                ]
+            )
+            .with_columns(
+                [
+                    (0.75 * (1 - (pl.col("u") ** 2))).alias("weight"),
+                ]
+            )
+            .filter(pl.col("u").abs() <= 1)
+            .group_by(["x_eval"] + (self.hue or []))
+            .agg(
+                [
+                    # Epanechnikov kernel
+                    (
+                        (pl.col(self.y) * pl.col("weight")).sum()
+                        / pl.col("weight").sum()
+                    ).alias("y_kernel")
+                ]
+            )
+            .sort(by="x_eval")
+        )
+
+        return ks
