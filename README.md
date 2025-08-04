@@ -41,7 +41,7 @@ To get started with Rgram, follow these steps:
 
 ### Example: Regressograms and Kernel Smoothing with Polars
 
-> Generate sample data
+> Imports and setup
 ```python
 import polars as pl
 import numpy as np
@@ -50,6 +50,10 @@ import matplotlib.pyplot as plt
 from rgram.rgram import Regressogram, KernelSmoother
 
 plt.style.use("ggplot")
+```
+
+> Generate sample data
+```
 
 n = 50
 x = np.sort(np.random.normal(0, 1, n))
