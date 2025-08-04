@@ -137,19 +137,18 @@ class Regressogram(BaseUtils):
         else:
             raise ValueError(f"Unknown binning type: {self.binning}")
 
-    def calculate(self) -> pl.LazyFrame:
+    def fit(self) -> "Regressogram":
         """
-        Compute the regressogram and return a LazyFrame with results.
+        Fit the regressogram to the data.
 
         Returns
         -------
-        pl.LazyFrame
-            The regressogram results.
+        self : object
+            Fitted estimator.
         """
         idx_cols = (self.y or []) + (self.keys or []) + (self.hue or [])
         over_cols = ["x_var", "y_var"] + (self.hue or [])
 
-        # Only select necessary columns
         data = (
             self.data.select((self.x or []) + idx_cols)
             .unpivot(
@@ -165,11 +164,9 @@ class Regressogram(BaseUtils):
             .with_columns([pl.col("y_val").cast(float)])
         )
 
-        # Combine with_columns to reduce scans
         data = data.with_columns(
             [
                 self._bin_expr().over(over_cols).alias("rgram_bin"),
-                # Optionally, precompute mean for y_val if used multiple times
             ]
         )
 
@@ -227,7 +224,6 @@ class Regressogram(BaseUtils):
                     ("predictions", "y_pred_ols"),
                 ]
             ]
-            # Only collect statistics once
             self._ols_statistics = (
                 data.select(over_cols + [ols_exprs[0]])
                 .unique()
@@ -248,7 +244,34 @@ class Regressogram(BaseUtils):
                 .alias("y_val_cum_sum")
             )
 
-        return data.sort(by=["x_val"])
+        return_data = data.sort(by=["x_val"])
+        self._regressogram_result = return_data
+        return self
+
+    def transform(self) -> pl.LazyFrame:
+        """
+        Return the regressogram results after fitting.
+
+        Returns
+        -------
+        pl.LazyFrame
+            The regressogram results.
+        """
+        if not hasattr(self, "_regressogram_result"):
+            raise RuntimeError("You must call fit() before transform().")
+        return self._regressogram_result
+
+    def fit_transform(self) -> pl.LazyFrame:
+        """
+        Fit to data, then return the regressogram results.
+
+        Returns
+        -------
+        pl.LazyFrame
+            The regressogram results.
+        """
+        self.fit()
+        return self.transform()
 
     @property
     def ols_statistics_(self) -> pl.DataFrame:

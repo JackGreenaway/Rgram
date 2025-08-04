@@ -66,7 +66,7 @@ y_noise = y + np.random.normal(0, 2, n)
 df = pl.DataFrame({"x": x, "y": y, "y_noise": y_noise})
 
 rgramer = Regressogram(data=df, x="x", y="y_noise")
-rgram = rgramer.calculate().collect()
+rgram = rgramer.fit_transform().collect()
 
 fig, ax = plt.subplots(figsize=(6, 5))
 
@@ -85,7 +85,6 @@ ax.set_xlabel("x variable"), ax.set_ylabel("y variable")
 ax.legend()
 fig.tight_layout()
 plt.show()
-
 ```
 <div align="center">
   <img src="examples/rgram.png" alt="rgram">
@@ -94,7 +93,7 @@ plt.show()
 > Kernel smoothing on regressogram output
 ```python
 smoother = KernelSmoother(data=rgram, x="x_val", y="y_pred_rgram")
-ks_rgram = smoother.calculate().collect()
+ks_rgram = smoother.fit_transform().collect()
 
 fig, ax = plt.subplots(figsize=(6, 5))
 
@@ -105,7 +104,7 @@ ax.plot(ks_rgram["x_eval"], ks_rgram["y_kernel"], lw=0.5, label="smoothed rgram"
 cis = []
 for col in ["y_pred_rgram_lci", "y_pred_rgram_uci"]:
     smoother = KernelSmoother(data=rgram, x="x_val", y=col)
-    cis += [smoother.calculate().collect()]
+    cis += [smoother.fit_transform().collect()]
 
 ax.fill_between(
     cis[0]["x_eval"],
@@ -125,7 +124,9 @@ plt.show()
   <img src="examples/smoothed_rgram.png" alt="smoothed rgram">
 </div>
 
-This example demonstrates how to use the `Regressogram` and `KernelSmoother` classes to create a regressogram and apply kernel smoothing for visualisation.
+This example demonstrates how to use the `Regressogram` and `KernelSmoother` classes to create a regressogram and apply kernel smoothing for visualisation.  
+Both classes follow a scikit-learn-like API with `fit()`, `transform()`, and `fit_transform()` methods.  
+For most use cases, `fit_transform()` is the recommended entry point.
 
 ---
 

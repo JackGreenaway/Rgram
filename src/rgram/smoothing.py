@@ -27,8 +27,12 @@ class KernelSmoother(BaseUtils):
 
     Methods
     -------
-    calculate()
-        Compute the kernel smoother and return a LazyFrame with results.
+    fit()
+        Fit the kernel smoother to the data.
+    transform()
+        Return the kernel smoothed results after fitting.
+    fit_transform()
+        Fit to data, then return the kernel smoothed results.
     """
 
     def __init__(
@@ -100,14 +104,14 @@ class KernelSmoother(BaseUtils):
 
         return x_eval
 
-    def calculate(self) -> pl.LazyFrame:
+    def fit(self) -> "KernelSmoother":
         """
-        Compute the kernel smoother and return a LazyFrame with results.
+        Fit the kernel smoother to the data.
 
         Returns
         -------
-        pl.LazyFrame
-            The kernel smoothed results.
+        self : object
+            Fitted estimator.
         """
         bw = self._calculate_bandwidth()
         x_eval = self._calculate_x_eval()
@@ -139,4 +143,30 @@ class KernelSmoother(BaseUtils):
             .sort(by="x_eval")
         )
 
-        return ks
+        self._ks_result = ks
+        return self
+
+    def transform(self) -> pl.LazyFrame:
+        """
+        Return the kernel smoothed results after fitting.
+
+        Returns
+        -------
+        pl.LazyFrame
+            The kernel smoothed results.
+        """
+        if not hasattr(self, "_ks_result"):
+            raise RuntimeError("You must call fit() before transform().")
+        return self._ks_result
+
+    def fit_transform(self) -> pl.LazyFrame:
+        """
+        Fit to data, then return the kernel smoothed results.
+
+        Returns
+        -------
+        pl.LazyFrame
+            The kernel smoothed results.
+        """
+        self.fit()
+        return self.transform()
