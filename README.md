@@ -54,7 +54,6 @@ plt.style.use("ggplot")
 
 > Generate sample data
 ```
-
 n = 50
 x = np.sort(np.random.normal(0, 1, n))
 y = 1 + x

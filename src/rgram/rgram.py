@@ -206,7 +206,7 @@ class Regressogram(BaseUtils):
         if self.ols_kws.calc_ols:
             ols_exprs = [
                 pl.col(self.ols_kws.ols_y_target)
-                .least_squares.ols(
+                .least_squares.ols(  # type: ignore
                     *[
                         (pl.col("x_val") ** i).alias(
                             "x_val" if i == 1 else f"x_val**{i}"
@@ -274,7 +274,7 @@ class Regressogram(BaseUtils):
         return self.transform()
 
     @property
-    def ols_statistics_(self) -> pl.DataFrame:
+    def ols_statistics_(self) -> pl.DataFrame | None:
         """
         OLS statistics
 
