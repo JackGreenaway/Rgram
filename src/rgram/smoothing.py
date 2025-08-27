@@ -3,7 +3,7 @@ import polars_ols as pls  # noqa: F401
 
 from src.rgram.base import BaseUtils
 
-from typing import Sequence
+from typing import Sequence, cast, List
 
 
 class KernelSmoother(BaseUtils):
@@ -59,10 +59,12 @@ class KernelSmoother(BaseUtils):
         n_eval_samples : int, default=100
             Number of evaluation points for the smoother.
         """
+        super().__init__(hue=hue)
+
         self.data = data.lazy()
-        self.x = self._to_list(x)
-        self.y = self._to_list(y)
-        self.hue = self._to_list(hue)
+        self.x: list[str] = cast(List[str], self._to_list(x))
+        self.y: list[str] = cast(List[str], self._to_list(y))
+        # self.hue: List[str] = cast(List[str], self._to_list(hue) or [])
         self.n_eval_samples = n_eval_samples
 
     def _calculate_bandwidth(self) -> pl.Expr:
@@ -82,6 +84,7 @@ class KernelSmoother(BaseUtils):
         bw = self._over_function(
             0.9 * pl.min_horizontal([std_expr, iqr_expr]) * (pl.len() ** (-1 / 5))
         ).alias("h")
+
         return bw
 
     def _calculate_x_eval(self) -> pl.Expr:
@@ -130,7 +133,7 @@ class KernelSmoother(BaseUtils):
                 ]
             )
             .filter(pl.col("u").abs() <= 1)
-            .group_by(["x_eval"] + (self.hue or []))
+            .group_by(["x_eval"] + self.hue)
             .agg(
                 [
                     # Epanechnikov kernel
@@ -144,6 +147,7 @@ class KernelSmoother(BaseUtils):
         )
 
         self._ks_result = ks
+
         return self
 
     def transform(self) -> pl.LazyFrame:
@@ -157,6 +161,7 @@ class KernelSmoother(BaseUtils):
         """
         if not hasattr(self, "_ks_result"):
             raise RuntimeError("You must call fit() before transform().")
+
         return self._ks_result
 
     def fit_transform(self) -> pl.LazyFrame:
@@ -169,4 +174,5 @@ class KernelSmoother(BaseUtils):
             The kernel smoothed results.
         """
         self.fit()
+
         return self.transform()

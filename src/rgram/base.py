@@ -1,7 +1,7 @@
 import polars as pl
 import polars_ols as pls  # noqa: F401
 
-from typing import Sequence, Optional, Union, Any, Type
+from typing import Sequence, Optional, Union, Any, Type, List, cast
 
 
 class BaseUtils:
@@ -17,6 +17,12 @@ class BaseUtils:
     _over_function(x)
         Apply a Polars expression over the 'hue' columns if present.
     """
+
+    def __init__(
+        self,
+        hue: Sequence[str] | None = None,
+    ) -> None:
+        self.hue: List[str] = cast(List[str], self._to_list(hue) or [])
 
     @staticmethod
     def _to_list(item: Optional[Union[str, Sequence]]) -> Optional[list]:
@@ -72,7 +78,6 @@ class BaseUtils:
         ----------
         x : pl.Expr
             The Polars expression to apply.
-
         Returns
         -------
         pl.Expr
@@ -80,4 +85,5 @@ class BaseUtils:
         """
         if hasattr(self, "hue") and self.hue:
             return x.over(self.hue)
+
         return x

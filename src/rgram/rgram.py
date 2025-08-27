@@ -4,7 +4,7 @@ import polars_ols as pls  # noqa: F401
 from src.rgram.base import BaseUtils
 from src.rgram.dclasses import OlsKws, CumsumKws
 
-from typing import Callable, Literal, Sequence, Optional, Union
+from typing import Callable, Literal, Sequence, Optional, Union, cast, List
 
 
 class Regressogram(BaseUtils):
@@ -96,7 +96,10 @@ class Regressogram(BaseUtils):
         self.data = data.lazy()
         self.x = self._to_list(x)
         self.y = self._to_list(y)
-        self.hue = self._to_list(hue)
+
+        self.hue = cast(List[str], self._to_list(hue) or [])
+        # super().__init__(hue=hue)
+
         self.binning = binning
         self.agg = agg
         self.ci = ci
