@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import polars as pl
 import polars_ols as pls  # noqa: F401
 
-from src.rgram.base import BaseUtils
-from src.rgram.dclasses import OlsKws, CumsumKws
+from rgram.base import BaseUtils
+from rgram.dclasses import OlsKws, CumsumKws
 
 from typing import Callable, Literal, Sequence, Optional, Union, cast, List
 

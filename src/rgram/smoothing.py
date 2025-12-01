@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 import polars as pl
 import polars_ols as pls  # noqa: F401
 
-from src.rgram.base import BaseUtils
-
+from rgram.base import BaseUtils
 from typing import Sequence, cast, List
+from typing_extensions import Self
 
 
 class KernelSmoother(BaseUtils):
@@ -107,7 +109,7 @@ class KernelSmoother(BaseUtils):
 
         return x_eval
 
-    def fit(self) -> "KernelSmoother":
+    def fit(self) -> Self:
         """
         Fit the kernel smoother to the data.
 
