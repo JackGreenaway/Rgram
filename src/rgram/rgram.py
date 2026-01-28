@@ -135,10 +135,13 @@ class Regressogram(BaseUtils):
             ).floor()
         elif self.binning == "width":
             return (pl.col("x_val") // freedman_rot).floor()
+
         elif self.binning == "all":
             return pl.col("x_val")
+
         elif self.binning == "int":
             return pl.col("x_val").cast(int)
+
         else:
             raise ValueError(f"Unknown binning type: {self.binning}")
 
