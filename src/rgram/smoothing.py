@@ -4,7 +4,7 @@ import polars as pl
 import polars_ols as pls  # noqa: F401
 
 from rgram.base import BaseUtils
-from typing import Sequence, cast, List
+from typing import Sequence, cast, List, Union, Optional, Any
 from typing_extensions import Self
 
 
@@ -16,33 +16,21 @@ class KernelSmoother(BaseUtils):
 
     Parameters
     ----------
-    data : pl.DataFrame or pl.LazyFrame
-        Input data.
-    x : str
-        Feature column.
-    y : str
-        Target column.
-    hue : sequence of str, optional
-        Optional grouping variable(s).
     n_eval_samples : int, default=100
         Number of evaluation points for the smoother.
 
     Methods
     -------
-    fit()
+    fit(data, x, y, hue=None)
         Fit the kernel smoother to the data.
     transform()
         Return the kernel smoothed results after fitting.
-    fit_transform()
+    fit_transform(data, x, y, hue=None)
         Fit to data, then return the kernel smoothed results.
     """
 
     def __init__(
         self,
-        data: pl.DataFrame | pl.LazyFrame,
-        x: str,
-        y: str,
-        hue: Sequence[str] | None = None,
         n_eval_samples: int = 100,
     ) -> None:
         """
@@ -50,28 +38,19 @@ class KernelSmoother(BaseUtils):
 
         Parameters
         ----------
-        data : pl.DataFrame or pl.LazyFrame
-            Input data.
-        x : str
-            Feature column.
-        y : str
-            Target column.
-        hue : sequence of str, optional
-            Optional grouping variable(s).
         n_eval_samples : int, default=100
             Number of evaluation points for the smoother.
         """
-        super().__init__(hue=hue)
-
-        self.data = data.lazy()
-        self.x: list[str] = cast(List[str], self._to_list(x))
-        self.y: list[str] = cast(List[str], self._to_list(y))
-        # self.hue: List[str] = cast(List[str], self._to_list(hue) or [])
         self.n_eval_samples = n_eval_samples
 
-    def _calculate_bandwidth(self) -> pl.Expr:
+    def _calculate_bandwidth(self, x_col: str) -> pl.Expr:
         """
         Calculate the kernel bandwidth using Silverman's rule of thumb.
+
+        Parameters
+        ----------
+        x_col : str
+            The feature column name.
 
         Returns
         -------
@@ -79,19 +58,22 @@ class KernelSmoother(BaseUtils):
             The bandwidth expression.
         """
         # Compute std and IQR only once for efficiency
-        std_expr = pl.col(self.x).std()
-        iqr_expr = (
-            pl.col(self.x).quantile(0.75) - pl.col(self.x).quantile(0.25)
-        ) / 1.34
+        std_expr = pl.col(x_col).std()
+        iqr_expr = (pl.col(x_col).quantile(0.75) - pl.col(x_col).quantile(0.25)) / 1.34
         bw = self._over_function(
             0.9 * pl.min_horizontal([std_expr, iqr_expr]) * (pl.len() ** (-1 / 5))
         ).alias("h")
 
         return bw
 
-    def _calculate_x_eval(self) -> pl.Expr:
+    def _calculate_x_eval(self, x_col: str) -> pl.Expr:
         """
         Calculate the evaluation points for the kernel smoother.
+
+        Parameters
+        ----------
+        x_col : str
+            The feature column name.
 
         Returns
         -------
@@ -100,8 +82,8 @@ class KernelSmoother(BaseUtils):
         """
         x_eval = self._over_function(
             pl.linear_spaces(
-                pl.col(self.x).min(),
-                pl.col(self.x).max(),
+                pl.col(x_col).min(),
+                pl.col(x_col).max(),
                 self.n_eval_samples,
                 as_array=True,
             )
@@ -109,24 +91,50 @@ class KernelSmoother(BaseUtils):
 
         return x_eval
 
-    def fit(self) -> Self:
+    def fit(
+        self,
+        y: Union[str, Sequence[Any]],
+        x: Union[str, Sequence[Any]],
+        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
+        hue: Optional[Sequence[str]] = None,
+    ) -> Self:
         """
         Fit the kernel smoother to the data.
+
+        Parameters
+        ----------
+        data : pl.DataFrame, pl.LazyFrame, or None
+            Input data. If None, x/y are expected to be arrays.
+        x : str or sequence of numbers
+            Feature column. Column name if data provided, else array.
+        y : str or sequence of numbers
+            Target column. Column name if data provided, else array.
+        hue : sequence of str, optional
+            Optional grouping variable(s).
 
         Returns
         -------
         self : object
             Fitted estimator.
         """
-        bw = self._calculate_bandwidth()
-        x_eval = self._calculate_x_eval()
+        # Prepare data: convert arrays to DataFrame if needed
+        data_lf, x_cols, y_cols, _ = self._prepare_data(data=data, x=x, y=y, keys=None)
+
+        super().__init__(hue=hue)
+
+        # Extract first column name from x/y (single feature/target for KernelSmoother)
+        x_col = x_cols if isinstance(x_cols, str) else x_cols[0]
+        y_col = y_cols if isinstance(y_cols, str) else y_cols[0]
+
+        bw = self._calculate_bandwidth(x_col)
+        x_eval = self._calculate_x_eval(x_col)
 
         ks = (
-            self.data.with_columns([bw, x_eval])
+            data_lf.with_columns([bw, x_eval])
             .explode("x_eval")
             .with_columns(
                 [
-                    ((pl.col("x_eval") - pl.col(self.x)) / pl.col("h")).alias("u"),
+                    ((pl.col("x_eval") - pl.col(x_col)) / pl.col("h")).alias("u"),
                 ]
             )
             .with_columns(
@@ -138,9 +146,9 @@ class KernelSmoother(BaseUtils):
             .group_by(["x_eval"] + self.hue)
             .agg(
                 [
-                    # Epanechnikov kernel
+                    # epanechnikov kernel
                     (
-                        (pl.col(self.y) * pl.col("weight")).sum()
+                        (pl.col(y_col) * pl.col("weight")).sum()
                         / pl.col("weight").sum()
                     ).alias("y_kernel")
                 ]
@@ -166,15 +174,32 @@ class KernelSmoother(BaseUtils):
 
         return self._ks_result
 
-    def fit_transform(self) -> pl.LazyFrame:
+    def fit_transform(
+        self,
+        data: Union[pl.DataFrame, pl.LazyFrame],
+        x: Union[str, Sequence[Any]],
+        y: Union[str, Sequence[Any]],
+        hue: Optional[Sequence[str]] = None,
+    ) -> pl.LazyFrame:
         """
         Fit to data, then return the kernel smoothed results.
+
+        Parameters
+        ----------
+        data : pl.DataFrame or pl.LazyFrame
+            Input data.
+        x : str or sequence of numbers
+            Feature column.
+        y : str or sequence of numbers
+            Target column.
+        hue : sequence of str, optional
+            Optional grouping variable(s).
 
         Returns
         -------
         pl.LazyFrame
             The kernel smoothed results.
         """
-        self.fit()
+        self.fit(data=data, x=x, y=y, hue=hue)
 
         return self.transform()
