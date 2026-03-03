@@ -175,8 +175,6 @@ class Regressogram(BaseUtils):
         self : object
             Fitted estimator.
         """
-        _df_defined = data is not None
-
         data_lf, x_cols, y_cols, keys_cols = self._prepare_data(
             data=data, x=x, y=y, keys=keys
         )
@@ -263,20 +261,6 @@ class Regressogram(BaseUtils):
         cols_to_drop.extend([i for i in schema if i in ["x_var", "y_var"]])
 
         return data.sort(by=["x_val"]).drop(cols_to_drop)
-
-        # def transform(self) -> pl.LazyFrame:
-        #     """
-        #     Return the regressogram results after fitting.
-
-        #     Returns
-        #     -------
-        #     pl.LazyFrame
-        #         The regressogram results.
-        #     """
-        #     if not hasattr(self, "_regressogram_result"):
-        raise RuntimeError("You must call fit() before transform().")
-
-        return self._regressogram_result
 
     def fit_transform(
         self,

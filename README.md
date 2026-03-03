@@ -65,7 +65,6 @@ Rgram is **NOT** the best choice for:
 
 - Python >= 3.9
 - [Polars](https://pola-rs.github.io/) >= 1.28.1
-- [polars-ols](https://github.com/cversteeg/polars-ols) >= 0.3.5
 - [typing-extensions](https://github.com/python/typing_extensions) >= 4.15.0
 
 ### Optional Dependencies (for development)
@@ -269,9 +268,6 @@ Fit and return results in one step. Recommended for most use cases.
 
 Make predictions on new x values using the fitted binning scheme.
 
-**`ols_statistics_`**
-
-Property that returns OLS regression statistics as a `pl.DataFrame` (only available if `ols` was enabled).
 
 ---
 
