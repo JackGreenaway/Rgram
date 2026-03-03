@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 import polars as pl
-import polars_ols as pls  # noqa: F401
-
 from rgram.base import BaseUtils
-from rgram.dclasses import OlsKws, CumsumKws
-
 from typing import Callable, Literal, Sequence, Optional, Union, Any
 
 
@@ -13,20 +9,16 @@ class Regressogram(BaseUtils):
     """
     Regressogram
 
-    Binned regression and visualisation for one or more features and targets.
+    Binned regression estimator for one or more features and targets.
 
     Parameters
     ----------
-    binning : {'dist', 'width', 'all', 'int'}, default='dist'
+    binning : {'dist', 'width', 'unique', 'int'}, default='dist'
         Binning strategy.
     agg : callable, default=mean
         Aggregation function for y in each bin.
     ci : tuple of callables, optional
         Tuple of lower/upper confidence interval functions.
-    ols : OlsKws or dict, optional
-        OLS regression options.
-    cumsum : CumsumKws or dict, optional
-        Cumulative sum options.
     allow_negative_y : bool or 'auto', default='auto'
         Whether to allow negative y values in output.
 
@@ -38,13 +30,11 @@ class Regressogram(BaseUtils):
         Return the fitted regressogram results.
     fit_transform(data, x, y, hue=None, keys=None)
         Fit to data and return results.
-    ols_statistics_
-        Returns OLS statistics if OLS was computed.
     """
 
     def __init__(
         self,
-        binning: Literal["dist", "width", "all", "int"] = "dist",
+        binning: Literal["dist", "width", "unique", "int"] = "dist",
         agg: Callable[[pl.Expr], pl.Expr] = lambda x: x.mean(),
         ci: Optional[
             tuple[Callable[[pl.Expr], pl.Expr], Callable[[pl.Expr], pl.Expr]]
@@ -52,8 +42,6 @@ class Regressogram(BaseUtils):
             lambda x: x.mean() - x.std(),
             lambda x: x.mean() + x.std(),
         ),
-        ols: Optional[Union[OlsKws, dict, bool]] = False,
-        cumsum: Optional[Union[CumsumKws, dict, bool]] = False,
         allow_negative_y: Union[bool, Literal["auto"]] = "auto",
     ):
         """
@@ -61,26 +49,18 @@ class Regressogram(BaseUtils):
 
         Parameters
         ----------
-        binning : {'dist', 'width', 'all', 'int'}, default='dist'
+        binning : {'dist', 'width', 'unique', 'int'}, default='dist'
             Binning strategy.
         agg : callable, default=mean
             Aggregation function for y in each bin.
         ci : tuple of callables, optional
             Tuple of lower/upper confidence interval functions.
-        ols : OlsKws or dict, optional
-            OLS regression options.
-        cumsum : CumsumKws or dict, optional
-            Cumulative sum options.
         allow_negative_y : bool or 'auto', default='auto'
             Whether to allow negative y values in output.
         """
         self.binning = binning
         self.agg = agg
         self.ci = ci
-
-        self.ols_kws = self._init_kws(var_input=ols, dataclass=OlsKws)
-        self.cumsum_kws = self._init_kws(var_input=cumsum, dataclass=CumsumKws)
-
         self.allow_negative_y = allow_negative_y
 
     def _learn_bin_params(self, data: pl.LazyFrame) -> None:
@@ -99,22 +79,33 @@ class Regressogram(BaseUtils):
         self._x_min = x_min
         self._x_max = x_max
 
-        if self.binning in ("int", "all"):
+        if self.binning in ("int", "unique"):
             self._min_bin = x_min
             self._max_bin = x_max
 
         if self.binning in ("width", "dist"):
             self._bin_width = 2 * (q75 - q25) / (n ** (1 / 3))
 
+            # Handle edge case where bin_width is 0 (all x values identical)
+            if self._bin_width == 0:
+                self._bin_width = 1.0
+
             if self.binning == "dist":
                 n_bins = max(1, int((x_max - x_min) // self._bin_width))
-                qs = [i / n_bins for i in range(1, n_bins)]
 
-                self._bin_edges = list(
-                    data.select([pl.col("x_val").quantile(q).alias(str(q)) for q in qs])
-                    .collect()
-                    .rows()[0]
-                )
+                if n_bins < 2:
+                    qs = []  # no quantiles
+                    self._bin_edges = []
+
+                else:
+                    qs = [i / n_bins for i in range(1, n_bins)]
+                    self._bin_edges = list(
+                        data.select(
+                            [pl.col("x_val").quantile(q).alias(str(q)) for q in qs]
+                        )
+                        .collect()
+                        .rows()[0]
+                    )
 
                 self._min_bin = 0
                 self._max_bin = len(self._bin_edges)
@@ -141,7 +132,7 @@ class Regressogram(BaseUtils):
         elif self.binning == "int":
             bin_id = pl.col("x_val").cast(int)
 
-        elif self.binning == "all":
+        elif self.binning == "unique":
             return pl.col("x_val")
 
         else:
@@ -161,18 +152,23 @@ class Regressogram(BaseUtils):
         """
         Fit the regressogram to the data.
 
+        Supports flexible input similar to seaborn (e.g., kdeplot):
+        - Provide DataFrame + column names (recommended for production)
+        - Provide raw arrays/Series (convenient for exploration)
+
         Parameters
         ----------
-        data : pl.DataFrame, pl.LazyFrame, or None
-            Input data. If None, x/y are expected to be arrays.
-        x : str, sequence of str, or sequence of numbers
-            Feature(s) to bin. Column name(s) if data provided, else array(s).
-        y : str, sequence of str, or sequence of numbers
-            Target(s). Column name(s) if data provided, else array(s).
+        x : str or array-like
+            Feature(s) to bin. Column name(s) if `data` provided, else array-like.
+        y : str or array-like
+            Target(s). Column name(s) if `data` provided, else array-like.
+        data : pl.DataFrame, pl.LazyFrame, or None, optional
+            Input data. If provided, x/y/hue/keys are treated as column names.
+            If None, x/y/keys are treated as array-like values.
         hue : str or sequence of str, optional
             Optional grouping variable(s).
-        keys : str, sequence of str, or sequence of numbers, optional
-            Additional grouping columns.
+        keys : str or array-like, optional
+            Additional grouping column(s).
 
         Returns
         -------
@@ -257,46 +253,9 @@ class Regressogram(BaseUtils):
                 .alias(alias)
                 for ci_calc, alias in zip(self.ci, ci_cols)
             ]
+
             data = data.with_columns(ci_exprs)
             data = data.with_columns([self._neg_y_helper(col) for col in ci_cols])
-
-        if self.ols_kws:
-            ols_exprs = [
-                pl.col(self.ols_kws.ols_y_target)
-                .least_squares.ols(
-                    *[
-                        (pl.col("x_val") ** i).alias(
-                            "x_val" if i == 1 else f"x_val**{i}"
-                        )
-                        for i in range(1, self.ols_kws.order + 1)
-                    ],
-                    mode=mode,
-                    add_intercept=self.ols_kws.add_intercept,
-                    null_policy="drop",
-                )
-                .over(self.over_cols)
-                .alias(alias)
-                for mode, alias in [
-                    ("statistics", "ols_statistics"),
-                    ("predictions", "y_pred_ols"),
-                ]
-            ]
-            self._ols_statistics = (
-                data.select(self.over_cols + [ols_exprs[0]])
-                .unique()
-                .unnest("ols_statistics")
-                .collect()
-            )
-            data = data.with_columns([ols_exprs[1]])
-            data = data.with_columns([self._neg_y_helper("y_pred_ols")])
-
-        if self.cumsum_kws:
-            data = data.sort(by=["x_val"]).with_columns(
-                pl.col("y_val")
-                .cum_sum(reverse=self.cumsum_kws.reverse)
-                .over(self.over_cols)
-                .alias("y_val_cum_sum")
-            )
 
         cols_to_drop = ["allow_neg_y_val"]
 
@@ -305,52 +264,57 @@ class Regressogram(BaseUtils):
 
         return data.sort(by=["x_val"]).drop(cols_to_drop)
 
-    # def transform(self) -> pl.LazyFrame:
-    #     """
-    #     Return the regressogram results after fitting.
+        # def transform(self) -> pl.LazyFrame:
+        #     """
+        #     Return the regressogram results after fitting.
 
-    #     Returns
-    #     -------
-    #     pl.LazyFrame
-    #         The regressogram results.
-    #     """
-    #     if not hasattr(self, "_regressogram_result"):
-    #         raise RuntimeError("You must call fit() before transform().")
+        #     Returns
+        #     -------
+        #     pl.LazyFrame
+        #         The regressogram results.
+        #     """
+        #     if not hasattr(self, "_regressogram_result"):
+        raise RuntimeError("You must call fit() before transform().")
 
-    #     return self._regressogram_result
+        return self._regressogram_result
 
-    # def fit_transform(
-    #     self,
-    #     x: Union[str, Sequence[Any]],
-    #     y: Union[str, Sequence[Any]],
-    #     data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-    #     hue: Optional[Union[str, Sequence[str]]] = None,
-    #     keys: Optional[Union[str, Sequence[Any]]] = None,
-    # ) -> pl.LazyFrame:
-    #     """
-    #     Fit to data, then return the regressogram results.
+    def fit_transform(
+        self,
+        x: Union[str, Sequence[Any]],
+        y: Union[str, Sequence[Any]],
+        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
+        hue: Optional[Union[str, Sequence[str]]] = None,
+        keys: Optional[Union[str, Sequence[Any]]] = None,
+    ) -> pl.LazyFrame:
+        """
+        Fit and return results in one call (recommended).
 
-    #     Parameters
-    #     ----------
-    #     data : pl.DataFrame or pl.LazyFrame
-    #         Input data.
-    #     x : str, sequence of str, or sequence of numbers
-    #         Feature(s) to bin.
-    #     y : str, sequence of str, or sequence of numbers
-    #         Target(s).
-    #     hue : str or sequence of str, optional
-    #         Optional grouping variable(s).
-    #     keys : str, sequence of str, or sequence of numbers, optional
-    #         Additional grouping columns.
+        Supports flexible input similar to seaborn:
+        - Provide DataFrame + column names (recommended for production)
+        - Provide raw arrays/Series (convenient for exploration)
 
-    #     Returns
-    #     -------
-    #     pl.LazyFrame
-    #         The regressogram results.
-    #     """
-    #     self.fit(data=data, x=x, y=y, hue=hue, keys=keys)
+        Parameters
+        ----------
+        x : str or array-like
+            Feature(s) to bin. Column name(s) if `data` provided, else array-like.
+        y : str or array-like
+            Target(s). Column name(s) if `data` provided, else array-like.
+        data : pl.DataFrame, pl.LazyFrame, or None, optional
+            Input data. If provided, x/y/hue/keys are column names.
+            If None, x/y/keys are array-like.
+        hue : str or sequence of str, optional
+            Optional grouping variable(s).
+        keys : str or array-like, optional
+            Additional grouping column(s).
 
-    #     return self.transform()
+        Returns
+        -------
+        pl.LazyFrame
+            The regressogram results. Call `.collect()` to materialize.
+        """
+        self.fit(data=data, x=x, y=y, hue=hue, keys=keys)
+
+        return self.transform()
 
     def predict(self, x: Union[Sequence[float], pl.Series]) -> pl.LazyFrame:
         if not hasattr(self, "_bin_to_y"):
@@ -367,18 +331,6 @@ class Regressogram(BaseUtils):
         )
 
         return lf.select("y_pred_rgram")
-
-    @property
-    def ols_statistics_(self) -> pl.DataFrame | None:
-        """
-        OLS statistics
-
-        Returns
-        -------
-        pl.DataFrame or None
-            Returns OLS statistics if OLS was computed, else None.
-        """
-        return getattr(self, "_ols_statistics", None)
 
     @staticmethod
     def _neg_y_helper(col: str) -> pl.Expr:

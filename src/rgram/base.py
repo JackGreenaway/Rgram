@@ -120,52 +120,44 @@ class BaseUtils:
 
     @staticmethod
     def _process_array_input(
-        input_data: Sequence[int, float],
+        input_data: Any,
         col_prefix: str,
         df_dict: dict,
-    ) -> Union[str, Sequence[str]]:
+    ) -> str:
         """
-        Process a single array-like input and add to df_dict if needed.
+        Process array-like input and add to df_dict.
 
         Parameters
         ----------
-        input_data : str, sequence of str, or array-like
-            The input to process.
+        input_data : array-like
+            The input array data.
         col_prefix : str
-            Prefix for auto-generated column names (e.g., 'x', 'y', 'keys').
+            Column name for the array (e.g., 'x', 'y', 'keys').
         df_dict : dict
-            Dictionary to store arrays for DataFrame creation.
+            Dictionary to accumulate arrays for DataFrame creation.
 
         Returns
         -------
-        str or sequence of str
-            Column name(s) for the processed input.
+        str
+            The column name assigned to this input.
+
+        Raises
+        ------
+        ValueError
+            If input is a string (column name) when data=None, or if not array-like.
         """
-        is_string = isinstance(input_data, str)
-        is_array = BaseUtils._is_array_like(input_data) and not is_string
-
-        if not is_array and not is_string:
+        if isinstance(input_data, str):
             raise ValueError(
-                f"Input must be a string (column name) or array-like, got {type(input_data)}."
+                f"Column name '{input_data}' provided but data=None. "
+                "When data=None, provide array-like values, not column names."
             )
 
-        if is_string:
+        if not BaseUtils._is_array_like(input_data):
             raise ValueError(
-                "If data is None, input must be an array-like, not a column name string."
+                f"Input must be array-like (e.g., list, ndarray, Series), got {type(input_data).__name__}."
             )
-
-        # Handle array-like input
-        # input_list = input_data if isinstance(input_data, list) else [input_data]
-        # input_list = [input_data]
-
-        # col_names = []
-        # for i, arr in enumerate(input_list):
-        # col_name = col_prefix if len(input_list) == 1 else f"{col_prefix}_{i}"
-        # df_dict[col_name] = arr
-        # col_names.append(col_name)
 
         df_dict[col_prefix] = input_data
-
         return col_prefix
 
     def _prepare_data(
@@ -181,27 +173,45 @@ class BaseUtils:
         Optional[Union[str, Sequence[str]]],
     ]:
         """
-        Prepare data by converting arrays to DataFrames if needed.
+        Prepare and normalize data for analysis (similar to seaborn API).
 
-        If data is None; x, y, and keys are assumed to be array-like and will be
-        converted to a Polars DataFrame with auto-generated column names.
-        If data is provided, x, y, and keys are assumed to be column names.
+        Supports two usage patterns:
+        1. DataFrame mode: Provide a DataFrame with x/y as column names
+        2. Array mode: Provide x/y as array-like without a DataFrame
 
         Parameters
         ----------
-        data : pl.DataFrame, pl.LazyFrame, or None
-            Input data. If None, x/y/keys are expected to be arrays.
-        x : str, sequence of str, or array-like
-            Feature(s). Column name(s) if data provided, else array(s).
-        y : str, sequence of str, or array-like
-            Target(s). Column name(s) if data provided, else array(s).
-        keys : str, sequence of str, or array-like, optional
-            Optional grouping variable(s).
+        x : str or array-like
+            Feature(s). Column name(s) if `data` provided, else array-like (list, ndarray, Series).
+        y : str or array-like
+            Target(s). Column name(s) if `data` provided, else array-like (list, ndarray, Series).
+        data : pl.DataFrame, pl.LazyFrame, or None, optional
+            Input data. If None, x/y must be array-like.
+            If provided, x/y are treated as column names.
+        keys : str or array-like, optional
+            Optional grouping column(s). Column name if `data` provided, else array-like.
 
         Returns
         -------
         tuple
-            (data as LazyFrame, x, y, keys) where x, y, keys are column names.
+            (data as LazyFrame, x_col_names, y_col_names, keys_col_names)
+
+        Examples
+        --------
+        >>> import polars as pl
+        >>> import numpy as np
+        >>> from rgram.base import BaseUtils
+        >>>
+        >>> utils = BaseUtils()
+        >>>
+        >>> # Pattern 1: DataFrame with column names (like seaborn)
+        >>> df = pl.DataFrame({"feature": [1, 2, 3], "target": [4, 5, 6]})
+        >>> lf, x, y, k = utils._prepare_data(data=df, x="feature", y="target")
+        >>>
+        >>> # Pattern 2: Raw arrays (like seaborn without data parameter)
+        >>> x_arr = np.array([1, 2, 3])
+        >>> y_arr = np.array([4, 5, 6])
+        >>> lf, x, y, k = utils._prepare_data(x=x_arr, y=y_arr)
         """
         if data is None:
             df_dict = {}

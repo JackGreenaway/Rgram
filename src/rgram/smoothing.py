@@ -4,7 +4,7 @@ import polars as pl
 import polars_ols as pls  # noqa: F401
 
 from rgram.base import BaseUtils
-from typing import Sequence, cast, List, Union, Optional, Any
+from typing import Sequence, Union, Optional, Any
 from typing_extensions import Self
 
 
@@ -32,6 +32,7 @@ class KernelSmoother(BaseUtils):
     def __init__(
         self,
         n_eval_samples: int = 100,
+        hue: Optional[Sequence[str]] = None,
     ) -> None:
         """
         Construct a KernelSmoother instance.
@@ -40,7 +41,10 @@ class KernelSmoother(BaseUtils):
         ----------
         n_eval_samples : int, default=100
             Number of evaluation points for the smoother.
+        hue : sequence of str, optional
+            Optional grouping variable(s).
         """
+        super().__init__(hue=hue)
         self.n_eval_samples = n_eval_samples
 
     def _calculate_bandwidth(self, x_col: str) -> pl.Expr:
@@ -101,16 +105,21 @@ class KernelSmoother(BaseUtils):
         """
         Fit the kernel smoother to the data.
 
+        Supports flexible input similar to seaborn (e.g., kdeplot):
+        - Provide DataFrame + column names (recommended for production)
+        - Provide raw arrays/Series (convenient for exploration)
+
         Parameters
         ----------
-        data : pl.DataFrame, pl.LazyFrame, or None
-            Input data. If None, x/y are expected to be arrays.
-        x : str or sequence of numbers
-            Feature column. Column name if data provided, else array.
-        y : str or sequence of numbers
-            Target column. Column name if data provided, else array.
+        x : str or array-like
+            Feature column. Column name if `data` provided, else array-like.
+        y : str or array-like
+            Target column. Column name if `data` provided, else array-like.
+        data : pl.DataFrame, pl.LazyFrame, or None, optional
+            Input data. If provided, x/y/hue are column names.
+            If None, x/y are array-like.
         hue : sequence of str, optional
-            Optional grouping variable(s).
+            Optional grouping variable(s). Overrides hue from __init__ if provided.
 
         Returns
         -------
@@ -120,7 +129,9 @@ class KernelSmoother(BaseUtils):
         # Prepare data: convert arrays to DataFrame if needed
         data_lf, x_cols, y_cols, _ = self._prepare_data(data=data, x=x, y=y, keys=None)
 
-        super().__init__(hue=hue)
+        # Update hue if provided, otherwise use initialized hue
+        if hue is not None:
+            self.hue = self._to_list(hue) or []
 
         # Extract first column name from x/y (single feature/target for KernelSmoother)
         x_col = x_cols if isinstance(x_cols, str) else x_cols[0]
@@ -182,23 +193,23 @@ class KernelSmoother(BaseUtils):
         hue: Optional[Sequence[str]] = None,
     ) -> pl.LazyFrame:
         """
-        Fit to data, then return the kernel smoothed results.
+        Fit and return results in one call (recommended).
 
         Parameters
         ----------
         data : pl.DataFrame or pl.LazyFrame
             Input data.
-        x : str or sequence of numbers
-            Feature column.
-        y : str or sequence of numbers
-            Target column.
+        x : str or array-like
+            Feature column. Column name if `data` provided, else array-like.
+        y : str or array-like
+            Target column. Column name if `data` provided, else array-like.
         hue : sequence of str, optional
             Optional grouping variable(s).
 
         Returns
         -------
         pl.LazyFrame
-            The kernel smoothed results.
+            The kernel smoothed results. Call `.collect()` to materialize.
         """
         self.fit(data=data, x=x, y=y, hue=hue)
 
