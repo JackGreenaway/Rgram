@@ -3,7 +3,7 @@
 [![Python 3.9+](https://img.shields.io/badge/Python-3.9%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Rgram** is a high-performance Python library for nonparametric regression analysis and visualization. It provides tools for creating **regressograms** (binned regression estimators) and performing **kernel smoothing** with the Epanechnikov kernel. Built on top of [Polars](https://pola-rs.github.io/) for rapid data processing, Rgram is designed for exploratory data analysis and statistical visualization.
+**Rgram** is a high-performance Python library for nonparametric regression analysis and visualisation. It provides tools for creating **regressograms** (binned regression estimators) and performing **kernel smoothing** with the Epanechnikov kernel. Built on top of [Polars](https://pola-rs.github.io/) for rapid data processing, Rgram is designed for exploratory data analysis and statistical visualisation.
 
 > **Theoretical foundation**: Regressograms are discussed in Section 4.4 of García-Portugués, E. (2023). _Notes for nonparametric statistics_. Carlos III University of Madrid.
 
@@ -34,9 +34,9 @@
 ## Features
 
 - **Regressogram Analysis**: Multiple binning strategies (`dist`, `width`, `unique`, `int`) for flexible bin assignment
-- **Confidence Intervals**: Customizable confidence interval computation via user-defined aggregation functions
+- **Confidence Intervals**: Customisable confidence interval computation via user-defined aggregation functions
 - **Kernel Smoothing**: Epanechnikov kernel smoother with automatic bandwidth selection (Silverman's rule of thumb)
-- **Grouped Analysis**: Support for grouping variables (hue) to analyze multiple subgroups simultaneously
+- **Grouped Analysis**: Support for grouping variables (hue) to analyse multiple subgroups simultaneously
 - **Polars Backend**: High-performance DataFrame operations using lazy evaluation
 - **Scikit-learn API**: Familiar `fit()`, `transform()`, and `fit_transform()` methods
 - **Array-like or DataFrame Input**: Works seamlessly with Polars DataFrames or NumPy/Python arrays
@@ -46,7 +46,7 @@
 
 Rgram is ideal for:
 
-1. **Exploratory Data Analysis (EDA)**: Quickly visualize relationships between variables without assuming a specific functional form
+1. **Exploratory Data Analysis (EDA)**: Quickly visualise relationships between variables without assuming a specific functional form
 2. **Non-parametric Regression**: When you don't want to assume the underlying relationship is linear or polynomial
 3. **Binned Estimation**: When you need interpretable, step-wise predictions (e.g., age-based analysis, price ranges)
 4. **Grouped Analysis**: When comparing multiple strata or groups simultaneously
@@ -56,7 +56,7 @@ Rgram is ideal for:
 Rgram is **NOT** the best choice for:
 
 - High-dimensional feature spaces (use dimensionality reduction + Rgram, or scikit-learn alternatives)
-- Time series with temporal dependencies (use specialized time series libraries)
+- Time series with temporal dependencies (use specialised time series libraries)
 - Classification tasks (Rgram is for regression only)
 - When you need real-time predictions on streaming data (requires refitting)
 - When extremely fast inference on massive datasets is critical (though Polars is reasonably fast)
@@ -71,7 +71,7 @@ Rgram is **NOT** the best choice for:
 ### Optional Dependencies (for development)
 
 - `pytest` >= 8.4.2 - Testing framework
-- `matplotlib` >= 3.9.4 - Visualization
+- `matplotlib` >= 3.9.4 - Visualisation
 - `seaborn` >= 0.13.2 - Statistical graphics
 - `scipy` >= 1.13.1 - Statistical functions
 - `ruff` >= 0.14.7 - Code linting
@@ -205,18 +205,18 @@ Input Data (arrays/DataFrame)
     ↓
 [transform] - Apply learned mapping to all rows
     ↓
-Output LazyFrame (collect() to materialize results)
+Output LazyFrame (collect() to materialise results)
 ```
 
 Key design patterns:
 
-- **Lazy evaluation**: Polars LazyFrames enable optimization and memory efficiency
+- **Lazy evaluation**: Polars LazyFrames enable optimisation and memory efficiency
 - **Fit-predict separation**: Learn on one dataset, apply to another (e.g., train/test split)
 - **Composable**: Chain output of one tool into input of another
 
 ### Regressogram
 
-The `Regressogram` class performs binned regression on one or more features and targets with customizable aggregation and optional confidence intervals.
+The `Regressogram` class performs binned regression on one or more features and targets with customisable aggregation and optional confidence intervals.
 
 #### Parameters
 
@@ -320,7 +320,7 @@ Fit and return results in one step.
 
 ## Examples
 
-### Example 1: Complete Regressogram Workflow with Visualization
+### Example 1: Complete Regressogram Workflow with Visualisation
 
 ```python
 import polars as pl
@@ -393,7 +393,7 @@ df = pl.DataFrame({"x": x, "y": y, "group": group})
 rgram = Regressogram(binning="dist")
 result = rgram.fit_transform(data=df, x="x", y="y", hue="group").collect()
 
-# Visualize
+# Visualise
 fig, ax = plt.subplots(figsize=(10, 6))
 for grp in ["Group A", "Group B"]:
     mask = result["group"] == grp
@@ -432,7 +432,7 @@ smoothed = smoother.fit_transform(
     data=rgram_result, x="x_val", y="y_pred_rgram"
 ).collect()
 
-# Visualization
+# Visualisation
 fig, ax = plt.subplots(figsize=(12, 6))
 ax.scatter(x, y, alpha=0.3, s=20, label="Raw observations")
 ax.step(rgram_result["x_val"], rgram_result["y_pred_rgram"],
@@ -557,7 +557,7 @@ result = rgram_count.fit_transform(data=df, x="x", y="dummy_col").collect()
 
 ### Working with Groups (Hue)
 
-Use the `hue` parameter to analyze multiple subgroups simultaneously:
+Use the `hue` parameter to analyse multiple subgroups simultaneously:
 
 ```python
 from rgram import Regressogram
@@ -568,7 +568,7 @@ result = Regressogram(binning="dist").fit_transform(
     data=sales_df,
     x="time_of_week",
     y="revenue",
-    hue="region"  # Analyze each region separately
+    hue="region"  # Analyse each region separately
 ).collect()
 
 # Output includes a "region" column; group results show region-specific trends
@@ -636,7 +636,7 @@ result = rgram.fit_transform(x=df["age"], y=df["salary"]).collect()
 **Pattern 4: Multiple features/targets**
 
 ```python
-# Multiple x columns (analyzed as separate x-y pair combinations)
+# Multiple x columns (analysed as separate x-y pair combinations)
 result = rgram.fit_transform(
     data=df,
     x=["age", "experience"],
@@ -678,7 +678,7 @@ result = rgram.fit_transform(
 
 | Limitation                    | Impact                                           | Workaround                                                                    |
 | ----------------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| **1D only**                   | Cannot handle high dimensions directly           | Use dimensionality reduction or analyze features independently                |
+| **1D only**                   | Cannot handle high dimensions directly           | Use dimensionality reduction or analyse features independently                |
 | **No feature selection**      | All x variables are used                         | Pre-select relevant features based on domain knowledge                        |
 | **Binning creates artifacts** | Regressogram has artificial step discontinuities | Use KernelSmoother after Regressogram, or use Regressogram only for EDA       |
 | **Bandwidth sensitivity**     | Kernel results vary with bandwidth choice        | Silverman's rule is automatic; use cross-validation for critical applications |
@@ -695,7 +695,7 @@ result = rgram.fit_transform(
 
 - **Binning Strategy Selection**: The choice of binning strategy can significantly impact results. The library provides multiple strategies but does not automatically select the optimal one. Users should experiment or use cross-validation.
 
-- **Memory Efficiency**: For very large datasets, even with Polars' optimizations, lazy evaluation may be limited by system memory during collection.
+- **Memory Efficiency**: For very large datasets, even with Polars' optimisations, lazy evaluation may be limited by system memory during collection.
 
 - **Multi-dimensional Input**: Regressogram and KernelSmoother are designed for 1D→1D mappings. Multi-dimensional feature spaces require feature engineering or multiple univariate analyses.
 
@@ -864,13 +864,13 @@ result = Regressogram().fit_transform(
 
 - [ ] **Adaptive Binning**: Implement data-driven bin size selection using information-theoretic criteria
 - [ ] **Confidence Band Methods**: Additional methods for computing confidence bands (e.g., bootstrap, Bayesian)
-- [ ] **Plotting Utilities**: High-level visualization functions with matplotlib/plotly backends
-- [ ] **Performance Profiling**: Detailed benchmarks and optimization for large-scale datasets
+- [ ] **Plotting Utilities**: High-level visualisation functions with matplotlib/plotly backends
+- [ ] **Performance Profiling**: Detailed benchmarks and optimisation for large-scale datasets
 
 ### Lower Priority
 
 - [ ] **Additional Kernels**: Support for Gaussian, Triangular, and other kernel types
-- [ ] **Categorical Grouping Optimization**: Special handling for categorical `hue` variables
+- [ ] **Categorical Grouping Optimisation**: Special handling for categorical `hue` variables
 - [ ] **GPU Acceleration**: Polars GPU backend support
 - [ ] **Advanced Statistics**: Additional statistical methods (local polynomial regression, etc.)
 
