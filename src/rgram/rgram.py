@@ -86,23 +86,9 @@ class Regressogram(BaseUtils):
 
             if self.binning == "dist":
                 n_bins = max(1, int((x_max - x_min) // self._bin_width))
-
-                if n_bins < 2:
-                    qs = []  # no quantiles
-                    self._bin_edges = []
-
-                else:
-                    qs = [i / n_bins for i in range(1, n_bins)]
-                    self._bin_edges = list(
-                        data.select(
-                            [pl.col("x_val").quantile(q).alias(str(q)) for q in qs]
-                        )
-                        .collect()
-                        .rows()[0]
-                    )
-
+                self._n_bins = n_bins
                 self._min_bin = 0
-                self._max_bin = len(self._bin_edges)
+                self._max_bin = n_bins - 1
 
             else:
                 self._min_bin = 0
@@ -121,7 +107,12 @@ class Regressogram(BaseUtils):
             bin_id = ((pl.col("x_val") - self._x_min) // self._bin_width).cast(int)
 
         elif self.binning == "dist":
-            bin_id = pl.col("x_val").cut(breaks=self._bin_edges).rank(method="dense")
+            bin_id = (
+                pl.col("x_val")
+                .qcut(quantiles=self._n_bins, allow_duplicates=True)
+                .rank(method="dense")
+                .cast(int)
+            )
 
         elif self.binning == "int":
             bin_id = pl.col("x_val").cast(int)

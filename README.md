@@ -35,7 +35,8 @@
 
 - **Regressogram Analysis**: Multiple binning strategies (`dist`, `width`, `unique`, `int`) for flexible bin assignment
 - **Confidence Intervals**: Customisable confidence interval computation via user-defined aggregation functions
-- **Kernel Smoothing**: Epanechnikov kernel smoother with automatic bandwidth selection (Silverman's rule of thumb)
+- **Kernel Smoothing**: Epanechnikov kernel smoother with flexible bandwidth selection (`silverman`, `scott`, `manual`)
+- **Predictions**: Apply fitted models to new data points via `predict()` method
 - **Grouped Analysis**: Support for grouping variables (hue) to analyse multiple subgroups simultaneously
 - **Polars Backend**: High-performance DataFrame operations using lazy evaluation
 - **Scikit-learn API**: Familiar `fit()`, `transform()`, and `fit_transform()` methods
@@ -188,10 +189,20 @@ A **kernel smoother** applies the Epanechnikov kernel to smooth predictions:
 
 ### Bandwidth Selection
 
-Kernel Smoother uses **Silverman's rule of thumb** for automatic bandwidth:
-$$h = 0.9 \min(\sigma, IQR/1.34) \cdot n^{-1/5}$$
+The `KernelSmoother` supports three bandwidth selection methods:
 
-This balances bias and variance automatically but may need adjustment for highly skewed data.
+1. **Silverman's Rule** (default) - Robust and data-adaptive:
+   $$h = 0.9 \min(\sigma, IQR/1.34) \cdot n^{-1/5}$$
+   Best for most use cases; automatically adapts to data spread
+
+2. **Scott's Rule** - Simpler and less sensitive to outliers:
+   $$h = 1.06 \cdot \sigma \cdot n^{-1/5}$$
+   Good for normally distributed data
+
+3. **Manual Specification** - Full control for expert users
+   Specify exact bandwidth value for fine-tuned smoothness control
+
+Each method balances bias and variance differently. Experiment with `bandwidth` parameter to find optimal smoothing for your data.
 
 ### Data Flow Architecture
 
@@ -226,11 +237,11 @@ Regressogram(
     ci: Optional[tuple[Callable, Callable]] = (lambda x: x.mean() - x.std(), lambda x: x.mean() + x.std()),)
 ```
 
-| Parameter          | Type               | Default                | Description                                                                                                                             |
-| ------------------ | ------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `binning`          | str                | `"dist"`               | Binning strategy. Options: `"dist"` (distribution-based), `"width"` (fixed width), `"unique"` (unique x values), `"int"` (integer bins) |
-| `agg`              | callable           | `lambda x: x.mean()`   | Aggregation function to apply to y values within each bin. Must accept and return a Polars expression                                   |
-| `ci`               | tuple of callables | `(mean-std, mean+std)` | Tuple of functions for lower and upper confidence limit calculations. Set to `None` to disable                                          |
+| Parameter | Type               | Default                | Description                                                                                                                             |
+| --------- | ------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `binning` | str                | `"dist"`               | Binning strategy. Options: `"dist"` (distribution-based), `"width"` (fixed width), `"unique"` (unique x values), `"int"` (integer bins) |
+| `agg`     | callable           | `lambda x: x.mean()`   | Aggregation function to apply to y values within each bin. Must accept and return a Polars expression                                   |
+| `ci`      | tuple of callables | `(mean-std, mean+std)` | Tuple of functions for lower and upper confidence limit calculations. Set to `None` to disable                                          |
 
 #### Methods
 
@@ -265,29 +276,45 @@ Fit and return results in one step. Recommended for most use cases.
 
 Make predictions on new x values using the fitted binning scheme.
 
+- **x**: Array-like or `pl.Series` of new x points to predict
+
+Returns: `pl.LazyFrame` with columns `x_val` (input values) and `y_pred_rgram` (predicted values based on learned bins)
 
 ---
 
 ### KernelSmoother
 
-The `KernelSmoother` class performs kernel smoothing using the Epanechnikov kernel with automatic bandwidth selection.
+The `KernelSmoother` class performs kernel smoothing using the Epanechnikov kernel with flexible bandwidth selection.
 
 #### Parameters
 
 ```python
-KernelSmoother(n_eval_samples: int = 100, hue: Optional[Sequence[str]] = None)
+KernelSmoother(
+    n_eval_samples: int = 100,
+    bandwidth: Literal['silverman', 'scott', 'manual'] = 'silverman',
+    bandwidth_value: Optional[float] = None,
+    hue: Optional[Sequence[str]] = None
+)
 ```
 
-| Parameter        | Type            | Default | Description                                                         |
-| ---------------- | --------------- | ------- | ------------------------------------------------------------------- |
-| `n_eval_samples` | int             | `100`   | Number of evaluation points where the kernel smoother is evaluated  |
-| `hue`            | sequence of str | `None`  | Optional grouping variable(s). Can be set here or passed to `fit()` |
+| Parameter         | Type            | Default       | Description                                                         |
+| ----------------- | --------------- | ------------- | ------------------------------------------------------------------- |
+| `n_eval_samples`  | int             | `100`         | Number of evaluation points where the kernel smoother is evaluated  |
+| `bandwidth`       | str             | `'silverman'` | Bandwidth selection method: `'silverman'`, `'scott'`, or `'manual'` |
+| `bandwidth_value` | float           | `None`        | Manual bandwidth value. Required if `bandwidth='manual'`            |
+| `hue`             | sequence of str | `None`        | Optional grouping variable(s). Can be set here or passed to `fit()` |
+
+**Bandwidth Methods:**
+
+- **`'silverman'`** (default): 0.9 × min(std, IQR/1.34) × n^(-1/5) - Robust, adapts to data spread
+- **`'scott'`**: 1.06 × std × n^(-1/5) - Simpler, less sensitive to outliers
+- **`'manual'`**: User specifies exact bandwidth value for fine-tuned control
 
 #### Methods
 
 **`fit(x, y, data=None, hue=None) -> KernelSmoother`**
 
-Fit the kernel smoother to data. Uses Silverman's rule of thumb for bandwidth selection.
+Fit the kernel smoother to data using the selected bandwidth method.
 
 - **x**: Column name if `data` provided, else array-like (must be univariate)
 - **y**: Column name if `data` provided, else array-like (must be univariate)
@@ -298,7 +325,7 @@ Returns: self (fitted estimator)
 
 **`transform() -> pl.LazyFrame`**
 
-Returns the kernel smoothed results.
+Returns the kernel smoothed results at evaluation points.
 
 Output columns:
 
@@ -308,6 +335,16 @@ Output columns:
 **`fit_transform(x, y, data=None, hue=None) -> pl.LazyFrame`**
 
 Fit and return results in one step.
+
+**`predict(x_new) -> pl.LazyFrame`**
+
+Apply the fitted smoother to new x values without refitting. Uses the bandwidth value determined during `fit()`.
+
+- **x_new**: Array-like or `pl.Series` of new x points
+
+Returns: `pl.LazyFrame` with columns `x_eval` and `y_kernel`
+
+**Note**: The bandwidth is determined once during `fit()` using the selected method and training data. `predict()` applies this same bandwidth to new points, ensuring consistent smoothing behavior. No refitting is required.
 
 ---
 
@@ -478,12 +515,14 @@ print(result.select(["x_val", "y_pred_rgram", "y_pred_rgram_lci", "y_pred_rgram_
 
 - Uses Scott's bandwidth rule to adapt bin width to data density
 - Fewer, wider bins where data is sparse; more bins where data is dense
-- **Best for**: Normal or near-normal distributions, data exploration
+- **Handles duplicates**: Robust to duplicate x values; uses qcut with `allow_duplicates=True` internally
+- **Best for**: Normal or near-normal distributions, data exploration, datasets with duplicate values
 - **Example**: Customer age analysis with uneven age distribution
 
 ```python
 rgram = Regressogram(binning="dist")
 # Automatically creates wider bins for underrepresented ages
+# Handles duplicate ages gracefully
 result = rgram.fit_transform(data=df, x="age", y="purchase_amount").collect()
 ```
 
@@ -684,7 +723,7 @@ result = rgram.fit_transform(
 
 - **Univariate Kernel Smoothing**: `KernelSmoother` currently only supports single-variable smoothing. Multivariate kernel smoothing is not yet implemented.
 
-- **Bandwidth Selection**: Kernel smoothing uses Silverman's rule of thumb for bandwidth selection, which may not be optimal for all data distributions. Manual bandwidth tuning is not currently available.
+- **Bandwidth Selection**: Kernel smoothing offers three methods (Silverman, Scott, Manual) but selection remains user-driven; automatic cross-validation is not yet implemented.
 
 - **Binning Strategy Selection**: The choice of binning strategy can significantly impact results. The library provides multiple strategies but does not automatically select the optimal one. Users should experiment or use cross-validation.
 
@@ -828,10 +867,15 @@ result = Regressogram().fit_transform(
 
 ## Future Improvements
 
+### Completed
+
+- [x] **Bandwidth Selection**: Silverman, Scott, and manual bandwidth methods for `KernelSmoother` (implemented in v0.2+)
+- [x] **Robust Duplicate Handling**: Distribution-based binning now handles duplicate x values via `qcut(..., allow_duplicates=True)` (implemented in v0.2+)
+
 ### High Priority
 
 - [ ] **Multivariate Kernel Smoothing**: Extend `KernelSmoother` to support multi-dimensional input with optimal bandwidth selection for each dimension
-- [ ] **Bandwidth Tuning**: Add methods for cross-validated bandwidth selection and user-specified bandwidth parameters
+- [ ] **Cross-Validated Bandwidth Selection**: Automatic bandwidth tuning via leave-one-out or k-fold cross-validation
 - [ ] **Missing Data Handling**: Built-in support for various imputation strategies and missing value indicators
 - [ ] **Auto Binning Strategy Selection**: Data-driven method to select optimal binning strategy using cross-validation
 

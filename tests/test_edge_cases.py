@@ -15,6 +15,7 @@ def test_predict_before_fit_raises():
     with pytest.raises(RuntimeError):
         rgram.predict([1, 2, 3])
 
+
 def test_empty_data_raises():
     """Test that empty DataFrame raises an error."""
     rgram = Regressogram()
@@ -174,6 +175,62 @@ def test_mixed_positive_negative_y():
     y = np.array([-2, -1, 1, 2, -3, 4, -5, 6])
 
     rgram = Regressogram(binning="width")
+    result = rgram.fit(x=x, y=y).transform().collect()
+
+    assert "y_pred_rgram" in result.columns
+    assert len(result) > 0
+
+
+def test_dist_binning_with_duplicate_x_values():
+    """Test dist binning with duplicate x values (common edge case)."""
+    x = np.array(
+        [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0, 5.0, 5.0, 5.0]
+    )
+    y = np.array(
+        [1.0, 1.1, 0.9, 2.0, 2.1, 1.9, 3.0, 3.1, 2.9, 4.0, 4.1, 3.9, 5.0, 5.1, 4.9]
+    )
+
+    rgram = Regressogram(binning="dist")
+    result = rgram.fit(x=x, y=y).transform().collect()
+
+    assert "y_pred_rgram" in result.columns
+    assert len(result) > 0
+    # Check that predictions are reasonable
+    assert result["y_pred_rgram"].min() >= y.min() - 1
+    assert result["y_pred_rgram"].max() <= y.max() + 1
+
+
+def test_dist_binning_with_many_duplicate_clusters():
+    """Test dist binning with multiple clusters of identical x values."""
+    # Create data with many duplicates clustered in ranges
+    x = np.array([1.0] * 10 + [2.0] * 10 + [3.0] * 10 + [4.0] * 10 + [5.0] * 10)
+    y = np.array(list(range(1, 11)) * 5)  # 1-10 repeated 5 times
+
+    rgram = Regressogram(binning="dist")
+    result = rgram.fit(x=x, y=y).transform().collect()
+
+    assert "y_pred_rgram" in result.columns
+    assert len(result) > 0
+
+
+def test_dist_binning_with_mostly_duplicates():
+    """Test dist binning when most values are duplicates with few unique values."""
+    x = np.array([1.0] * 20 + [2.0] * 5 + [3.0] * 20 + [4.0] * 5)
+    y = np.array([1.0] * 20 + [2.0] * 5 + [3.0] * 20 + [4.0] * 5)
+
+    rgram = Regressogram(binning="dist")
+    result = rgram.fit(x=x, y=y).transform().collect()
+
+    assert "y_pred_rgram" in result.columns
+    assert len(result) > 0
+
+
+def test_dist_binning_duplicates_with_custom_agg():
+    """Test dist binning with duplicates and custom aggregation function."""
+    x = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0])
+    y = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
+
+    rgram = Regressogram(binning="dist", agg=lambda s: s.median())
     result = rgram.fit(x=x, y=y).transform().collect()
 
     assert "y_pred_rgram" in result.columns
