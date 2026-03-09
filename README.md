@@ -223,9 +223,7 @@ The `Regressogram` class performs binned regression on one or more features and 
 Regressogram(
     binning: Literal["dist", "width", "all", "int"] = "dist",
     agg: Callable[[pl.Expr], pl.Expr] = lambda x: x.mean(),
-    ci: Optional[tuple[Callable, Callable]] = (lambda x: x.mean() - x.std(), lambda x: x.mean() + x.std()),
-    allow_negative_y: Union[bool, Literal["auto"]] = "auto",
-)
+    ci: Optional[tuple[Callable, Callable]] = (lambda x: x.mean() - x.std(), lambda x: x.mean() + x.std()),)
 ```
 
 | Parameter          | Type               | Default                | Description                                                                                                                             |
@@ -233,7 +231,6 @@ Regressogram(
 | `binning`          | str                | `"dist"`               | Binning strategy. Options: `"dist"` (distribution-based), `"width"` (fixed width), `"unique"` (unique x values), `"int"` (integer bins) |
 | `agg`              | callable           | `lambda x: x.mean()`   | Aggregation function to apply to y values within each bin. Must accept and return a Polars expression                                   |
 | `ci`               | tuple of callables | `(mean-std, mean+std)` | Tuple of functions for lower and upper confidence limit calculations. Set to `None` to disable                                          |
-| `allow_negative_y` | bool or "auto"     | `"auto"`               | Whether to apply clipping to maintain non-negative y values. `"auto"` automatically detects based on input data                         |
 
 #### Methods
 
@@ -770,24 +767,6 @@ result = Regressogram().fit_transform(data=df, x="x", y="y").collect()
 x = np.array([1, 2, 3])
 y = np.array([4, 5, 6])
 result = Regressogram().fit_transform(x=x, y=y).collect()
-```
-
-**Q: My predictions have NaN values in confidence intervals**
-
-A: This occurs when `allow_negative_y="auto"` clamps negative confidence bounds to None. Check if your CI functions produce negative values:
-
-```python
-from rgram import Regressogram
-
-# Check your CI functions
-rgram = Regressogram(
-    ci=(
-        lambda x: x.mean() - 2 * x.std(),  # May go negative!
-        lambda x: x.mean() + 2 * x.std()
-    ),
-    allow_negative_y=True  # Allow negative predictions
-)
-result = rgram.fit_transform(data=df, x="x", y="y").collect()
 ```
 
 **Q: Data collection `.collect()` is very slow or runs out of memory**

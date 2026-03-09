@@ -15,49 +15,6 @@ def test_predict_before_fit_raises():
     with pytest.raises(RuntimeError):
         rgram.predict([1, 2, 3])
 
-
-def test_allow_negative_y_auto(sample_data_with_negatives):
-    """Test that allow_negative_y='auto' detects negative values."""
-    df, x, y, y_noise = sample_data_with_negatives
-    rgram = Regressogram(allow_negative_y="auto")
-    result = rgram.fit(data=df, x="x", y="y_noise_neg").transform().collect()
-
-    # With auto detection, if negatives exist, they should be allowed
-    # CI bounds may have negative values
-    assert "y_pred_rgram" in result.columns
-
-
-def test_allow_negative_y_false(sample_data_with_negatives):
-    """Test that allow_negative_y=False clips negative values to None."""
-    df, x, y, y_noise = sample_data_with_negatives
-    rgram = Regressogram(
-        allow_negative_y=False, ci=(lambda x: x.min(), lambda x: x.max())
-    )
-    result = rgram.fit(data=df, x="x", y="y_noise_neg").transform().collect()
-
-    # Confidence intervals should be clipped to non-negative
-    if "y_pred_rgram_lci" in result.columns:
-        lci_values = result["y_pred_rgram_lci"].drop_nulls()
-        if len(lci_values) > 0:
-            assert (lci_values >= 0).all()
-
-    if "y_pred_rgram_uci" in result.columns:
-        uci_values = result["y_pred_rgram_uci"].drop_nulls()
-        if len(uci_values) > 0:
-            assert (uci_values >= 0).all()
-
-
-def test_allow_negative_y_true(sample_data_with_negatives):
-    """Test that allow_negative_y=True allows negative values."""
-    df, x, y, y_noise = sample_data_with_negatives
-    rgram = Regressogram(allow_negative_y=True)
-    result = rgram.fit(data=df, x="x", y="y_noise_neg").transform().collect()
-
-    assert "y_pred_rgram" in result.columns
-    # Should have data
-    assert len(result) > 0
-
-
 def test_empty_data_raises():
     """Test that empty DataFrame raises an error."""
     rgram = Regressogram()

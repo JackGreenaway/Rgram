@@ -19,8 +19,6 @@ class Regressogram(BaseUtils):
         Aggregation function for y in each bin.
     ci : tuple of callables, optional
         Tuple of lower/upper confidence interval functions.
-    allow_negative_y : bool or 'auto', default='auto'
-        Whether to allow negative y values in output.
 
     Methods
     -------
@@ -42,7 +40,6 @@ class Regressogram(BaseUtils):
             lambda x: x.mean() - x.std(),
             lambda x: x.mean() + x.std(),
         ),
-        allow_negative_y: Union[bool, Literal["auto"]] = "auto",
     ):
         """
         Construct a Regressogram instance.
@@ -55,13 +52,10 @@ class Regressogram(BaseUtils):
             Aggregation function for y in each bin.
         ci : tuple of callables, optional
             Tuple of lower/upper confidence interval functions.
-        allow_negative_y : bool or 'auto', default='auto'
-            Whether to allow negative y values in output.
         """
         self.binning = binning
         self.agg = agg
         self.ci = ci
-        self.allow_negative_y = allow_negative_y
 
     def _learn_bin_params(self, data: pl.LazyFrame) -> None:
         x_min, x_max, q25, q75, n = (
@@ -229,20 +223,6 @@ class Regressogram(BaseUtils):
 
         data = self._regressogram_result
 
-        if self.allow_negative_y == "auto":
-            data = data.with_columns(
-                [
-                    (pl.col("y_val").min() < 0)
-                    .over(self.over_cols)
-                    .alias("allow_neg_y_val")
-                ]
-            )
-
-        else:
-            data = data.with_columns(
-                [pl.lit(self.allow_negative_y).alias("allow_neg_y_val")]
-            )
-
         if self.ci:
             ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
             ci_exprs = [
@@ -253,9 +233,8 @@ class Regressogram(BaseUtils):
             ]
 
             data = data.with_columns(ci_exprs)
-            data = data.with_columns([self._neg_y_helper(col) for col in ci_cols])
 
-        cols_to_drop = ["allow_neg_y_val"]
+        cols_to_drop = []
 
         schema = data.collect_schema()
         cols_to_drop.extend([i for i in schema if i in ["x_var", "y_var"]])
@@ -315,27 +294,3 @@ class Regressogram(BaseUtils):
         )
 
         return lf.select("y_pred_rgram")
-
-    @staticmethod
-    def _neg_y_helper(col: str) -> pl.Expr:
-        """
-        Helper to set negative y values to null if not allowed.
-
-        Parameters
-        ----------
-        col : str
-            The column name to check.
-
-        Returns
-        -------
-        pl.Expr
-            The expression with negative values set to null if not allowed.
-        """
-        return (
-            pl.when(pl.col("allow_neg_y_val"))
-            .then(pl.col(col))
-            .when(pl.col(col) < 0)
-            .then(None)
-            .otherwise(pl.col(col))
-            .alias(col)
-        )
