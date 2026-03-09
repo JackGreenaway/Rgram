@@ -257,7 +257,7 @@ class KernelSmoother(BaseUtils):
 
         return self.transform()
 
-    def predict(self, x_new: Union[Sequence[float], pl.Series]) -> pl.LazyFrame:
+    def predict(self, x_new: Union[Sequence[float], pl.Series]) -> pl.Series:
         """
         Predict smooth values at new x points.
 
@@ -268,8 +268,8 @@ class KernelSmoother(BaseUtils):
 
         Returns
         -------
-        pl.LazyFrame
-            Predictions with columns ['x_eval', 'y_kernel'].
+        pl.Series
+            Predicted smooth values (same length as x_new).
         """
         if not hasattr(self, "_ks_result"):
             raise RuntimeError("Call fit() before predict().")
@@ -300,4 +300,4 @@ class KernelSmoother(BaseUtils):
             .sort(by="x_eval")
         )
 
-        return predictions
+        return predictions.select("y_kernel").collect().to_series()

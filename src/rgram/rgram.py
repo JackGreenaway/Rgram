@@ -270,7 +270,19 @@ class Regressogram(BaseUtils):
 
         return self.transform()
 
-    def predict(self, x: Union[Sequence[float], pl.Series]) -> pl.LazyFrame:
+    def predict(self, x: Union[Sequence[float], pl.Series]) -> pl.Series:
+        """Predict binned regression values at new x points.
+
+        Parameters
+        ----------
+        x : array-like or pl.Series
+            New x values at which to predict.
+
+        Returns
+        -------
+        pl.Series
+            Predicted values (same length as x).
+        """
         if not hasattr(self, "_bin_to_y"):
             raise RuntimeError("Call fit() before predict().")
 
@@ -284,4 +296,4 @@ class Regressogram(BaseUtils):
             how="left",
         )
 
-        return lf.select("y_pred_rgram")
+        return lf.select("y_pred_rgram").collect().to_series()

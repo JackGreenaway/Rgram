@@ -109,25 +109,26 @@ class TestKernelSmootherPredict:
     def test_predict_with_array(self, fitted_smoother):
         """Test predict with numpy array input."""
         x_new = np.array([1.0, 2.5, 5.0, 7.5, 9.0])
-        result = fitted_smoother.predict(x_new).collect()
+        result = fitted_smoother.predict(x_new)
 
         assert len(result) == 5
-        assert "x_eval" in result.columns
-        assert "y_kernel" in result.columns
+        assert isinstance(result, pl.Series)
 
     def test_predict_with_list(self, fitted_smoother):
         """Test predict with list input."""
         x_new = [1.0, 2.5, 5.0, 7.5, 9.0]
-        result = fitted_smoother.predict(x_new).collect()
+        result = fitted_smoother.predict(x_new)
 
         assert len(result) == 5
+        assert isinstance(result, pl.Series)
 
     def test_predict_with_series(self, fitted_smoother):
         """Test predict with Polars Series input."""
         x_new = pl.Series([1.0, 2.5, 5.0, 7.5, 9.0])
-        result = fitted_smoother.predict(x_new).collect()
+        result = fitted_smoother.predict(x_new)
 
         assert len(result) == 5
+        assert isinstance(result, pl.Series)
 
     def test_predict_before_fit_raises(self):
         """Test that predict before fit raises error."""
@@ -138,18 +139,18 @@ class TestKernelSmootherPredict:
     def test_predict_single_point(self, fitted_smoother):
         """Test predict with single point."""
         # Use a point that's in the middle of the data range
-        result = fitted_smoother.predict([5.0]).collect()
+        result = fitted_smoother.predict([5.0])
 
-        # Single point might return 0 if outside bandwidth of all training points
+        # Single point might return nan if outside bandwidth of all training points
         # Instead, test with multiple points and check one of them
-        result = fitted_smoother.predict([2.0, 5.0, 8.0]).collect()
-        assert len(result) >= 1  # At least one should have predictions
+        result = fitted_smoother.predict([2.0, 5.0, 8.0])
+        assert len(result) >= 1  # Should have predictions
 
     def test_predict_outside_range(self, fitted_smoother):
         """Test predict with points outside training range."""
         # Points slightly outside [0, 10] range should get predictions
         x_new = np.array([0.1, 9.9])
-        result = fitted_smoother.predict(x_new).collect()
+        result = fitted_smoother.predict(x_new)
 
         # Should return predictions (kernel is continuous)
         assert len(result) >= 1
@@ -157,10 +158,10 @@ class TestKernelSmootherPredict:
     def test_predict_results_are_numeric(self, fitted_smoother):
         """Test that predictions are numeric values."""
         x_new = np.array([2.0, 5.0, 8.0])
-        result = fitted_smoother.predict(x_new).collect()
+        result = fitted_smoother.predict(x_new)
 
-        assert result["y_kernel"].dtype in [pl.Float32, pl.Float64]
-        assert result["y_kernel"].null_count() == 0
+        assert result.dtype in [pl.Float32, pl.Float64]
+        assert result.null_count() == 0
 
 
 class TestKernelSmootherIntegration:
@@ -206,7 +207,7 @@ class TestKernelSmootherIntegration:
 
         # Get predict results at the same points
         eval_points = transform_result["x_eval"].to_list()
-        predict_result = smoother.predict(eval_points).collect()
+        predict_result = smoother.predict(eval_points)
 
         # Both should have same length
         assert len(transform_result) == len(predict_result)
@@ -215,7 +216,7 @@ class TestKernelSmootherIntegration:
         # but same bandwidth was used)
         corr = np.corrcoef(
             transform_result["y_kernel"].to_numpy(),
-            predict_result["y_kernel"].to_numpy(),
+            predict_result.to_numpy(),
         )[0, 1]
         assert corr > 0.95  # Should be highly correlated
 

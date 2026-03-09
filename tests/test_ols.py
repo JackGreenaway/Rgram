@@ -244,7 +244,7 @@ class TestPrediction:
         rgram = Regressogram()
         rgram.fit(data=df, x="x", y="y_noise")
 
-        pred = rgram.predict(x).collect()
+        pred = rgram.predict(x)
         assert len(pred) == len(x)
 
     def test_predict_with_new_x_values(self, sample_data):
@@ -253,10 +253,10 @@ class TestPrediction:
         rgram.fit(data=df, x="x", y="y_noise")
 
         new_x = np.array([0.0, 0.5, 1.0, 1.5])
-        pred = rgram.predict(new_x).collect()
+        pred = rgram.predict(new_x)
 
         assert len(pred) == len(new_x)
-        assert "y_pred_rgram" in pred.columns
+        assert isinstance(pred, pl.Series)
 
     def test_predict_with_polars_series(self, sample_data):
         df, x, y, y_noise = sample_data
@@ -264,9 +264,10 @@ class TestPrediction:
         rgram.fit(data=df, x="x", y="y_noise")
 
         x_series = pl.Series(x)
-        pred = rgram.predict(x_series).collect()
+        pred = rgram.predict(x_series)
 
         assert len(pred) == len(x)
+        assert isinstance(pred, pl.Series)
 
 
 class TestRegressogramKernelSmoothingPipeline:

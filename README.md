@@ -272,13 +272,13 @@ Output columns:
 
 Fit and return results in one step. Recommended for most use cases.
 
-**`predict(x: Union[Sequence[float], pl.Series]) -> pl.LazyFrame`**
+**`predict(x: Union[Sequence[float], pl.Series]) -> pl.Series`**
 
 Make predictions on new x values using the fitted binning scheme.
 
 - **x**: Array-like or `pl.Series` of new x points to predict
 
-Returns: `pl.LazyFrame` with columns `x_val` (input values) and `y_pred_rgram` (predicted values based on learned bins)
+Returns: `pl.Series` containing predicted values based on learned bins
 
 ---
 
@@ -336,13 +336,13 @@ Output columns:
 
 Fit and return results in one step.
 
-**`predict(x_new) -> pl.LazyFrame`**
+**`predict(x_new) -> pl.Series`**
 
 Apply the fitted smoother to new x values without refitting. Uses the bandwidth value determined during `fit()`.
 
 - **x_new**: Array-like or `pl.Series` of new x points
 
-Returns: `pl.LazyFrame` with columns `x_eval` and `y_kernel`
+Returns: `pl.Series` containing smoothed predictions
 
 **Note**: The bandwidth is determined once during `fit()` using the selected method and training data. `predict()` applies this same bandwidth to new points, ensuring consistent smoothing behavior. No refitting is required.
 
