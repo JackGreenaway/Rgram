@@ -10,8 +10,8 @@ def test_predict_returns_correct_length(sample_data):
     rgram.fit(data=df, x="x", y="y_noise")
     pred = rgram.predict(x=x)
 
+    assert isinstance(pred, np.ndarray)
     assert len(pred) == len(x)
-    assert isinstance(pred, pl.Series)
 
 
 def test_predict_before_fit_raises():
@@ -30,8 +30,8 @@ def test_predict_with_series(sample_data):
 
     # Use Polars Series as input
     pred = rgram.predict(pl.Series(x))
+    assert isinstance(pred, np.ndarray)
     assert len(pred) == len(x)
-    assert isinstance(pred, pl.Series)
 
 
 def test_predict_after_transform_consistency(sample_data):
@@ -42,7 +42,7 @@ def test_predict_after_transform_consistency(sample_data):
     pred = rgram.predict(x)
 
     # Predictions should correspond to values in transformed result
-    assert (pred.is_in(transformed["y_pred_rgram"].implode())).all()
+    assert (pl.Series(pred).is_in(transformed["y_pred_rgram"].implode())).all()
 
 
 def test_fit_with_numpy_arrays(sample_data):
@@ -67,8 +67,8 @@ def test_predict_with_numpy_array(sample_data):
     # Predict with numpy array
     pred = rgram.predict(x=x)
 
+    assert isinstance(pred, np.ndarray)
     assert len(pred) == len(x)
-    assert isinstance(pred, pl.Series)
 
 
 def test_fit_with_pandas_dataframe(sample_data):
@@ -113,8 +113,8 @@ def test_predict_with_numpy_list():
     # Predict with list
     pred = rgram.predict(x=[1.5, 2.5, 3.5])
 
+    assert isinstance(pred, np.ndarray)
     assert len(pred) == 3
-    assert isinstance(pred, pl.Series)
 
 
 def test_fit_and_predict_with_pandas_series(sample_data):
@@ -133,5 +133,26 @@ def test_fit_and_predict_with_pandas_series(sample_data):
     # Predict with pandas Series
     pred = rgram.predict(x=x_series)
 
+    assert isinstance(pred, np.ndarray)
     assert len(pred) == len(x)
-    assert isinstance(pred, pl.Series)
+
+
+def test_predict_with_return_ci(sample_data):
+    """Test that predict with return_ci=True returns tuple."""
+    df, x, y, y_noise = sample_data
+    rgram = Regressogram()  # With default CI settings
+    rgram.fit(data=df, x="x", y="y_noise")
+
+    # Without return_ci
+    pred = rgram.predict(x)
+    assert isinstance(pred, np.ndarray)
+
+    # With return_ci
+    result = rgram.predict(x, return_ci=True)
+    assert isinstance(result, tuple)
+    assert len(result) == 3
+    y_pred, y_ci_low, y_ci_high = result
+    assert isinstance(y_pred, np.ndarray)
+    if y_ci_low is not None:
+        assert isinstance(y_ci_low, np.ndarray)
+        assert isinstance(y_ci_high, np.ndarray)

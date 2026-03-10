@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import polars as pl
 from rgram.base import BaseUtils
 from typing import Callable, Literal, Sequence, Optional, Union, Any
@@ -10,29 +11,35 @@ class Regressogram(BaseUtils):
     Regressogram
 
     Binned regression estimator for one or more features and targets.
+    Predicts using binned aggregation with optional confidence intervals.
 
     Parameters
     ----------
-    binning : {'dist', 'width', 'unique', 'int'}, default='dist'
+    binning : {'dist', 'width', 'none', 'int'}, default='dist'
         Binning strategy.
     agg : callable, default=mean
         Aggregation function for y in each bin.
     ci : tuple of callables, optional
         Tuple of lower/upper confidence interval functions.
+    n_bins : int, optional
+        Number of bins for 'dist' binning. If None, automatically calculated
+        using Freedman-Diaconis rule. Ignored for other binning strategies.
 
     Methods
     -------
     fit(data, x, y, hue=None, keys=None)
-        Fit the regressogram to data.
-    transform()
-        Return the fitted regressogram results.
-    fit_transform(data, x, y, hue=None, keys=None)
-        Fit to data and return results.
+        Learn bin parameters from training data.
+    predict(x, return_ci=False)
+        Predict binned regression values at new x points.
+        Returns array or tuple with optional confidence intervals.
+    fit_predict(data, x, y, hue=None, keys=None, return_ci=False)
+        Fit and predict on training x values.
     """
 
     def __init__(
         self,
-        binning: Literal["dist", "width", "unique", "int"] = "dist",
+        *,
+        binning: Literal["dist", "width", "none", "int"] = "dist",
         agg: Callable[[pl.Expr], pl.Expr] = lambda x: x.mean(),
         ci: Optional[
             tuple[Callable[[pl.Expr], pl.Expr], Callable[[pl.Expr], pl.Expr]]
@@ -40,22 +47,27 @@ class Regressogram(BaseUtils):
             lambda x: x.mean() - x.std(),
             lambda x: x.mean() + x.std(),
         ),
+        n_bins: Optional[int] = None,
     ):
         """
         Construct a Regressogram instance.
 
         Parameters
         ----------
-        binning : {'dist', 'width', 'unique', 'int'}, default='dist'
+        binning : {'dist', 'width', 'none', 'int'}, default='dist'
             Binning strategy.
         agg : callable, default=mean
             Aggregation function for y in each bin.
         ci : tuple of callables, optional
             Tuple of lower/upper confidence interval functions.
+        n_bins : int, optional
+            Number of bins for 'dist' binning. If None, automatically calculated
+            using Freedman-Diaconis rule. Ignored for other binning strategies.
         """
         self.binning = binning
         self.agg = agg
         self.ci = ci
+        self.n_bins = n_bins
 
     def _learn_bin_params(self, data: pl.LazyFrame) -> None:
         x_min, x_max, q25, q75, n = (
@@ -73,7 +85,7 @@ class Regressogram(BaseUtils):
         self._x_min = x_min
         self._x_max = x_max
 
-        if self.binning in ("int", "unique"):
+        if self.binning in ("int", "none"):
             self._min_bin = x_min
             self._max_bin = x_max
 
@@ -85,8 +97,15 @@ class Regressogram(BaseUtils):
                 self._bin_width = 1.0
 
             if self.binning == "dist":
-                n_bins = max(1, int((x_max - x_min) // self._bin_width))
+                # Use user-specified n_bins or calculate from Freedman-Diaconis rule
+                if self.n_bins is not None:
+                    n_bins = max(1, self.n_bins)
+
+                else:
+                    n_bins = max(1, int((x_max - x_min) // self._bin_width))
+
                 self._n_bins = n_bins
+
                 self._min_bin = 0
                 self._max_bin = n_bins - 1
 
@@ -110,7 +129,9 @@ class Regressogram(BaseUtils):
             bin_id = (
                 pl.col("x_val")
                 .qcut(
-                    quantiles=self._n_bins, allow_duplicates=True, include_breaks=True
+                    quantiles=self._n_bins,
+                    allow_duplicates=True,
+                    include_breaks=True,
                 )
                 .struct.field("breakpoint")
                 .rank(method="dense")
@@ -120,7 +141,7 @@ class Regressogram(BaseUtils):
         elif self.binning == "int":
             bin_id = pl.col("x_val").cast(int)
 
-        elif self.binning == "unique":
+        elif self.binning == "none":
             return pl.col("x_val")
 
         else:
@@ -138,7 +159,7 @@ class Regressogram(BaseUtils):
         keys: Optional[Union[str, Sequence[Any]]] = None,
     ) -> "Regressogram":
         """
-        Fit the regressogram to the data.
+        Learn bin parameters from training data.
 
         Supports flexible input similar to seaborn (e.g., kdeplot):
         - Provide DataFrame + column names (recommended for production)
@@ -205,17 +226,30 @@ class Regressogram(BaseUtils):
             ]
         )
 
-        self._bin_to_y = data.select(["rgram_bin", "y_pred_rgram"]).unique().collect()
+        # Compute and store confidence intervals for each bin (if configured)
+        select_cols = ["rgram_bin", "y_pred_rgram"]
+        if self.ci:
+            ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
+            ci_exprs = [
+                ci_calc(pl.col("y_val").fill_null(pl.col("y_val").mean()))
+                .over(self.over_cols + ["rgram_bin"])
+                .alias(alias)
+                for ci_calc, alias in zip(self.ci, ci_cols)
+            ]
+            data = data.with_columns(ci_exprs)
+            select_cols.extend(ci_cols)
 
-        self._regressogram_result = data
+        self._bin_to_y = data.select(select_cols).unique().collect()
+        self._training_data = data.collect()
 
         return self
 
-    def transform(self) -> pl.LazyFrame:
-        if not hasattr(self, "_regressogram_result"):
-            raise RuntimeError("You must call fit() before transform().")
+    def _get_full_predictions(self) -> pl.DataFrame:
+        """Internal method to compute full predictions with all columns."""
+        if not hasattr(self, "_training_data"):
+            raise RuntimeError("You must call fit() before getting predictions.")
 
-        data = self._regressogram_result
+        data = self._training_data.lazy()
 
         if self.ci:
             ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
@@ -233,58 +267,44 @@ class Regressogram(BaseUtils):
         schema = data.collect_schema()
         cols_to_drop.extend([i for i in schema if i in ["x_var", "y_var"]])
 
-        return data.sort(by=["x_val"]).drop(cols_to_drop)
+        return data.sort(by=["x_val"]).drop(cols_to_drop).collect()
 
-    def fit_transform(
-        self,
-        x: Union[str, Sequence[Any]],
-        y: Union[str, Sequence[Any]],
-        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-        hue: Optional[Union[str, Sequence[str]]] = None,
-        keys: Optional[Union[str, Sequence[Any]]] = None,
-    ) -> pl.LazyFrame:
+    def transform(self) -> pl.LazyFrame:
         """
-        Fit and return results in one call (recommended).
+        Return the full binned regression results (for backward compatibility).
 
-        Supports flexible input similar to seaborn:
-        - Provide DataFrame + column names (recommended for production)
-        - Provide raw arrays/Series (convenient for exploration)
-
-        Parameters
-        ----------
-        x : str or array-like
-            Feature(s) to bin. Column name(s) if `data` provided, else array-like.
-        y : str or array-like
-            Target(s). Column name(s) if `data` provided, else array-like.
-        data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y/hue/keys are column names.
-            If None, x/y/keys are array-like.
-        hue : str or sequence of str, optional
-            Optional grouping variable(s).
-        keys : str or array-like, optional
-            Additional grouping column(s).
+        Returns full data with bin assignments and predictions.
 
         Returns
         -------
         pl.LazyFrame
-            The regressogram results. Call `.collect()` to materialize.
+            Full results including all columns. Call `.collect()` to materialize.
         """
-        self.fit(data=data, x=x, y=y, hue=hue, keys=keys)
+        return self._get_full_predictions().lazy()
 
-        return self.transform()
-
-    def predict(self, x: Union[Sequence[float], pl.Series]) -> pl.Series:
-        """Predict binned regression values at new x points.
+    def predict(
+        self, x: Union[Sequence[float], pl.Series], return_ci: bool = False
+    ) -> Union[np.ndarray, tuple]:
+        """
+        Predict binned regression values at new x points.
 
         Parameters
         ----------
         x : array-like or pl.Series
             New x values at which to predict.
+        return_ci : bool, default=False
+            If True, return confidence intervals along with predictions.
+            Returns tuple (y_pred, y_ci_low, y_ci_high).
+            If False, returns just the predictions array.
 
         Returns
         -------
-        pl.Series
-            Predicted values (same length as x).
+        np.ndarray or tuple
+            If return_ci=False: numpy array of predicted values (same length as x)
+            If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
+                y_pred: numpy array of predictions
+                y_ci_low: numpy array of lower CI or None if ci not configured
+                y_ci_high: numpy array of upper CI or None if ci not configured
         """
         if not hasattr(self, "_bin_to_y"):
             raise RuntimeError("Call fit() before predict().")
@@ -299,4 +319,69 @@ class Regressogram(BaseUtils):
             how="left",
         )
 
-        return lf.select("y_pred_rgram").collect().to_series()
+        result_df = lf.select("y_pred_rgram").collect()
+        y_pred = result_df["y_pred_rgram"].to_numpy()
+
+        if not return_ci:
+            return y_pred
+
+        # Retrieve pre-computed CIs from _bin_to_y (stored at fit time)
+        y_ci_low = None
+        y_ci_high = None
+
+        if self.ci:
+            ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
+            if ci_cols[0] in self._bin_to_y.columns:
+                ci_result = lf.select(
+                    ["y_pred_rgram_lci", "y_pred_rgram_uci"]
+                ).collect()
+                y_ci_low = ci_result["y_pred_rgram_lci"].to_numpy()
+                y_ci_high = ci_result["y_pred_rgram_uci"].to_numpy()
+
+        return y_pred, y_ci_low, y_ci_high
+
+    def fit_predict(
+        self,
+        x: Union[str, Sequence[Any]],
+        y: Union[str, Sequence[Any]],
+        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
+        hue: Optional[Union[str, Sequence[str]]] = None,
+        keys: Optional[Union[str, Sequence[Any]]] = None,
+        return_ci: bool = False,
+    ) -> Union[np.ndarray, tuple]:
+        """
+        Fit and predict on training x values in one call.
+
+        Parameters
+        ----------
+        x : str or array-like
+            Feature(s) to bin. Column name(s) if `data` provided, else array-like.
+        y : str or array-like
+            Target(s). Column name(s) if `data` provided, else array-like.
+        data : pl.DataFrame, pl.LazyFrame, or None, optional
+            Input data. If provided, x/y/hue/keys are column names.
+            If None, x/y/keys are array-like.
+        hue : str or sequence of str, optional
+            Optional grouping variable(s).
+        keys : str or array-like, optional
+            Additional grouping column(s).
+        return_ci : bool, default=False
+            If True, return confidence intervals along with predictions.
+
+        Returns
+        -------
+        np.ndarray or tuple
+            If return_ci=False: array of predictions at training x values
+            If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
+        """
+        self.fit(data=data, x=x, y=y, hue=hue, keys=keys)
+
+        # Get unique x values from training data for prediction
+        x_train = (
+            self._training_data.select("x_val")
+            .unique()
+            .sort("x_val")["x_val"]
+            .to_numpy()
+        )
+
+        return self.predict(x_train, return_ci=return_ci)

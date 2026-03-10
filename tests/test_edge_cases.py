@@ -35,9 +35,9 @@ def test_unknown_binning_raises(sample_data):
 
 
 def test_unique_binning_type(sample_data):
-    """Test 'unique' binning strategy uses each unique x value as a bin."""
+    """Test 'none' binning strategy uses each unique x value as a bin."""
     df, x, y, y_noise = sample_data
-    rgram = Regressogram(binning="unique")
+    rgram = Regressogram(binning="none")
     result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
 
     assert "y_pred_rgram" in result.columns

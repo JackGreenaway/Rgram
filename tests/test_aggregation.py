@@ -125,15 +125,15 @@ def test_aggregation_with_ci_lower_bound(sample_data):
 
 
 def test_aggregation_consistency_across_binning_strategies():
-    """Test that 'unique' binning strategy uses each unique x value as a bin."""
+    """Test that 'none' binning strategy uses each unique x value as a bin."""
     x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     y = np.array([10, 20, 30, 40, 50, 60, 70, 80, 90, 100], dtype=float)
 
-    # With 'unique' binning, each x value gets its own bin
-    rgram_unique = Regressogram(binning="unique", agg=lambda s: s.mean())
+    # With 'none' binning, each x value gets its own bin
+    rgram_unique = Regressogram(binning="none", agg=lambda s: s.mean())
     result_unique = rgram_unique.fit(x=x, y=y).transform().collect()
 
-    # With 'unique' binning, each x value should have a bin, so 10 unique values
+    # With 'none' binning, each x value should have a bin, so 10 unique values
     # Since y values match indices, predictions should equal y values
     assert len(result_unique) == len(x)
     assert "y_pred_rgram" in result_unique.columns

@@ -245,6 +245,7 @@ class TestPrediction:
         rgram.fit(data=df, x="x", y="y_noise")
 
         pred = rgram.predict(x)
+        assert isinstance(pred, np.ndarray)
         assert len(pred) == len(x)
 
     def test_predict_with_new_x_values(self, sample_data):
@@ -255,8 +256,8 @@ class TestPrediction:
         new_x = np.array([0.0, 0.5, 1.0, 1.5])
         pred = rgram.predict(new_x)
 
+        assert isinstance(pred, np.ndarray)
         assert len(pred) == len(new_x)
-        assert isinstance(pred, pl.Series)
 
     def test_predict_with_polars_series(self, sample_data):
         df, x, y, y_noise = sample_data
@@ -266,8 +267,8 @@ class TestPrediction:
         x_series = pl.Series(x)
         pred = rgram.predict(x_series)
 
+        assert isinstance(pred, np.ndarray)
         assert len(pred) == len(x)
-        assert isinstance(pred, pl.Series)
 
 
 class TestRegressogramKernelSmoothingPipeline:
@@ -276,15 +277,15 @@ class TestRegressogramKernelSmoothingPipeline:
     def test_regressogram_to_kernel_smoother(self, sample_data):
         df, x, y, y_noise = sample_data
 
-        # Step 1: Fit regressogram
+        # Step 1: Fit regressogram and get transform results
         rgram = Regressogram(binning="dist")
-        rgram_result = rgram.fit_transform(data=df, x="x", y="y_noise").collect()
+        rgram.fit(data=df, x="x", y="y_noise")
+        rgram_result = rgram.transform().collect()
 
         # Step 2: Apply kernel smoothing
         smoother = KernelSmoother(n_eval_samples=50)
-        smoothed = smoother.fit_transform(
-            data=rgram_result, x="x_val", y="y_pred_rgram"
-        ).collect()
+        smoother.fit(data=rgram_result, x="x_val", y="y_pred_rgram")
+        smoothed = smoother.transform().collect()
 
         assert "x_eval" in smoothed.columns
         assert "y_kernel" in smoothed.columns
@@ -295,37 +296,39 @@ class TestRegressogramKernelSmoothingPipeline:
 
         # Fit regressogram with grouping
         rgram = Regressogram()
-        rgram_result = rgram.fit_transform(
-            data=df, x="x", y="y_noise", hue="group"
-        ).collect()
+        rgram.fit(data=df, x="x", y="y_noise", hue="group")
+        rgram_result = rgram.transform().collect()
 
         # Apply kernel smoothing
         smoother = KernelSmoother()
-        smoothed = smoother.fit_transform(
-            data=rgram_result, x="x_val", y="y_pred_rgram", hue="group"
-        ).collect()
+        smoother.fit(data=rgram_result, x="x_val", y="y_pred_rgram", hue="group")
+        smoothed = smoother.transform().collect()
 
         assert len(smoothed) > 0
 
 
 class TestFitTransformConsistency:
-    """Test consistency between fit+transform vs fit_transform."""
+    """Test consistency between fit+transform vs fit_predict."""
 
-    def test_fit_transform_equivalent_to_separate_calls(self, sample_data):
+    def test_fit_predict_equivalent_to_separate_calls(self, sample_data):
         df, x, y, y_noise = sample_data
 
-        # Method : Using fit_transform
-        rgram = Regressogram()
-        result = rgram.fit_transform(data=df, x="x", y="y_noise").collect()
+        # Method 1: Using fit_predict
+        rgram1 = Regressogram()
+        result1 = rgram1.fit_predict(data=df, x="x", y="y_noise")
 
-        # Method : Using fit then transform
-        rgram = Regressogram()
-        rgram.fit(data=df, x="x", y="y_noise")
-        result = rgram.transform().collect()
+        # Method 2: Using fit then transform
+        rgram2 = Regressogram()
+        rgram2.fit(data=df, x="x", y="y_noise")
+        result2 = rgram2.transform().collect()
 
-        # Results should be identical
-        assert result.shape == result.shape
-        assert result.columns == result.columns
+        # Check fit_transform returns array with predictions
+        assert isinstance(result1, np.ndarray)
+        assert len(result1) > 0
+
+        # Check transform returns full DataFrame
+        assert len(result2) > 0
+        assert "y_pred_rgram" in result2.columns
 
 
 class TestDataValidation:

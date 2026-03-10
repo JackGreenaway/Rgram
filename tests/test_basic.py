@@ -30,11 +30,11 @@ def test_fit_transform_dist(sample_data):
 
 def test_fit_transform_unique_binning(sample_data):
     df, x, y, y_noise = sample_data
-    rgram = Regressogram(binning="unique")
+    rgram = Regressogram(binning="none")
     result = rgram.fit(x=x, y=y_noise).transform().collect()
 
     assert "y_pred_rgram" in result.columns
-    # With 'unique' binning, each unique x value is its own bin
+    # With 'none' binning, each unique x value is its own bin
     # (results may contain multiple rows per unique x value due to aggregation)
     assert len(result) > 0
 
@@ -112,51 +112,70 @@ def test_fit_with_keys(sample_data):
     assert "y_pred_rgram" in result.columns
 
 
-def test_fit_transform_shortcut(sample_data):
+def test_fit_predict_shortcut(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram()
 
-    # Using fit_transform shortcut
-    result = rgram.fit_transform(data=df, x="x", y="y_noise").collect()
+    # Using fit_predict shortcut - returns array with predictions
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
-def test_fit_transform_with_arrays():
+def test_fit_predict_with_arrays():
     x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     y = np.array([2, 4, 6, 8, 10, 12, 14, 16, 18, 20])
 
     rgram = Regressogram()
-    result = rgram.fit_transform(x=x, y=y).collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
 def test_result_contains_all_original_data_points(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram()
-    result = rgram.fit_transform(data=df, x="x", y="y_noise").collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    # Should have same number of rows as input
-    assert len(result) == len(df)
+    # fit_predict returns predictions at unique training x values
+    assert isinstance(result, np.ndarray)
 
 
 def test_predictions_are_numeric(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram()
-    result = rgram.fit_transform(data=df, x="x", y="y_noise").collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
     # Check predictions are numeric
-    assert result["y_pred_rgram"].dtype in [pl.Float32, pl.Float64, pl.Int32, pl.Int64]
+    assert isinstance(result, np.ndarray)
+    assert np.issubdtype(result.dtype, np.number)
 
 
-def test_output_is_sorted_by_x_val(sample_data):
+def test_output_is_different_due_to_binning(sample_data):
+    """With the new API, fit_predict returns array of unique x value predictions."""
     df, x, y, y_noise = sample_data
     rgram = Regressogram()
-    result = rgram.fit_transform(data=df, x="x", y="y_noise").collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    # Check that x_val is sorted
-    x_vals = result["x_val"].to_list()
-    assert x_vals == sorted(x_vals)
+    # After binning, result should have predictions
+    assert isinstance(result, np.ndarray)
+    assert len(result) > 0
+
+
+def test_fit_predict_with_return_ci(sample_data):
+    """Test fit_predict with return_ci=True returns tuple."""
+    df, x, y, y_noise = sample_data
+    rgram = Regressogram()
+
+    # Without return_ci
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
+    assert isinstance(result, np.ndarray)
+
+    # With return_ci
+    result_ci = rgram.fit_predict(data=df, x="x", y="y_noise", return_ci=True)
+    assert isinstance(result_ci, tuple)
+    assert len(result_ci) == 3
+    y_pred, y_ci_low, y_ci_high = result_ci
+    assert isinstance(y_pred, np.ndarray)

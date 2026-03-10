@@ -33,13 +33,13 @@
 
 ## Features
 
-- **Regressogram Analysis**: Multiple binning strategies (`dist`, `width`, `unique`, `int`) for flexible bin assignment
+- **Regressogram Analysis**: Multiple binning strategies (`dist`, `width`, `none`, `int`) for flexible bin assignment
 - **Confidence Intervals**: Customisable confidence interval computation via user-defined aggregation functions
 - **Kernel Smoothing**: Epanechnikov kernel smoother with flexible bandwidth selection (`silverman`, `scott`, `manual`)
 - **Predictions**: Apply fitted models to new data points via `predict()` method
 - **Grouped Analysis**: Support for grouping variables (hue) to analyse multiple subgroups simultaneously
 - **Polars Backend**: High-performance DataFrame operations using lazy evaluation
-- **Scikit-learn API**: Familiar `fit()`, `transform()`, and `fit_transform()` methods
+- **Scikit-learn API**: Familiar `fit()`, `predict()`, and `fit_predict()` methods
 - **Array-like or DataFrame Input**: Works seamlessly with Polars DataFrames or NumPy/Python arrays
 - **Composable Design**: Clean, focused API allows users to easily compose additional statistical methods
 
@@ -135,7 +135,7 @@ y = np.sin(x) + np.random.normal(0, 0.5, n)
 # Create and fit regressogram
 df = pl.DataFrame({"x": x, "y": y})
 rgram = Regressogram(binning="dist")
-result = rgram.fit_transform(data=df, x="x", y="y").collect()
+result = rgram.fit_predict(data=df, x="x", y="y")
 
 print(result.head())
 ```
@@ -147,7 +147,10 @@ from rgram import KernelSmoother
 
 # Apply kernel smoothing to regressogram output
 smoother = KernelSmoother(n_eval_samples=100)
-smoothed = smoother.fit_transform(data=result, x="x_val", y="y_pred_rgram").collect()
+smoothed_x = result  # result is now an array from fit_predict
+# To get the smoothed curve, we need to use predict on evaluation points
+eval_points = np.linspace(0, 10, 100)
+smoothed = smoother.fit(data=df, x="x", y="y").predict(eval_points)
 
 print(smoothed.head())
 ```
@@ -174,7 +177,7 @@ Rgram supports four binning methods:
 | `"dist"` (Default) | Distribution-based with Scott's bandwidth | General purpose, data-driven         | Fewer bins in sparse regions |
 | `"width"`          | Fixed bin width from data range           | When consistent bin sizes matter     | Equal-width bins             |
 | `"int"`            | Integer bin assignment                    | When x values are naturally discrete | Integer-indexed bins         |
-| `"unique"`         | Uses x values as unique bins              | Per-unique-value statistics          | One bin per unique x value   |
+| `"none"`           | Uses x values as unique bins              | Per-unique-value statistics          | One bin per unique x value   |
 
 ### Kernel Smoother Overview
 
@@ -232,16 +235,19 @@ The `Regressogram` class performs binned regression on one or more features and 
 
 ```python
 Regressogram(
-    binning: Literal["dist", "width", "all", "int"] = "dist",
+    binning: Literal["dist", "width", "none", "int"] = "dist",
     agg: Callable[[pl.Expr], pl.Expr] = lambda x: x.mean(),
-    ci: Optional[tuple[Callable, Callable]] = (lambda x: x.mean() - x.std(), lambda x: x.mean() + x.std()),)
+    ci: Optional[tuple[Callable, Callable]] = (lambda x: x.mean() - x.std(), lambda x: x.mean() + x.std()),
+    n_bins: Optional[int] = None,
+)
 ```
 
-| Parameter | Type               | Default                | Description                                                                                                                             |
-| --------- | ------------------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `binning` | str                | `"dist"`               | Binning strategy. Options: `"dist"` (distribution-based), `"width"` (fixed width), `"unique"` (unique x values), `"int"` (integer bins) |
-| `agg`     | callable           | `lambda x: x.mean()`   | Aggregation function to apply to y values within each bin. Must accept and return a Polars expression                                   |
-| `ci`      | tuple of callables | `(mean-std, mean+std)` | Tuple of functions for lower and upper confidence limit calculations. Set to `None` to disable                                          |
+| Parameter | Type               | Default                | Description                                                                                                                           |
+| --------- | ------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `binning` | str                | `"dist"`               | Binning strategy. Options: `"dist"` (distribution-based), `"width"` (fixed width), `"none"` (unique x values), `"int"` (integer bins) |
+| `agg`     | callable           | `lambda x: x.mean()`   | Aggregation function to apply to y values within each bin. Must accept and return a Polars expression                                 |
+| `ci`      | tuple of callables | `(mean-std, mean+std)` | Tuple of functions for lower and upper confidence limit calculations. Set to `None` to disable                                        |
+| `n_bins`  | int or None        | `None`                 | Number of bins for `"dist"` binning. If None, automatically calculated using Freedman-Diaconis rule. Ignored for other strategies     |
 
 #### Methods
 
@@ -268,9 +274,12 @@ Output columns:
 - `y_pred_rgram_lci`, `y_pred_rgram_uci`: Confidence interval bounds (if `ci` provided)
 - `y_val`: Original y values
 
-**`fit_transform(x, y, data=None, hue=None, keys=None) -> pl.LazyFrame`**
+**`fit_predict(x, y, data=None, hue=None, keys=None, return_ci=False) -> np.ndarray or tuple`**
 
-Fit and return results in one step. Recommended for most use cases.
+Fit and return predictions in one step.
+
+- Returns `np.ndarray` of predictions by default
+- Returns `(y_pred, y_ci_low, y_ci_high)` tuple when `return_ci=True`
 
 **`predict(x: Union[Sequence[float], pl.Series]) -> pl.Series`**
 
@@ -332,9 +341,12 @@ Output columns:
 - `x_eval`: Evaluation points
 - `y_kernel`: Kernel-smoothed y values
 
-**`fit_transform(x, y, data=None, hue=None) -> pl.LazyFrame`**
+**`fit_predict(x, y, data=None, hue=None, return_ci=False) -> np.ndarray or tuple`**
 
-Fit and return results in one step.
+Fit and return predictions in one step.
+
+- Returns `np.ndarray` of predictions by default
+- Returns `(y_pred, None, None)` when `return_ci=True` (CIs not yet implemented for kernel smoother)
 
 **`predict(x_new) -> pl.Series`**
 
@@ -371,12 +383,12 @@ df = pl.DataFrame({"x": x, "y_true": y_true, "y_noisy": y_noisy})
 # Fit regressogram with different binning strategies
 fig, axes = plt.subplots(2, 2, figsize=(12, 10))
 
-for ax, binning in zip(axes.flat, ["dist", "width", "int", "unique"]):
+for ax, binning in zip(axes.flat, ["dist", "width", "int", "none"]):
     rgram = Regressogram(
         binning=binning,
         ci=(lambda x: x.mean() - 1.96 * x.std(), lambda x: x.mean() + 1.96 * x.std())
     )
-    result = rgram.fit_transform(data=df, x="x", y="y_noisy").collect()
+    result = rgram.fit(data=df, x="x", y="y_noisy").transform().collect()
 
     ax.scatter(x, y_noisy, alpha=0.4, s=20, label="observations")
     ax.plot(x, y_true, "g-", linewidth=2, label="true function")
@@ -421,7 +433,7 @@ df = pl.DataFrame({"x": x, "y": y, "group": group})
 
 # Fit regressogram with grouping
 rgram = Regressogram(binning="dist")
-result = rgram.fit_transform(data=df, x="x", y="y", hue="group").collect()
+result = rgram.fit(data=df, x="x", y="y", hue="group").transform().collect()
 
 # Visualise
 fig, ax = plt.subplots(figsize=(10, 6))
@@ -454,13 +466,13 @@ df = pl.DataFrame({"x": x, "y": y})
 
 # Step 1: Fit regressogram
 rgram = Regressogram(binning="dist", ci=None)  # No CI for clarity
-rgram_result = rgram.fit_transform(data=df, x="x", y="y").collect()
+rgram_result = rgram.fit(data=df, x="x", y="y").transform().collect()
 
 # Step 2: Smooth the regressogram predictions
 smoother = KernelSmoother(n_eval_samples=200)
-smoothed = smoother.fit_transform(
+smoothed = smoother.fit(
     data=rgram_result, x="x_val", y="y_pred_rgram"
-).collect()
+).transform().collect()
 
 # Visualisation
 fig, ax = plt.subplots(figsize=(12, 6))
@@ -501,7 +513,7 @@ rgram_median = Regressogram(
         lambda x: x.quantile(0.75)
     )
 )
-result = rgram_median.fit_transform(data=df, x="x", y="y").collect()
+result = rgram_median.fit(data=df, x="x", y="y").transform().collect()
 
 print("Regressogram with median aggregation:")
 print(result.select(["x_val", "y_pred_rgram", "y_pred_rgram_lci", "y_pred_rgram_uci"]).head())
@@ -523,7 +535,7 @@ print(result.select(["x_val", "y_pred_rgram", "y_pred_rgram_lci", "y_pred_rgram_
 rgram = Regressogram(binning="dist")
 # Automatically creates wider bins for underrepresented ages
 # Handles duplicate ages gracefully
-result = rgram.fit_transform(data=df, x="age", y="purchase_amount").collect()
+result = rgram.fit(data=df, x="age", y="purchase_amount").transform().collect()
 ```
 
 **Fixed-width binning (`"width"`)**
@@ -536,7 +548,7 @@ result = rgram.fit_transform(data=df, x="age", y="purchase_amount").collect()
 ```python
 rgram = Regressogram(binning="width")
 # Creates consistent income brackets, though some may be nearly empty
-result = rgram.fit_transform(data=df, x="annual_income", y="credit_score").collect()
+result = rgram.fit(data=df, x="annual_income", y="credit_score").transform().collect()
 ```
 
 **Integer binning (`"int"`)**
@@ -547,21 +559,50 @@ result = rgram.fit_transform(data=df, x="annual_income", y="credit_score").colle
 
 ```python
 rgram = Regressogram(binning="int")
-result = rgram.fit_transform(data=df, x="product_rating", y="num_reviews").collect()
+result = rgram.fit(data=df, x="product_rating", y="num_reviews").transform().collect()
 ```
 
-**Unique value binning (`"unique"`)**
+**No binning / Unique values (`"none"`)**
 
 - Treats each unique x value as its own independent bin
 - **Best for**: Computing statistics at each unique x value without binning across x values
 - **Use case**: When x is already categorical or when you want predictions for each exact x value
 
 ```python
-rgram = Regressogram(binning="unique", agg=lambda x: x.mean())
-result = rgram.fit_transform(data=df, x="x_col", y="target").collect()
+rgram = Regressogram(binning="none", agg=lambda x: x.mean())
+result = rgram.fit(data=df, x="x_col", y="target").transform().collect()
 # Result has one row per unique x value with its corresponding y statistic
 # No binning/grouping across different x values occurs
 ```
+
+### Controlling Bin Count for Distribution-Based Binning
+
+By default, `"dist"` binning uses the **Freedman-Diaconis rule** to automatically determine the number of bins based on data distribution. You can override this with the `n_bins` parameter:
+
+```python
+from rgram import Regressogram
+
+# Automatic (default) - Freedman-Diaconis rule
+rgram_auto = Regressogram(binning="dist")
+
+# Manual control - specify exact number of bins
+rgram_5_bins = Regressogram(binning="dist", n_bins=5)
+rgram_20_bins = Regressogram(binning="dist", n_bins=20)
+
+# Fit and compare
+result_auto = rgram_auto.fit(data=df, x="x", y="y").transform().collect()
+result_5 = rgram_5_bins.fit(data=df, x="x", y="y").transform().collect()
+result_20 = rgram_20_bins.fit(data=df, x="x", y="y").transform().collect()
+
+# Fewer bins (5) = smoother, coarser estimate
+# More bins (20) = more detailed, but noisier estimate
+```
+
+**When to set custom `n_bins`**:
+
+- You know optimal bin count from domain knowledge
+- You want coarser or finer granularity than automatic selection provides
+- The `n_bins` parameter is ignored for `"width"`, `"int"`, and `"none"` binning strategies
 
 ### Custom Aggregation Functions
 
@@ -583,7 +624,7 @@ rgram_count = Regressogram(
 # Standard deviation
 rgram_std = Regressogram(agg=lambda x: x.std())
 
-result = rgram_count.fit_transform(data=df, x="x", y="dummy_col").collect()
+result = rgram_count.fit(data=df, x="x", y="dummy_col").transform().collect()
 # y_pred_rgram now contains bin counts
 ```
 
@@ -596,12 +637,12 @@ from rgram import Regressogram
 import polars as pl
 
 # Sales by region
-result = Regressogram(binning="dist").fit_transform(
+result = Regressogram(binning="dist").fit(
     data=sales_df,
     x="time_of_week",
     y="revenue",
     hue="region"  # Analyse each region separately
-).collect()
+).transform().collect()
 
 # Output includes a "region" column; group results show region-specific trends
 for region in result["region"].unique():
@@ -633,7 +674,7 @@ df = pl.DataFrame({
 
 # Reference columns by name (like seaborn.kdeplot)
 rgram = Regressogram()
-result = rgram.fit_transform(data=df, x="age", y="salary").collect()
+result = rgram.fit(data=df, x="age", y="salary").transform().collect()
 ```
 
 **Pattern 2: Raw Arrays/Series** (Best for quick analysis, interactive work)
@@ -647,7 +688,7 @@ y = np.array([50000, 55000, 60000, 70000, 80000])
 
 # Pass arrays directly without a DataFrame (like seaborn.kdeplot with just x=)
 rgram = Regressogram()
-result = rgram.fit_transform(x=x, y=y).collect()
+result = rgram.fit(x=x, y=y).transform().collect()
 ```
 
 **Pattern 3: Mixed with Polars Series**
@@ -662,18 +703,18 @@ df = pl.DataFrame({
 })
 
 # Use Series directly without wrapping in DataFrame
-result = rgram.fit_transform(x=df["age"], y=df["salary"]).collect()
+result = rgram.fit(x=df["age"], y=df["salary"]).transform().collect()
 ```
 
 **Pattern 4: Multiple features/targets**
 
 ```python
 # Multiple x columns (analysed as separate x-y pair combinations)
-result = rgram.fit_transform(
+result = rgram.fit(
     data=df,
     x=["age", "experience"],
     y="salary"
-).collect()
+).transform().collect()
 # Creates separate results for each x-y feature pair
 ```
 

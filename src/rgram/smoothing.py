@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import polars as pl
 import polars_ols as pls  # noqa: F401
 
@@ -13,11 +14,12 @@ class KernelSmoother(BaseUtils):
     KernelSmoother
 
     Epanechnikov kernel regression smoother for one-dimensional data.
+    Predicts smooth values with optional confidence intervals.
 
     Parameters
     ----------
     n_eval_samples : int, default=100
-        Number of evaluation points for the smoother.
+        Number of evaluation points for the smoother during fit_predict.
     bandwidth : {'silverman', 'scott', 'manual'}, default='silverman'
         Bandwidth selection method.
         - 'silverman': Silverman's rule of thumb (0.9 * min(std, IQR/1.34) * n^(-1/5))
@@ -29,13 +31,12 @@ class KernelSmoother(BaseUtils):
     Methods
     -------
     fit(data, x, y, hue=None)
-        Fit the kernel smoother to the data.
-    transform()
-        Return the kernel smoothed results after fitting.
-    fit_transform(data, x, y, hue=None)
-        Fit to data, then return the kernel smoothed results.
-    predict(x_new)
-        Predict on new data points.
+        Learn smoothing parameters from training data.
+    predict(x_new, return_ci=False)
+        Predict smooth values at new x points.
+        Returns array or tuple with optional confidence intervals.
+    fit_predict(data, x, y, hue=None, return_ci=False)
+        Fit and predict at n_eval_samples evaluation points.
     """
 
     def __init__(
@@ -227,15 +228,16 @@ class KernelSmoother(BaseUtils):
 
         return self._ks_result
 
-    def fit_transform(
+    def fit_predict(
         self,
         data: Union[pl.DataFrame, pl.LazyFrame],
         x: Union[str, Sequence[Any]],
         y: Union[str, Sequence[Any]],
         hue: Optional[Sequence[str]] = None,
-    ) -> pl.LazyFrame:
+        return_ci: bool = False,
+    ) -> Union[np.ndarray, tuple]:
         """
-        Fit and return results in one call (recommended).
+        Fit and predict at evaluation points in one call.
 
         Parameters
         ----------
@@ -247,17 +249,25 @@ class KernelSmoother(BaseUtils):
             Target column. Column name if `data` provided, else array-like.
         hue : sequence of str, optional
             Optional grouping variable(s).
+        return_ci : bool, default=False
+            If True, return confidence intervals along with predictions.
 
         Returns
         -------
-        pl.LazyFrame
-            The kernel smoothed results. Call `.collect()` to materialize.
+        np.ndarray or tuple
+            If return_ci=False: array of predictions at evaluation points
+            If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
         """
         self.fit(data=data, x=x, y=y, hue=hue)
 
-        return self.transform()
+        # Get evaluation x values from the fitted smoother
+        x_eval = self._ks_result.select("x_eval").collect()["x_eval"].to_numpy()
 
-    def predict(self, x_new: Union[Sequence[float], pl.Series]) -> pl.Series:
+        return self.predict(x_eval, return_ci=return_ci)
+
+    def predict(
+        self, x_new: Union[Sequence[float], pl.Series], return_ci: bool = False
+    ) -> Union[np.ndarray, tuple]:
         """
         Predict smooth values at new x points.
 
@@ -265,11 +275,16 @@ class KernelSmoother(BaseUtils):
         ----------
         x_new : array-like or pl.Series
             New x values at which to predict.
+        return_ci : bool, default=False
+            If True, return confidence intervals along with predictions.
+            Note: Currently, KernelSmoother returns None for CIs.
 
         Returns
         -------
-        pl.Series
-            Predicted smooth values (same length as x_new).
+        np.ndarray or tuple
+            If return_ci=False: numpy array of predictions (same length as x_new)
+            If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
+                y_ci_low and y_ci_high are None (not yet implemented for kernel smoother)
         """
         if not hasattr(self, "_ks_result"):
             raise RuntimeError("Call fit() before predict().")
@@ -298,6 +313,14 @@ class KernelSmoother(BaseUtils):
             )
             .rename({"x_new": "x_eval"})
             .sort(by="x_eval")
+            .collect()
         )
 
-        return predictions.select("y_kernel").collect().to_series()
+        y_pred = predictions["y_kernel"].to_numpy()
+
+        if not return_ci:
+            return y_pred
+
+        # For kernel smoother, confidence intervals would require bootstrap or analytically computed
+        # Currently not implemented, return None
+        return y_pred, None, None
