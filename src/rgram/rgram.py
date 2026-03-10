@@ -109,7 +109,10 @@ class Regressogram(BaseUtils):
         elif self.binning == "dist":
             bin_id = (
                 pl.col("x_val")
-                .qcut(quantiles=self._n_bins, allow_duplicates=True)
+                .qcut(
+                    quantiles=self._n_bins, allow_duplicates=True, include_breaks=True
+                )
+                .struct.field("breakpoint")
                 .rank(method="dense")
                 .cast(int)
             )
