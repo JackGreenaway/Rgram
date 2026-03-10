@@ -1,0 +1,4 @@
+# file: /home/jack/Documents/Projects/Rgram/src/rgram/smoothing.py
+# hypothesis_version: 6.141.1
+
+[0.25, 0.75, 0.9, 1.06, 1.34, 100, '_ks_result', '_right', 'cross', 'h', 'manual', 'scott', 'silverman', 'u', 'weight', 'x_eval', 'x_new', 'y_kernel']

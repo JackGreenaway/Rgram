@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import polars as pl
-import polars_ols as pls  # noqa: F401
 
 from typing import Sequence, Optional, Union, Any, Type, List, cast
 
@@ -145,6 +144,8 @@ class BaseUtils:
         ------
         ValueError
             If input is a string (column name) when data=None, or if not array-like.
+        TypeError
+            If input is a dict (not allowed) or contains complex numbers.
         """
         if isinstance(input_data, str):
             raise ValueError(
@@ -152,10 +153,29 @@ class BaseUtils:
                 "When data=None, provide array-like values, not column names."
             )
 
+        if isinstance(input_data, dict):
+            raise TypeError(
+                f"Dictionary input is not supported for {col_prefix}. "
+                "Provide array-like values (list, ndarray, Series) instead."
+            )
+
         if not BaseUtils._is_array_like(input_data):
             raise ValueError(
                 f"Input must be array-like (e.g., list, ndarray, Series), got {type(input_data).__name__}."
             )
+
+        # Check for complex numbers
+        try:
+            import numpy as np
+
+            arr = np.asarray(input_data)
+            if np.iscomplexobj(arr):
+                raise TypeError(f"Complex numbers are not supported in {col_prefix}")
+        except TypeError:
+            raise
+        except Exception:
+            # If numpy check fails, let it pass and catch later in Polars
+            pass
 
         df_dict[col_prefix] = input_data
         return col_prefix

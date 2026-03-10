@@ -1,0 +1,4 @@
+# file: /home/jack/Documents/Projects/Rgram/src/rgram/rgram.py
+# hypothesis_version: 6.141.1
+
+[0.25, 0.75, 1.0, 'Regressogram', '_bin_to_y', '_training_data', 'breakpoint', 'dense', 'dist', 'int', 'left', 'max', 'min', 'none', 'q25', 'q75', 'rgram_bin', 'width', 'x_val', 'x_var', 'y_pred_rgram', 'y_pred_rgram_lci', 'y_pred_rgram_uci', 'y_val', 'y_var']

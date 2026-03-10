@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import numpy as np
 import polars as pl
-import polars_ols as pls  # noqa: F401
 
 from rgram.base import BaseUtils
 from typing import Sequence, Union, Optional, Any, Literal
@@ -160,6 +159,13 @@ class KernelSmoother(BaseUtils):
         self : object
             Fitted estimator.
         """
+        # Validate bandwidth parameter
+        valid_bandwidths = ("silverman", "scott", "manual")
+        if self.bandwidth not in valid_bandwidths:
+            raise ValueError(
+                f"bandwidth must be one of {valid_bandwidths}, got '{self.bandwidth}'"
+            )
+
         # Prepare data: convert arrays to DataFrame if needed
         data_lf, x_cols, y_cols, _ = self._prepare_data(data=data, x=x, y=y, keys=None)
 
@@ -289,8 +295,21 @@ class KernelSmoother(BaseUtils):
         if not hasattr(self, "_ks_result"):
             raise RuntimeError("Call fit() before predict().")
 
+        # Validate input type
+        try:
+            # Try to convert to numeric array
+            if isinstance(x_new, pl.Series):
+                x_array = x_new.to_numpy()
+            else:
+                x_array = np.asarray(x_new)
+            # Check if numeric
+            if not np.issubdtype(x_array.dtype, np.number):
+                raise TypeError(f"x_new must be numeric, got {x_array.dtype}")
+        except (ValueError, TypeError) as e:
+            raise TypeError(f"x_new must contain numeric values, got: {e}")
+
         # Create prediction dataframe directly from input
-        pred_df = pl.DataFrame({self._x_col: x_new}).lazy()
+        pred_df = pl.DataFrame({self._x_col: x_array}).lazy()
 
         # Use the bandwidth learned during fit
         bw = pl.lit(self._bw_value).alias("h")

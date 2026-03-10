@@ -2168,6 +2168,9 @@ name = "rgram"
 version = "0.2.4"
 source = { editable = "." }
 dependencies = [
+    { name = "numpy", version = "2.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
+    { name = "numpy", version = "2.3.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "polars" },
     { name = "typing-extensions" },
 ]
@@ -2192,6 +2195,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "numpy", specifier = ">=2.0.2" },
     { name = "polars", specifier = ">=1.28.1" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
 ]

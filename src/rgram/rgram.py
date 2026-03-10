@@ -64,6 +64,10 @@ class Regressogram(BaseUtils):
             Number of bins for 'dist' binning. If None, automatically calculated
             using Freedman-Diaconis rule. Ignored for other binning strategies.
         """
+        # Validate agg is callable
+        if not callable(agg):
+            raise TypeError(f"agg must be callable, got {type(agg).__name__}")
+
         self.binning = binning
         self.agg = agg
         self.ci = ci
@@ -184,6 +188,19 @@ class Regressogram(BaseUtils):
         self : object
             Fitted estimator.
         """
+        # Validate ci is None or tuple of exactly 2 callables
+        if self.ci is not None:
+            if not isinstance(self.ci, tuple):
+                raise TypeError(
+                    f"ci must be None or tuple, got {type(self.ci).__name__}"
+                )
+            if len(self.ci) != 2:
+                raise ValueError(
+                    f"ci tuple must have exactly 2 elements, got {len(self.ci)}"
+                )
+            if not all(callable(c) for c in self.ci):
+                raise TypeError("All elements in ci tuple must be callable")
+
         data_lf, x_cols, y_cols, keys_cols = self._prepare_data(
             data=data, x=x, y=y, keys=keys
         )
@@ -210,6 +227,20 @@ class Regressogram(BaseUtils):
             .filter(pl.col("x_var") != pl.col("y_var"))
             .with_columns([pl.col("y_val").cast(float)])
         )
+
+        # Validate that x and y don't contain complex numbers (check after initial processing)
+        try:
+            sample = data.select(["x_val", "y_val"]).limit(1).collect()
+            for col in ["x_val", "y_val"]:
+                if col in sample.columns:
+                    dtype = sample[col].dtype
+                    if "complex" in str(dtype).lower():
+                        raise TypeError(f"Complex numbers are not supported in {col}")
+        except TypeError:
+            raise
+        except Exception:
+            # If we can't check dtype early, it will fail later
+            pass
 
         # learn bin parameters and assign bins
         self._learn_bin_params(data)
@@ -262,12 +293,24 @@ class Regressogram(BaseUtils):
 
             data = data.with_columns(ci_exprs)
 
+        # Collect once to check columns and decide what to drop
+        collected = data.collect()
         cols_to_drop = []
 
-        schema = data.collect_schema()
-        cols_to_drop.extend([i for i in schema if i in ["x_var", "y_var"]])
+        schema = collected.schema
+        # Only drop x_var and y_var if there's only one unique value
+        # (they add no information in that case). Keep them for multi-feature/multi-target cases.
+        if "x_var" in schema:
+            unique_x_count = collected["x_var"].n_unique()
+            if unique_x_count <= 1:
+                cols_to_drop.append("x_var")
 
-        return data.sort(by=["x_val"]).drop(cols_to_drop).collect()
+        if "y_var" in schema:
+            unique_y_count = collected["y_var"].n_unique()
+            if unique_y_count <= 1:
+                cols_to_drop.append("y_var")
+
+        return collected.drop(cols_to_drop).sort(by=["x_val"])
 
     def transform(self) -> pl.LazyFrame:
         """

@@ -1,0 +1,4 @@
+# file: /home/jack/Documents/Projects/Rgram/src/rgram/__init__.py
+# hypothesis_version: 6.141.1
+
+['KernelSmoother', 'Regressogram']
