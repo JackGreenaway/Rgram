@@ -1,4 +1,0 @@
-# file: /home/jack/Documents/Projects/Rgram/src/rgram/base.py
-# hypothesis_version: 6.141.1
-
-['__getitem__', '__len__', 'hue', 'keys', 'x', 'y']

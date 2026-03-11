@@ -397,8 +397,12 @@ class Regressogram(BaseUtils):
             ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
             if ci_cols[0] in self._bin_to_y.columns:
                 ci_result = lf.select(
-                    ["y_pred_rgram_lci", "y_pred_rgram_uci"]
+                    [
+                        "y_pred_rgram_lci",
+                        "y_pred_rgram_uci",
+                    ]
                 ).collect()
+
                 y_ci_low = ci_result["y_pred_rgram_lci"].to_numpy()
                 y_ci_high = ci_result["y_pred_rgram_uci"].to_numpy()
 
