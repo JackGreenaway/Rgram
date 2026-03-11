@@ -256,7 +256,7 @@ class TestKernelSmootherErrorHandling:
 
         try:
             result = smoother.fit(data=df, x="x", y="y")
-            transform_result = result.transform().collect()
+            _transform_result = result.transform().collect()
             # Should have at least some output or raise
         except (ValueError, Exception):
             # Expected - 0 samples may not be valid

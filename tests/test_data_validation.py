@@ -90,33 +90,29 @@ class TestBaseUtilsDataValidation:
         """Test prepare_data with DataFrame."""
         df = pl.DataFrame({"feature": [1, 2, 3], "target": [10, 20, 30]})
         utils = BaseUtils()
-        lf, x_col, y_col, keys_col = utils._prepare_data(
-            data=df, x="feature", y="target"
-        )
+        lf, x_col, y_col = utils._prepare_data(data=df, x="feature", y="target")
 
         assert isinstance(lf, pl.LazyFrame)
         assert x_col == "feature"
         assert y_col == "target"
-        assert keys_col is None
 
     def test_prepare_data_with_arrays(self):
         """Test prepare_data with array inputs."""
         utils = BaseUtils()
         x = [1, 2, 3]
         y = [4, 5, 6]
-        lf, x_col, y_col, keys_col = utils._prepare_data(data=None, x=x, y=y)
+        lf, x_col, y_col = utils._prepare_data(data=None, x=x, y=y)
 
         assert isinstance(lf, pl.LazyFrame)
         assert x_col == "x"
         assert y_col == "y"
-        assert keys_col is None
 
     def test_prepare_data_converts_to_dataframe_content(self):
         """Test that prepare_data actually creates proper DataFrame."""
         utils = BaseUtils()
         x = np.array([1.0, 2.0, 3.0])
         y = np.array([4.0, 5.0, 6.0])
-        lf, _, _, _ = utils._prepare_data(data=None, x=x, y=y)
+        lf, _, _ = utils._prepare_data(data=None, x=x, y=y)
 
         df = lf.collect()
         assert "x" in df.columns
@@ -128,7 +124,7 @@ class TestBaseUtilsDataValidation:
         df = pl.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
         lf_input = df.lazy()
         utils = BaseUtils()
-        lf, x_col, y_col, _ = utils._prepare_data(data=lf_input, x="x", y="y")
+        lf, x_col, y_col = utils._prepare_data(data=lf_input, x="x", y="y")
 
         assert isinstance(lf, pl.LazyFrame)
         assert x_col == "x"

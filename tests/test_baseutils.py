@@ -117,19 +117,18 @@ def test_prepare_data_with_arrays_no_keys():
     utils = BaseUtils()
     x = [1, 2, 3]
     y = [4, 5, 6]
-    lf, x_col, y_col, keys_col = utils._prepare_data(x, y, data=None)
+    lf, x_col, y_col = utils._prepare_data(x, y, data=None)
 
     assert isinstance(lf, pl.LazyFrame)
     assert x_col == "x"
     assert y_col == "y"
-    assert keys_col is None
 
 
 def test_prepare_data_with_lazyframe():
     df = pl.DataFrame({"x": [1, 2], "y": [3, 4]})
     lf_input = df.lazy()
     utils = BaseUtils()
-    lf, x_col, y_col, keys_col = utils._prepare_data("x", "y", data=lf_input)
+    lf, x_col, y_col = utils._prepare_data("x", "y", data=lf_input)
 
     assert isinstance(lf, pl.LazyFrame)
     assert x_col == "x"
@@ -140,7 +139,7 @@ def test_prepare_data_with_numpy_arrays():
     utils = BaseUtils()
     x = np.array([1, 2, 3])
     y = np.array([4, 5, 6])
-    lf, x_col, y_col, keys_col = utils._prepare_data(x, y, data=None)
+    lf, x_col, y_col = utils._prepare_data(x, y, data=None)
 
     assert isinstance(lf, pl.LazyFrame)
     assert x_col == "x"
@@ -152,7 +151,7 @@ def test_prepare_data_collected_dataframe_content():
     utils = BaseUtils()
     x = [1, 2, 3]
     y = [10, 20, 30]
-    lf, x_col, y_col, _ = utils._prepare_data(x, y, data=None)
+    lf, x_col, y_col = utils._prepare_data(x, y, data=None)
 
     df = lf.collect()
     assert list(df[x_col]) == x
@@ -163,7 +162,7 @@ def test_prepare_data_with_multiple_column_names():
     """Test that multiple column names are handled."""
     df = pl.DataFrame({"x1": [1, 2], "x2": [3, 4], "y1": [5, 6], "y2": [7, 8]})
     utils = BaseUtils()
-    lf, x_cols, y_cols, _ = utils._prepare_data(["x1", "x2"], ["y1", "y2"], data=df)
+    lf, x_cols, y_cols = utils._prepare_data(["x1", "x2"], ["y1", "y2"], data=df)
 
     assert isinstance(lf, pl.LazyFrame)
     assert x_cols == ["x1", "x2"]

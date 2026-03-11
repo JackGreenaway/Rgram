@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import polars as pl
 
-from typing import Sequence, Optional, Union, Any, Type, List, cast
+from typing import Sequence, Optional, Union, Any, Type
 
 
 class BaseUtils:
@@ -185,7 +185,6 @@ class BaseUtils:
         pl.LazyFrame,
         Union[str, Sequence[str]],
         Union[str, Sequence[str]],
-        None,
     ]:
         """
         Prepare and normalize data for analysis (similar to seaborn API).
@@ -234,4 +233,4 @@ class BaseUtils:
 
             data = pl.DataFrame(df_dict)
 
-        return data.lazy(), x, y, None
+        return data.lazy(), x, y

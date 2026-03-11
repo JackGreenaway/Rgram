@@ -3,7 +3,6 @@ Performance and stress tests.
 Tests for scaling, memory efficiency, and robustness under load.
 """
 
-import pytest
 import numpy as np
 import polars as pl
 from rgram.rgram import Regressogram

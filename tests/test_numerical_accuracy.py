@@ -3,7 +3,6 @@ Numerical stability and accuracy tests.
 Tests for precise numerical behavior, edge cases, and consistency.
 """
 
-import pytest
 import numpy as np
 import polars as pl
 from rgram.rgram import Regressogram

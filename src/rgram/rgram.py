@@ -218,7 +218,7 @@ class Regressogram(BaseUtils):
             if not all(callable(c) for c in self.ci):
                 raise TypeError("All elements in ci tuple must be callable")
 
-        data_lf, x_cols, y_cols, _ = self._prepare_data(data=data, x=x, y=y)
+        data_lf, x_cols, y_cols = self._prepare_data(data=data, x=x, y=y)
 
         x_list = self._to_list(x_cols) or [x_cols]
         y_list = self._to_list(y_cols) or [y_cols]

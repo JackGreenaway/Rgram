@@ -241,7 +241,7 @@ class TestCrossValidationWorkflows:
         # Split data
         split_idx = 80
         x_train, x_test = x_all[:split_idx], x_all[split_idx:]
-        y_train, y_test = y_all[:split_idx], y_all[split_idx:]
+        y_train, _y_test = y_all[:split_idx], y_all[split_idx:]
 
         # Fit on training data
         rgram = Regressogram()

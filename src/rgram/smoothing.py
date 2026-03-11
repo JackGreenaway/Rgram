@@ -161,7 +161,7 @@ class KernelSmoother(BaseUtils):
             )
 
         # Prepare data: convert arrays to DataFrame if needed
-        data_lf, x_cols, y_cols, _ = self._prepare_data(data=data, x=x, y=y)
+        data_lf, x_cols, y_cols = self._prepare_data(data=data, x=x, y=y)
 
         # Extract first column name from x/y (single feature/target for KernelSmoother)
         x_col = x_cols if isinstance(x_cols, str) else x_cols[0]

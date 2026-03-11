@@ -70,8 +70,8 @@ def test_custom_ci_functions(sample_data):
     df, x, y, y_noise = sample_data
 
     # Use quantiles as CI bounds
-    ci_lower = lambda x: x.quantile(0.05)
-    ci_upper = lambda x: x.quantile(0.95)
+    ci_lower = lambda x: x.quantile(0.05)  # noqa: E731
+    ci_upper = lambda x: x.quantile(0.95)  # noqa: E731
 
     rgram = Regressogram(ci=(ci_lower, ci_upper))
     result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
