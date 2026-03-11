@@ -70,48 +70,6 @@ def test_fit_multiple_x_columns(sample_data):
     assert len(result) == len(df) * 2  # One result per input data point per x column
 
 
-def test_fit_with_hue(sample_data):
-    df, x, y, y_noise = sample_data
-    # Create a categorical hue
-    df = df.with_columns((pl.arange(0, df.height) % 2).alias("group"))
-    rgram = Regressogram()
-    result = rgram.fit(data=df, x="x", y="y_noise", hue="group").transform().collect()
-
-    assert "y_pred_rgram" in result.columns
-    assert "group" in result.columns
-
-
-def test_fit_with_multiple_hues(sample_data):
-    df, x, y, y_noise = sample_data
-    df = df.with_columns(
-        [
-            (pl.arange(0, df.height) % 2).alias("group1"),
-            (pl.arange(0, df.height) % 3).alias("group2"),
-        ]
-    )
-    rgram = Regressogram()
-    result = (
-        rgram.fit(data=df, x="x", y="y_noise", hue=["group1", "group2"])
-        .transform()
-        .collect()
-    )
-
-    assert "y_pred_rgram" in result.columns
-    assert "group1" in result.columns
-    assert "group2" in result.columns
-
-
-def test_fit_with_keys(sample_data):
-    df, x, y, y_noise = sample_data
-    df = df.with_columns((pl.arange(0, df.height) % 2).alias("grouping"))
-    rgram = Regressogram()
-    result = (
-        rgram.fit(data=df, x="x", y="y_noise", keys="grouping").transform().collect()
-    )
-
-    assert "y_pred_rgram" in result.columns
-
-
 def test_fit_predict_shortcut(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram()

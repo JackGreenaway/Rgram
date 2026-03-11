@@ -21,7 +21,6 @@
 - [Guides](#guides)
   - [Choosing a Binning Strategy](#choosing-a-binning-strategy)
   - [Custom Aggregation Functions](#custom-aggregation-functions)
-  - [Working with Groups (Hue)](#working-with-groups-hue)
   - [Data Input Formats](#data-input-formats)
 - [Benefits vs Limitations](#benefits-vs-limitations)
 - [Limitations](#limitations)
@@ -37,7 +36,6 @@
 - **Confidence Intervals**: Customisable confidence interval computation via user-defined aggregation functions
 - **Kernel Smoothing**: Epanechnikov kernel smoother with flexible bandwidth selection (`silverman`, `scott`, `manual`)
 - **Predictions**: Apply fitted models to new data points via `predict()` method
-- **Grouped Analysis**: Support for grouping variables (hue) to analyse multiple subgroups simultaneously
 - **Polars Backend**: High-performance DataFrame operations using lazy evaluation
 - **Scikit-learn API**: Familiar `fit()`, `predict()`, and `fit_predict()` methods
 - **Array-like or DataFrame Input**: Works seamlessly with Polars DataFrames or NumPy/Python arrays
@@ -251,15 +249,13 @@ Regressogram(
 
 #### Methods
 
-**`fit(x, y, data=None, hue=None, keys=None) -> Regressogram`**
+**`fit(x, y, data=None) -> Regressogram`**
 
 Fit the regressogram to data.
 
 - **x**: Column name(s) if `data` provided, else array-like
 - **y**: Column name(s) if `data` provided, else array-like
 - **data**: `pl.DataFrame`, `pl.LazyFrame`, or `None`. If `None`, x/y treated as arrays
-- **hue**: Optional grouping variable(s) for stratified analysis
-- **keys**: Optional additional grouping columns
 
 Returns: self (fitted estimator)
 
@@ -274,7 +270,7 @@ Output columns:
 - `y_pred_rgram_lci`, `y_pred_rgram_uci`: Confidence interval bounds (if `ci` provided)
 - `y_val`: Original y values
 
-**`fit_predict(x, y, data=None, hue=None, keys=None, return_ci=False) -> np.ndarray or tuple`**
+**`fit_predict(x, y, data=None, return_ci=False) -> np.ndarray or tuple`**
 
 Fit and return predictions in one step.
 
@@ -301,17 +297,15 @@ The `KernelSmoother` class performs kernel smoothing using the Epanechnikov kern
 KernelSmoother(
     n_eval_samples: int = 100,
     bandwidth: Literal['silverman', 'scott', 'manual'] = 'silverman',
-    bandwidth_value: Optional[float] = None,
-    hue: Optional[Sequence[str]] = None
+    bandwidth_value: Optional[float] = None
 )
 ```
 
-| Parameter         | Type            | Default       | Description                                                         |
-| ----------------- | --------------- | ------------- | ------------------------------------------------------------------- |
-| `n_eval_samples`  | int             | `100`         | Number of evaluation points where the kernel smoother is evaluated  |
-| `bandwidth`       | str             | `'silverman'` | Bandwidth selection method: `'silverman'`, `'scott'`, or `'manual'` |
-| `bandwidth_value` | float           | `None`        | Manual bandwidth value. Required if `bandwidth='manual'`            |
-| `hue`             | sequence of str | `None`        | Optional grouping variable(s). Can be set here or passed to `fit()` |
+| Parameter         | Type  | Default       | Description                                                         |
+| ----------------- | ----- | ------------- | ------------------------------------------------------------------- |
+| `n_eval_samples`  | int   | `100`         | Number of evaluation points where the kernel smoother is evaluated  |
+| `bandwidth`       | str   | `'silverman'` | Bandwidth selection method: `'silverman'`, `'scott'`, or `'manual'` |
+| `bandwidth_value` | float | `None`        | Manual bandwidth value. Required if `bandwidth='manual'`            |
 
 **Bandwidth Methods:**
 
@@ -321,14 +315,13 @@ KernelSmoother(
 
 #### Methods
 
-**`fit(x, y, data=None, hue=None) -> KernelSmoother`**
+**`fit(x, y, data=None) -> KernelSmoother`**
 
 Fit the kernel smoother to data using the selected bandwidth method.
 
 - **x**: Column name if `data` provided, else array-like (must be univariate)
 - **y**: Column name if `data` provided, else array-like (must be univariate)
 - **data**: `pl.DataFrame`, `pl.LazyFrame`, or `None`
-- **hue**: Optional grouping variable(s) for stratified smoothing. Overrides `hue` from `__init__` if provided
 
 Returns: self (fitted estimator)
 
@@ -341,7 +334,7 @@ Output columns:
 - `x_eval`: Evaluation points
 - `y_kernel`: Kernel-smoothed y values
 
-**`fit_predict(x, y, data=None, hue=None, return_ci=False) -> np.ndarray or tuple`**
+**`fit_predict(x, y, data=None, return_ci=False) -> np.ndarray or tuple`**
 
 Fit and return predictions in one step.
 
@@ -412,44 +405,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-### Example 2: Grouped Analysis with Hue
-
-```python
-import polars as pl
-import numpy as np
-from rgram import Regressogram
-import matplotlib.pyplot as plt
-
-# Generate data with multiple groups
-np.random.seed(42)
-n = 200
-x = np.tile(np.linspace(0, 10, 100), 2)
-group = np.repeat(["Group A", "Group B"], 100)
-y_a = np.sin(x[:100]) + np.random.normal(0, 0.4, 100)
-y_b = np.cos(x[100:]) + np.random.normal(0, 0.4, 100)
-y = np.concatenate([y_a, y_b])
-
-df = pl.DataFrame({"x": x, "y": y, "group": group})
-
-# Fit regressogram with grouping
-rgram = Regressogram(binning="dist")
-result = rgram.fit(data=df, x="x", y="y", hue="group").transform().collect()
-
-# Visualise
-fig, ax = plt.subplots(figsize=(10, 6))
-for grp in ["Group A", "Group B"]:
-    mask = result["group"] == grp
-    ax.step(result.filter(mask)["x_val"], result.filter(mask)["y_pred_rgram"],
-            label=f"rgram - {grp}", linewidth=2)
-
-ax.set_xlabel("x")
-ax.set_ylabel("y")
-ax.legend()
-ax.grid(True, alpha=0.3)
-plt.show()
-```
-
-### Example 3: Combining Regressogram with Kernel Smoothing
+### Example 2: Combining Regressogram with Kernel Smoothing
 
 ```python
 from rgram import Regressogram, KernelSmoother
@@ -490,7 +446,7 @@ plt.tight_layout()
 plt.show()
 ```
 
-### Example 4: Custom Aggregation Functions
+### Example 3: Custom Aggregation Functions
 
 ```python
 from rgram import Regressogram
@@ -628,35 +584,6 @@ result = rgram_count.fit(data=df, x="x", y="dummy_col").transform().collect()
 # y_pred_rgram now contains bin counts
 ```
 
-### Working with Groups (Hue)
-
-Use the `hue` parameter to analyse multiple subgroups simultaneously:
-
-```python
-from rgram import Regressogram
-import polars as pl
-
-# Sales by region
-result = Regressogram(binning="dist").fit(
-    data=sales_df,
-    x="time_of_week",
-    y="revenue",
-    hue="region"  # Analyse each region separately
-).transform().collect()
-
-# Output includes a "region" column; group results show region-specific trends
-for region in result["region"].unique():
-    region_data = result.filter(pl.col("region") == region)
-    print(f"Region {region} - Mean revenue: {region_data['y_pred_rgram'].mean()}")
-```
-
-**Benefits of hue**:
-
-- Single fit call vs multiple calls for each group
-- Ensures consistent binning across groups
-- More efficient than separate analyses
-- Output includes group identifier for easy filtering
-
 ### Data Input Formats
 
 Rgram follows a **seaborn-like API** where you can use either:
@@ -720,7 +647,7 @@ result = rgram.fit(
 
 **When to use which pattern:**
 
-- **DataFrame + names**: Production code, complex pipelines, grouped analysis (hue parameter)
+- **DataFrame + names**: Production code, complex pipelines
 - **Raw arrays**: Quick exploration, notebooks, when data is already in memory
 - **Series**: Intermediate between the two; good for simple scripts
 
@@ -733,7 +660,6 @@ result = rgram.fit(
 | **Interpretability** | Step-wise predictions are easy to explain to stakeholders ("if age 25-35, avg salary is X") |
 | **Robustness**       | Can use median or quantiles instead of mean for outlier-resistant estimates                 |
 | **Flexibility**      | Custom aggregation functions support domain-specific logic (e.g., weighted means)           |
-| **Multi-group**      | `hue` parameter enables simultaneous analysis of multiple subgroups with consistent binning |
 | **Speed**            | Binning is computationally efficient; results scale well with data size                     |
 | **No assumptions**   | Non-parametric; doesn't assume linearity, polynomials, or other functional forms            |
 
@@ -886,26 +812,6 @@ pl.Config.set_random_seed(42)
 # Your analysis...
 ```
 
-**Q: Hue grouping not working as expected**
-
-A: Ensure the `hue` column exists and reference it correctly:
-
-```python
-from rgram import Regressogram
-import polars as pl
-
-# Verify hue column exists
-print(df.columns)
-
-# Make sure data is not None when using column names
-result = Regressogram().fit_transform(
-    data=df,  # Must provide data when using column names
-    x="x_col",
-    y="y_col",
-    hue="group_col"  # This must be a column in df
-).collect()
-```
-
 ## Future Improvements
 
 ### Completed
@@ -930,7 +836,6 @@ result = Regressogram().fit_transform(
 ### Lower Priority
 
 - [ ] **Additional Kernels**: Support for Gaussian, Triangular, and other kernel types
-- [ ] **Categorical Grouping Optimisation**: Special handling for categorical `hue` variables
 - [ ] **GPU Acceleration**: Polars GPU backend support
 - [ ] **Advanced Statistics**: Additional statistical methods (local polynomial regression, etc.)
 

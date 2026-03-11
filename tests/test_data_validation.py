@@ -111,16 +111,6 @@ class TestBaseUtilsDataValidation:
         assert y_col == "y"
         assert keys_col is None
 
-    def test_prepare_data_with_keys(self):
-        """Test prepare_data with keys parameter."""
-        utils = BaseUtils()
-        x = [1, 2, 3]
-        y = [4, 5, 6]
-        keys = [0, 1, 0]
-        lf, x_col, y_col, keys_col = utils._prepare_data(data=None, x=x, y=y, keys=keys)
-
-        assert keys_col == "keys"
-
     def test_prepare_data_converts_to_dataframe_content(self):
         """Test that prepare_data actually creates proper DataFrame."""
         utils = BaseUtils()

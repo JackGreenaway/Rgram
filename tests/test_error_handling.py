@@ -156,15 +156,6 @@ class TestRegressogramErrorHandling:
             # Expected - CI tuple should be length 2
             pass
 
-    def test_fit_with_incompatible_hue_values(self):
-        """Test fit with hue not as string or sequence."""
-        rgram = Regressogram()
-        df = pl.DataFrame({"x": [1, 2, 3], "y": [1, 2, 3], "hue": ["a", "b", "c"]})
-
-        # Passing integer as hue should raise
-        with pytest.raises((ValueError, TypeError)):
-            rgram.fit(data=df, x="x", y="y", hue=123)
-
     def test_n_bins_negative_raises(self):
         """Test that negative n_bins raises error or is handled."""
         rgram = Regressogram(binning="dist", n_bins=-5)

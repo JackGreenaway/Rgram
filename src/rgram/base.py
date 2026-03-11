@@ -16,14 +16,13 @@ class BaseUtils:
     _to_list(item)
         Convert a string or sequence to a list, or return None.
     _over_function(x)
-        Apply a Polars expression over the 'hue' columns if present.
+        Apply a Polars expression over grouping columns if present.
     """
 
     def __init__(
         self,
-        hue: Sequence[str] | None = None,
     ) -> None:
-        self.hue: List[str] = cast(List[str], self._to_list(hue) or [])
+        pass
 
     @staticmethod
     def _to_list(item: Optional[Union[str, Sequence]]) -> Optional[list]:
@@ -80,7 +79,7 @@ class BaseUtils:
 
     def _over_function(self, x: pl.Expr) -> pl.Expr:
         """
-        Apply a Polars expression over the 'hue' columns if present.
+        Apply a Polars expression over grouping columns if present.
 
         Parameters
         ----------
@@ -89,11 +88,8 @@ class BaseUtils:
         Returns
         -------
         pl.Expr
-            The possibly grouped expression.
+            The expression.
         """
-        if hasattr(self, "hue") and self.hue:
-            return x.over(self.hue)
-
         return x
 
     @staticmethod
@@ -185,12 +181,11 @@ class BaseUtils:
         x: Union[str, Sequence[Any]],
         y: Union[str, Sequence[Any]],
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-        keys: Optional[Union[str, Sequence[Any]]] = None,
     ) -> tuple[
         pl.LazyFrame,
         Union[str, Sequence[str]],
         Union[str, Sequence[str]],
-        Optional[Union[str, Sequence[str]]],
+        None,
     ]:
         """
         Prepare and normalize data for analysis (similar to seaborn API).
@@ -208,13 +203,11 @@ class BaseUtils:
         data : pl.DataFrame, pl.LazyFrame, or None, optional
             Input data. If None, x/y must be array-like.
             If provided, x/y are treated as column names.
-        keys : str or array-like, optional
-            Optional grouping column(s). Column name if `data` provided, else array-like.
 
         Returns
         -------
         tuple
-            (data as LazyFrame, x_col_names, y_col_names, keys_col_names)
+            (data as LazyFrame, x_col_names, y_col_names, None)
 
         Examples
         --------
@@ -239,9 +232,6 @@ class BaseUtils:
             x = self._process_array_input(x, "x", df_dict)
             y = self._process_array_input(y, "y", df_dict)
 
-            if keys is not None:
-                keys = self._process_array_input(keys, "keys", df_dict)
-
             data = pl.DataFrame(df_dict)
 
-        return data.lazy(), x, y, keys
+        return data.lazy(), x, y, None

@@ -161,48 +161,6 @@ class TestDataFormats:
 class TestGrouping:
     """Test hue/grouping functionality."""
 
-    def test_single_hue_grouping(self, sample_data):
-        df, x, y, y_noise = sample_data
-        df = df.with_columns((pl.arange(0, df.height) % 2).alias("group"))
-
-        rgram = Regressogram()
-        result = (
-            rgram.fit(data=df, x="x", y="y_noise", hue="group").transform().collect()
-        )
-
-        assert "group" in result.columns
-        assert result["group"].n_unique() == 2
-
-    def test_multiple_hue_grouping(self, sample_data):
-        df, x, y, y_noise = sample_data
-        df = df.with_columns(
-            [
-                (pl.arange(0, df.height) % 2).alias("group1"),
-                (pl.arange(0, df.height) % 3).alias("group2"),
-            ]
-        )
-
-        rgram = Regressogram()
-        result = (
-            rgram.fit(data=df, x="x", y="y_noise", hue=["group1", "group2"])
-            .transform()
-            .collect()
-        )
-
-        assert "group1" in result.columns
-        assert "group2" in result.columns
-
-    def test_hue_with_keys_grouping(self, sample_data):
-        df, x, y, y_noise = sample_data
-        df = df.with_columns((pl.arange(0, df.height) % 2).alias("group"))
-
-        rgram = Regressogram()
-        result = (
-            rgram.fit(data=df, x="x", y="y_noise", hue="group").transform().collect()
-        )
-
-        assert "group" in result.columns
-
 
 class TestMultipleColumns:
     """Test with multiple x or y columns."""
@@ -289,22 +247,6 @@ class TestRegressogramKernelSmoothingPipeline:
 
         assert "x_eval" in smoothed.columns
         assert "y_kernel" in smoothed.columns
-
-    def test_kernel_smoother_with_grouping(self, sample_data):
-        df, x, y, y_noise = sample_data
-        df = df.with_columns((pl.arange(0, df.height) % 2).alias("group"))
-
-        # Fit regressogram with grouping
-        rgram = Regressogram()
-        rgram.fit(data=df, x="x", y="y_noise", hue="group")
-        rgram_result = rgram.transform().collect()
-
-        # Apply kernel smoothing
-        smoother = KernelSmoother()
-        smoother.fit(data=rgram_result, x="x_val", y="y_pred_rgram", hue="group")
-        smoothed = smoother.transform().collect()
-
-        assert len(smoothed) > 0
 
 
 class TestFitTransformConsistency:

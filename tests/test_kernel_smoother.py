@@ -219,24 +219,6 @@ class TestKernelSmootherIntegration:
         )[0, 1]
         assert corr > 0.95  # Should be highly correlated
 
-    def test_predict_with_grouped_data(self):
-        """Test predict doesn't interfere with grouped fitting."""
-        np.random.seed(42)
-        df = pl.DataFrame(
-            {
-                "x": [1.0, 2.0, 3.0, 4.0, 5.0] * 2,
-                "y": [1.0, 2.0, 3.0, 4.0, 5.0, 2.0, 3.0, 4.0, 5.0, 6.0],
-                "group": ["A"] * 5 + ["B"] * 5,
-            }
-        )
-
-        smoother = KernelSmoother(n_eval_samples=10)
-        smoother.fit(data=df, x="x", y="y", hue="group")
-
-        # Transform should work with hue
-        transform_result = smoother.transform().collect()
-        assert len(transform_result) > 0
-
     def test_bandwidth_affects_smoothness(self):
         """Test that increasing bandwidth increases smoothness."""
         np.random.seed(42)

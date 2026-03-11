@@ -29,12 +29,12 @@ class KernelSmoother(BaseUtils):
 
     Methods
     -------
-    fit(data, x, y, hue=None)
+    fit(data, x, y)
         Learn smoothing parameters from training data.
     predict(x_new, return_ci=False)
         Predict smooth values at new x points.
         Returns array or tuple with optional confidence intervals.
-    fit_predict(data, x, y, hue=None, return_ci=False)
+    fit_predict(data, x, y, return_ci=False)
         Fit and predict at n_eval_samples evaluation points.
     """
 
@@ -43,7 +43,6 @@ class KernelSmoother(BaseUtils):
         n_eval_samples: int = 100,
         bandwidth: Literal["silverman", "scott", "manual"] = "silverman",
         bandwidth_value: Optional[float] = None,
-        hue: Optional[Sequence[str]] = None,
     ) -> None:
         """
         Construct a KernelSmoother instance.
@@ -56,10 +55,8 @@ class KernelSmoother(BaseUtils):
             Bandwidth selection method.
         bandwidth_value : float, optional
             Manual bandwidth value. Required if bandwidth='manual'.
-        hue : sequence of str, optional
-            Optional grouping variable(s).
         """
-        super().__init__(hue=hue)
+        super().__init__()
         self.n_eval_samples = n_eval_samples
         self.bandwidth = bandwidth
         self.bandwidth_value = bandwidth_value
@@ -133,7 +130,6 @@ class KernelSmoother(BaseUtils):
         y: Union[str, Sequence[Any]],
         x: Union[str, Sequence[Any]],
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-        hue: Optional[Sequence[str]] = None,
     ) -> Self:
         """
         Fit the kernel smoother to the data.
@@ -149,10 +145,8 @@ class KernelSmoother(BaseUtils):
         y : str or array-like
             Target column. Column name if `data` provided, else array-like.
         data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y/hue are column names.
+            Input data. If provided, x/y are column names.
             If None, x/y are array-like.
-        hue : sequence of str, optional
-            Optional grouping variable(s). Overrides hue from __init__ if provided.
 
         Returns
         -------
@@ -167,11 +161,7 @@ class KernelSmoother(BaseUtils):
             )
 
         # Prepare data: convert arrays to DataFrame if needed
-        data_lf, x_cols, y_cols, _ = self._prepare_data(data=data, x=x, y=y, keys=None)
-
-        # Update hue if provided, otherwise use initialized hue
-        if hue is not None:
-            self.hue = self._to_list(hue) or []
+        data_lf, x_cols, y_cols, _ = self._prepare_data(data=data, x=x, y=y)
 
         # Extract first column name from x/y (single feature/target for KernelSmoother)
         x_col = x_cols if isinstance(x_cols, str) else x_cols[0]
@@ -194,7 +184,7 @@ class KernelSmoother(BaseUtils):
                 ]
             )
             .filter(pl.col("u").abs() <= 1)
-            .group_by(["x_eval"] + self.hue)
+            .group_by("x_eval")
             .agg(
                 [
                     # epanechnikov kernel
@@ -210,7 +200,6 @@ class KernelSmoother(BaseUtils):
         # Store fitted data for prediction and calculate/store bandwidth value
         self._x_col = x_col
         self._y_col = y_col
-        self._hue = self.hue
         self._fitted_data_lf = data_lf
         self._ks_result = ks
 
@@ -239,7 +228,6 @@ class KernelSmoother(BaseUtils):
         data: Union[pl.DataFrame, pl.LazyFrame],
         x: Union[str, Sequence[Any]],
         y: Union[str, Sequence[Any]],
-        hue: Optional[Sequence[str]] = None,
         return_ci: bool = False,
     ) -> Union[np.ndarray, tuple]:
         """
@@ -253,8 +241,6 @@ class KernelSmoother(BaseUtils):
             Feature column. Column name if `data` provided, else array-like.
         y : str or array-like
             Target column. Column name if `data` provided, else array-like.
-        hue : sequence of str, optional
-            Optional grouping variable(s).
         return_ci : bool, default=False
             If True, return confidence intervals along with predictions.
 
@@ -264,7 +250,7 @@ class KernelSmoother(BaseUtils):
             If return_ci=False: array of predictions at evaluation points
             If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
         """
-        self.fit(data=data, x=x, y=y, hue=hue)
+        self.fit(data=data, x=x, y=y)
 
         # Get evaluation x values from the fitted smoother
         x_eval = self._ks_result.select("x_eval").collect()["x_eval"].to_numpy()

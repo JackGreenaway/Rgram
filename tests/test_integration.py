@@ -146,39 +146,6 @@ class TestRegressogramWorkflows:
         assert not np.allclose(results["mean"], results["min"])
         assert not np.allclose(results["mean"], results["max"])
 
-    def test_hue_grouping_workflow(self):
-        """Test workflow with hue grouping."""
-        df = pl.DataFrame(
-            {
-                "x": np.tile(np.linspace(0, 10, 20), 2),
-                "y": np.tile(np.linspace(1, 20, 20), 2) + np.random.randn(40) * 0.5,
-                "group": np.repeat([0, 1], 20),
-            }
-        )
-
-        rgram = Regressogram()
-        result = rgram.fit(data=df, x="x", y="y", hue="group").transform().collect()
-
-        # Should have results for both groups
-        assert "group" in result.columns
-        groups = result["group"].unique().to_list()
-        assert len(groups) == 2
-
-    def test_keys_parameter_workflow(self):
-        """Test workflow with keys parameter."""
-        df = pl.DataFrame(
-            {
-                "x": np.linspace(0, 10, 30),
-                "y": np.sin(np.linspace(0, 10, 30)),
-                "keys": np.repeat([1, 2, 3], 10),
-            }
-        )
-
-        rgram = Regressogram()
-        result = rgram.fit(data=df, x="x", y="y", keys="keys").transform().collect()
-
-        assert len(result) == 30
-
 
 class TestKernelSmootherWorkflows:
     """Test realistic KernelSmoother workflows."""

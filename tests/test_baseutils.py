@@ -49,38 +49,12 @@ def test_is_array_like_empty_list():
     assert BaseUtils._is_array_like([])
 
 
-def test_over_function_with_hue():
-    utils = BaseUtils(hue="group")
-    expr = pl.col("y")
-    result = utils._over_function(expr)
-
-    # Should return a Polars expression with over applied
-    assert isinstance(result, pl.Expr)
-
-
-def test_over_function_with_multiple_hue():
-    utils = BaseUtils(hue=["group1", "group2"])
-    expr = pl.col("y")
-    result = utils._over_function(expr)
-
-    assert isinstance(result, pl.Expr)
-
-
 def test_over_function_without_hue():
     utils = BaseUtils()
     expr = pl.col("y")
     result = utils._over_function(expr)
 
     # It should return the exact same Expr object
-    assert result is expr
-
-
-def test_over_function_with_empty_hue():
-    utils = BaseUtils(hue=[])
-    expr = pl.col("y")
-    result = utils._over_function(expr)
-
-    # Empty hue should not apply over
     assert result is expr
 
 
@@ -139,19 +113,6 @@ def test_process_array_input_empty_array():
     assert df_dict["empty"] == []
 
 
-def test_prepare_data_with_arrays():
-    utils = BaseUtils()
-    x = [1, 2, 3]
-    y = [4, 5, 6]
-    keys = [0, 1, 0]
-    lf, x_col, y_col, keys_col = utils._prepare_data(x, y, data=None, keys=keys)
-
-    assert isinstance(lf, pl.LazyFrame)
-    assert x_col == "x"
-    assert y_col == "y"
-    assert keys_col == "keys"
-
-
 def test_prepare_data_with_arrays_no_keys():
     utils = BaseUtils()
     x = [1, 2, 3]
@@ -162,17 +123,6 @@ def test_prepare_data_with_arrays_no_keys():
     assert x_col == "x"
     assert y_col == "y"
     assert keys_col is None
-
-
-def test_prepare_data_with_dataframe():
-    df = pl.DataFrame({"x": [1, 2], "y": [3, 4], "keys": [0, 1]})
-    utils = BaseUtils()
-    lf, x_col, y_col, keys_col = utils._prepare_data("x", "y", data=df, keys="keys")
-
-    assert isinstance(lf, pl.LazyFrame)
-    assert x_col == "x"
-    assert y_col == "y"
-    assert keys_col == "keys"
 
 
 def test_prepare_data_with_lazyframe():
@@ -218,23 +168,3 @@ def test_prepare_data_with_multiple_column_names():
     assert isinstance(lf, pl.LazyFrame)
     assert x_cols == ["x1", "x2"]
     assert y_cols == ["y1", "y2"]
-
-
-def test_baseutils_init_no_hue():
-    utils = BaseUtils()
-    assert utils.hue == []
-
-
-def test_baseutils_init_with_single_hue():
-    utils = BaseUtils(hue="group")
-    assert utils.hue == ["group"]
-
-
-def test_baseutils_init_with_multiple_hue():
-    utils = BaseUtils(hue=["group1", "group2"])
-    assert utils.hue == ["group1", "group2"]
-
-
-def test_baseutils_init_with_none_hue():
-    utils = BaseUtils(hue=None)
-    assert utils.hue == []

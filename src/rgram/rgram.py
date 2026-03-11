@@ -27,12 +27,12 @@ class Regressogram(BaseUtils):
 
     Methods
     -------
-    fit(data, x, y, hue=None, keys=None)
+    fit(data, x, y)
         Learn bin parameters from training data.
     predict(x, return_ci=False)
         Predict binned regression values at new x points.
         Returns array or tuple with optional confidence intervals.
-    fit_predict(data, x, y, hue=None, keys=None, return_ci=False)
+    fit_predict(data, x, y, return_ci=False)
         Fit and predict on training x values.
     """
 
@@ -113,6 +113,27 @@ class Regressogram(BaseUtils):
                 self._min_bin = 0
                 self._max_bin = n_bins - 1
 
+                # Store bin edges from qcut for use during predict
+                # This ensures stability by using the same bins at predict time
+                self._bin_edges = (
+                    data.select(
+                        pl.col("x_val")
+                        .qcut(
+                            quantiles=self._n_bins,
+                            allow_duplicates=True,
+                            include_breaks=True,
+                        )
+                        .struct.field("breakpoint")
+                        .clip(pl.col("x_val").min(), pl.col("x_val").max())
+                        .alias("bin_edge")
+                    )
+                    .unique()
+                    .sort("bin_edge")
+                    .collect()
+                    .get_column("bin_edge")
+                    .to_list()
+                )
+
             else:
                 self._min_bin = 0
                 self._max_bin = int((x_max - x_min) // self._bin_width)
@@ -130,13 +151,15 @@ class Regressogram(BaseUtils):
             bin_id = ((pl.col("x_val") - self._x_min) // self._bin_width).cast(int)
 
         elif self.binning == "dist":
+            if not hasattr(self, "_bin_edges"):
+                raise RuntimeError(
+                    "Bin edges not stored. This should not happen if fit() was called properly."
+                )
+
+            # left_closed=True means each bin is [left, right)
             bin_id = (
                 pl.col("x_val")
-                .qcut(
-                    quantiles=self._n_bins,
-                    allow_duplicates=True,
-                    include_breaks=True,
-                )
+                .cut(breaks=self._bin_edges, left_closed=True, include_breaks=True)
                 .struct.field("breakpoint")
                 .rank(method="dense")
                 .cast(int)
@@ -159,8 +182,6 @@ class Regressogram(BaseUtils):
         x: Union[str, Sequence[Any]],
         y: Union[str, Sequence[Any]],
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-        hue: Optional[Union[str, Sequence[str]]] = None,
-        keys: Optional[Union[str, Sequence[Any]]] = None,
     ) -> "Regressogram":
         """
         Learn bin parameters from training data.
@@ -176,12 +197,8 @@ class Regressogram(BaseUtils):
         y : str or array-like
             Target(s). Column name(s) if `data` provided, else array-like.
         data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y/hue/keys are treated as column names.
-            If None, x/y/keys are treated as array-like values.
-        hue : str or sequence of str, optional
-            Optional grouping variable(s).
-        keys : str or array-like, optional
-            Additional grouping column(s).
+            Input data. If provided, x/y are treated as column names.
+            If None, x/y are treated as array-like values.
 
         Returns
         -------
@@ -201,17 +218,13 @@ class Regressogram(BaseUtils):
             if not all(callable(c) for c in self.ci):
                 raise TypeError("All elements in ci tuple must be callable")
 
-        data_lf, x_cols, y_cols, keys_cols = self._prepare_data(
-            data=data, x=x, y=y, keys=keys
-        )
+        data_lf, x_cols, y_cols, _ = self._prepare_data(data=data, x=x, y=y)
 
         x_list = self._to_list(x_cols) or [x_cols]
         y_list = self._to_list(y_cols) or [y_cols]
-        hue_list = self._to_list(hue) or [] if data is not None else []
-        keys_list = self._to_list(keys_cols) or [keys_cols] if keys_cols else []
 
-        idx_cols = (y_list or []) + (keys_list or []) + (hue_list or [])
-        self.over_cols = ["x_var", "y_var"] + (hue_list or [])
+        idx_cols = y_list or []
+        self.over_cols = ["x_var", "y_var"]
 
         data = (
             data_lf.select(x_list + idx_cols)
@@ -220,7 +233,7 @@ class Regressogram(BaseUtils):
             )
             .unpivot(
                 on=y_list,
-                index=["x_val", "x_var"] + hue_list + keys_list,
+                index=["x_val", "x_var"],
                 variable_name="y_var",
                 value_name="y_val",
             )
@@ -352,6 +365,14 @@ class Regressogram(BaseUtils):
         if not hasattr(self, "_bin_to_y"):
             raise RuntimeError("Call fit() before predict().")
 
+        # Check for empty input
+        try:
+            if len(x) == 0:
+                raise ValueError("Cannot predict with empty array")
+        except (TypeError, AttributeError):
+            # If len(x) fails, let normal processing handle it
+            pass
+
         lf = pl.DataFrame({"x_val": x}).lazy()
 
         lf = lf.with_columns(self._predict_bin_expr().alias("rgram_bin"))
@@ -388,8 +409,6 @@ class Regressogram(BaseUtils):
         x: Union[str, Sequence[Any]],
         y: Union[str, Sequence[Any]],
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-        hue: Optional[Union[str, Sequence[str]]] = None,
-        keys: Optional[Union[str, Sequence[Any]]] = None,
         return_ci: bool = False,
     ) -> Union[np.ndarray, tuple]:
         """
@@ -402,12 +421,8 @@ class Regressogram(BaseUtils):
         y : str or array-like
             Target(s). Column name(s) if `data` provided, else array-like.
         data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y/hue/keys are column names.
-            If None, x/y/keys are array-like.
-        hue : str or sequence of str, optional
-            Optional grouping variable(s).
-        keys : str or array-like, optional
-            Additional grouping column(s).
+            Input data. If provided, x/y are column names.
+            If None, x/y are array-like.
         return_ci : bool, default=False
             If True, return confidence intervals along with predictions.
 
@@ -417,7 +432,7 @@ class Regressogram(BaseUtils):
             If return_ci=False: array of predictions at training x values
             If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
         """
-        self.fit(data=data, x=x, y=y, hue=hue, keys=keys)
+        self.fit(data=data, x=x, y=y)
 
         # Get unique x values from training data for prediction
         x_train = (

@@ -81,23 +81,6 @@ class TestRegressogramPerformance:
             pred = rgram.predict(x_test)
             assert len(pred) == batch_size
 
-    def test_fit_many_hues(self):
-        """Test fit with many groups."""
-        df = pl.DataFrame(
-            {
-                "x": np.tile(np.linspace(0, 10, 100), 10),
-                "y": np.tile(np.linspace(1, 100, 100), 10) + np.random.randn(1000) * 5,
-                "group": np.repeat(range(10), 100),
-            }
-        )
-
-        rgram = Regressogram()
-        start = time.time()
-        rgram.fit(data=df, x="x", y="y", hue="group")
-        elapsed = time.time() - start
-
-        assert elapsed < 10.0
-
     def test_scaling_with_data_size(self):
         """Test that fitting time scales reasonably with data size."""
         sizes = [100, 500, 1000]
