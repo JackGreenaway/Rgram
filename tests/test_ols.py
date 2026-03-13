@@ -228,27 +228,6 @@ class TestPrediction:
         assert isinstance(pred, np.ndarray)
         assert len(pred) == len(x)
 
-
-class TestRegressogramKernelSmoothingPipeline:
-    """Test combining Regressogram with KernelSmoother."""
-
-    def test_regressogram_to_kernel_smoother(self, sample_data):
-        df, x, y, y_noise = sample_data
-
-        # Step 1: Fit regressogram and get transform results
-        rgram = Regressogram(binning="dist")
-        rgram.fit(data=df, x="x", y="y_noise")
-        rgram_result = rgram.transform().collect()
-
-        # Step 2: Apply kernel smoothing
-        smoother = KernelSmoother(n_eval_samples=50)
-        smoother.fit(data=rgram_result, x="x_val", y="y_pred_rgram")
-        smoothed = smoother.transform().collect()
-
-        assert "x_eval" in smoothed.columns
-        assert "y_kernel" in smoothed.columns
-
-
 class TestFitTransformConsistency:
     """Test consistency between fit+transform vs fit_predict."""
 

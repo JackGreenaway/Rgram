@@ -156,7 +156,7 @@ class TestKernelSmootherWorkflows:
         x_train = np.linspace(0, 10, 100)
         y_train = np.sin(x_train) + np.random.randn(100) * 0.2
 
-        smoother = KernelSmoother(n_eval_samples=50)
+        smoother = KernelSmoother()
 
         # Fit
         smoother.fit(data=pl.DataFrame({"x": x_train, "y": y_train}), x="x", y="y")
@@ -174,25 +174,11 @@ class TestKernelSmootherWorkflows:
             {"x": np.linspace(0, 10, 50), "y": np.cos(np.linspace(0, 10, 50))}
         )
 
-        smoother = KernelSmoother(n_eval_samples=30)
+        smoother = KernelSmoother()
         pred = smoother.fit_predict(data=df, x="x", y="y")
 
         assert isinstance(pred, np.ndarray)
-        assert len(pred) == 30
-
-    def test_transform_workflow(self):
-        """Test transform workflow."""
-        df = pl.DataFrame(
-            {"x": np.linspace(0, 10, 50), "y": np.sin(np.linspace(0, 10, 50))}
-        )
-
-        smoother = KernelSmoother(n_eval_samples=20)
-        smoother.fit(data=df, x="x", y="y")
-        result = smoother.transform().collect()
-
-        assert len(result) == 20
-        assert "x_eval" in result.columns
-        assert "y_kernel" in result.columns
+        assert len(pred) == 50
 
     def test_different_bandwidth_methods_comparison(self):
         """Test comparing different bandwidth methods."""
@@ -207,7 +193,7 @@ class TestKernelSmootherWorkflows:
         results = {}
 
         for method in methods:
-            smoother = KernelSmoother(bandwidth=method, n_eval_samples=50)
+            smoother = KernelSmoother(bandwidth=method)
             result = smoother.fit_predict(data=df, x="x", y="y")
             results[method] = result
 
@@ -221,7 +207,7 @@ class TestKernelSmootherWorkflows:
         )
 
         smoother = KernelSmoother(
-            bandwidth="manual", bandwidth_value=1.5, n_eval_samples=30
+            bandwidth="manual", bandwidth_value=1.5
         )
         smoother.fit(data=df, x="x", y="y")
         pred = smoother.predict(np.linspace(0, 10, 20))
@@ -344,7 +330,7 @@ class TestModelComparison:
         pred_rgram = rgram.fit_predict(x=x, y=y)
 
         # KernelSmoother
-        smoother = KernelSmoother(n_eval_samples=len(x))
+        smoother = KernelSmoother()
         pred_ks = smoother.fit_predict(data=df, x="x", y="y")
 
         # Both should produce predictions

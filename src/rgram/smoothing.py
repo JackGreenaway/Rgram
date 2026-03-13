@@ -40,31 +40,33 @@ class KernelSmoother(BaseUtils):
 
     def __init__(
         self,
-        n_eval_samples: int = 100,
         bandwidth: Literal["silverman", "scott", "manual"] = "silverman",
         bandwidth_value: Optional[float] = None,
+        bandwidth_adjust: float = 1.0,
     ) -> None:
         """
         Construct a KernelSmoother instance.
 
         Parameters
         ----------
-        n_eval_samples : int, default=100
-            Number of evaluation points for the smoother.
         bandwidth : {'silverman', 'scott', 'manual'}, default='silverman'
             Bandwidth selection method.
         bandwidth_value : float, optional
             Manual bandwidth value. Required if bandwidth='manual'.
+        bandwidth_adjust : float
+            Multiplicative bandwidth adjust value.
         """
         super().__init__()
-        self.n_eval_samples = n_eval_samples
         self.bandwidth = bandwidth
         self.bandwidth_value = bandwidth_value
+        self.bandwidth_adjust = bandwidth_adjust
 
         if bandwidth == "manual" and bandwidth_value is None:
             raise ValueError(
                 "bandwidth_value must be specified when bandwidth='manual'"
             )
+
+        self._fitted = False
 
     def _calculate_bandwidth(self, x_col: str) -> pl.Expr:
         """
@@ -81,13 +83,13 @@ class KernelSmoother(BaseUtils):
             The bandwidth expression.
         """
         if self.bandwidth == "manual":
-            bw = pl.lit(self.bandwidth_value).alias("h")
+            bw = pl.lit(self.bandwidth_value)
+
         elif self.bandwidth == "scott":
             # Scott's rule: 1.06 * std * n^(-1/5)
             std_expr = pl.col(x_col).std()
-            bw = self._over_function(1.06 * std_expr * (pl.len() ** (-1 / 5))).alias(
-                "h"
-            )
+            bw = self._over_function(1.06 * std_expr * (pl.len() ** (-1 / 5)))
+
         else:  # silverman (default)
             # Silverman's rule: 0.9 * min(std, IQR/1.34) * n^(-1/5)
             std_expr = pl.col(x_col).std()
@@ -96,9 +98,9 @@ class KernelSmoother(BaseUtils):
             ) / 1.34
             bw = self._over_function(
                 0.9 * pl.min_horizontal([std_expr, iqr_expr]) * (pl.len() ** (-1 / 5))
-            ).alias("h")
+            )
 
-        return bw
+        return (bw * self.bandwidth_adjust).alias("h")
 
     def _calculate_x_eval(self, x_col: str) -> pl.Expr:
         """
@@ -168,66 +170,55 @@ class KernelSmoother(BaseUtils):
         y_col = y_cols if isinstance(y_cols, str) else y_cols[0]
 
         bw = self._calculate_bandwidth(x_col)
-        x_eval = self._calculate_x_eval(x_col)
+        # x_eval = self._calculate_x_eval(x_col)
 
-        ks = (
-            data_lf.with_columns([bw, x_eval])
-            .explode("x_eval")
-            .with_columns(
-                [
-                    ((pl.col("x_eval") - pl.col(x_col)) / pl.col("h")).alias("u"),
-                ]
-            )
-            .with_columns(
-                [
-                    (0.75 * (1 - (pl.col("u") ** 2))).alias("weight"),
-                ]
-            )
-            .filter(pl.col("u").abs() <= 1)
-            .group_by("x_eval")
-            .agg(
-                [
-                    # epanechnikov kernel
-                    (
-                        (pl.col(y_col) * pl.col("weight")).sum()
-                        / pl.col("weight").sum()
-                    ).alias("y_kernel")
-                ]
-            )
-            .sort(by="x_eval")
-        )
+        # ks = (
+        #     data_lf.with_columns([bw, x_eval])
+        #     .explode("x_eval")
+        #     .with_columns(
+        #         [
+        #             ((pl.col("x_eval") - pl.col(x_col)) / pl.col("h")).alias("u"),
+        #         ]
+        #     )
+        #     .with_columns(
+        #         [
+        #             (0.75 * (1 - (pl.col("u") ** 2))).alias("weight"),
+        #         ]
+        #     )
+        #     .filter(pl.col("u").abs() <= 1)
+        #     .group_by("x_eval")
+        #     .agg(
+        #         [
+        #             # epanechnikov kernel
+        #             (
+        #                 (pl.col(y_col) * pl.col("weight")).sum()
+        #                 / pl.col("weight").sum()
+        #             ).alias("y_kernel")
+        #         ]
+        #     )
+        #     .sort(by="x_eval")
+        # )
 
         # Store fitted data for prediction and calculate/store bandwidth value
         self._x_col = x_col
         self._y_col = y_col
         self._fitted_data_lf = data_lf
-        self._ks_result = ks
+        # self._ks_result = ks
 
         # Compute and store the bandwidth value for use in predict()
         bw_value_df = data_lf.select(bw).collect()
         self._bw_value = bw_value_df["h"][0]
 
+        self._fitted = True
+
         return self
-
-    def transform(self) -> pl.LazyFrame:
-        """
-        Return the kernel smoothed results after fitting.
-
-        Returns
-        -------
-        pl.LazyFrame
-            The kernel smoothed results.
-        """
-        if not hasattr(self, "_ks_result"):
-            raise RuntimeError("You must call fit() before transform().")
-
-        return self._ks_result
 
     def fit_predict(
         self,
         data: Union[pl.DataFrame, pl.LazyFrame],
         x: Union[str, Sequence[Any]],
         y: Union[str, Sequence[Any]],
+        x_eval: Optional[Sequence[Any]] = None,
         return_ci: bool = False,
     ) -> Union[np.ndarray, tuple]:
         """
@@ -252,20 +243,20 @@ class KernelSmoother(BaseUtils):
         """
         self.fit(data=data, x=x, y=y)
 
-        # Get evaluation x values from the fitted smoother
-        x_eval = self._ks_result.select("x_eval").collect()["x_eval"].to_numpy()
+        if x_eval is None:
+            x_eval = self._fitted_data_lf.collect().get_column(self._x_col)
 
         return self.predict(x_eval, return_ci=return_ci)
 
     def predict(
-        self, x_new: Union[Sequence[float], pl.Series], return_ci: bool = False
+        self, x_eval: Union[Sequence[float], pl.Series], return_ci: bool = False
     ) -> Union[np.ndarray, tuple]:
         """
         Predict smooth values at new x points.
 
         Parameters
         ----------
-        x_new : array-like or pl.Series
+        x_eval : array-like or pl.Series
             New x values at which to predict.
         return_ci : bool, default=False
             If True, return confidence intervals along with predictions.
@@ -274,28 +265,19 @@ class KernelSmoother(BaseUtils):
         Returns
         -------
         np.ndarray or tuple
-            If return_ci=False: numpy array of predictions (same length as x_new)
+            If return_ci=False: numpy array of predictions (same length as x_eval)
             If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
                 y_ci_low and y_ci_high are None (not yet implemented for kernel smoother)
         """
-        if not hasattr(self, "_ks_result"):
-            raise RuntimeError("Call fit() before predict().")
+        if not self._fitted:
+            raise RuntimeError("You must call fit() before predict")
 
-        # Validate input type
-        try:
-            # Try to convert to numeric array
-            if isinstance(x_new, pl.Series):
-                x_array = x_new.to_numpy()
-            else:
-                x_array = np.asarray(x_new)
-            # Check if numeric
-            if not np.issubdtype(x_array.dtype, np.number):
-                raise TypeError(f"x_new must be numeric, got {x_array.dtype}")
-        except (ValueError, TypeError) as e:
-            raise TypeError(f"x_new must contain numeric values, got: {e}")
+        x_eval = self._validate_arraylike_input(x_eval)
 
         # Create prediction dataframe directly from input
-        pred_df = pl.DataFrame({self._x_col: x_array}).lazy()
+        pred_df = (
+            pl.DataFrame({self._x_col: x_eval}).with_row_index(name="row_index").lazy()
+        )
 
         # Use the bandwidth learned during fit
         bw = pl.lit(self._bw_value).alias("h")
@@ -303,21 +285,20 @@ class KernelSmoother(BaseUtils):
         predictions = (
             pred_df.with_columns(bw)
             .join(self._fitted_data_lf.select([self._x_col, self._y_col]), how="cross")
-            .rename({self._x_col: "x_new", (self._x_col + "_right"): self._x_col})
+            .rename({self._x_col: "x_eval", (self._x_col + "_right"): self._x_col})
             .with_columns(
-                ((pl.col(self._x_col) - pl.col("x_new")) / pl.col("h")).alias("u")
+                ((pl.col(self._x_col) - pl.col("x_eval")) / pl.col("h")).alias("u")
             )
             .with_columns((0.75 * (1 - (pl.col("u") ** 2))).alias("weight"))
             .filter(pl.col("u").abs() <= 1)
-            .group_by("x_new")
+            .group_by(["x_eval", "row_index"], maintain_order=True)
             .agg(
                 (
                     (pl.col(self._y_col) * pl.col("weight")).sum()
                     / pl.col("weight").sum()
                 ).alias("y_kernel")
             )
-            .rename({"x_new": "x_eval"})
-            .sort(by="x_eval")
+            .drop("row_index")
             .collect()
         )
 
@@ -329,3 +310,21 @@ class KernelSmoother(BaseUtils):
         # For kernel smoother, confidence intervals would require bootstrap or analytically computed
         # Currently not implemented, return None
         return y_pred, None, None
+
+    @staticmethod
+    def _validate_arraylike_input(input: Any) -> np.typing.ArrayLike:
+        # Validate input type
+        try:
+            # Try to convert to numeric array
+            if isinstance(input, pl.Series):
+                x_array = input.to_numpy()
+            else:
+                x_array = np.asarray(input)
+            # Check if numeric
+            if not np.issubdtype(x_array.dtype, np.number):
+                raise TypeError(f"x_eval must be numeric, got {x_array.dtype}")
+
+            return x_array
+
+        except (ValueError, TypeError) as e:
+            raise TypeError(f"x_eval must contain numeric values, got: {e}")

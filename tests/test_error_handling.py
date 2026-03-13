@@ -201,15 +201,8 @@ class TestKernelSmootherErrorHandling:
         """Test that predict before fit raises."""
         smoother = KernelSmoother()
 
-        with pytest.raises(RuntimeError, match="Call fit\\(\\) before predict"):
+        with pytest.raises(RuntimeError, match="You must call fit\(\) before predict"):
             smoother.predict([1.0, 2.0, 3.0])
-
-    def test_transform_before_fit_raises(self):
-        """Test that transform before fit raises."""
-        smoother = KernelSmoother()
-
-        with pytest.raises(RuntimeError, match="must call fit"):
-            smoother.transform()
 
     def test_fit_with_empty_data_raises(self):
         """Test that empty data raises."""
@@ -245,21 +238,6 @@ class TestKernelSmootherErrorHandling:
             # Negative bandwidth might be allowed but shouldn't crash
         except (ValueError, Exception):
             # Expected if negative bandwidth not allowed
-            pass
-
-    def test_n_eval_samples_zero_raises_or_handles(self):
-        """Test zero evaluation samples."""
-        smoother = KernelSmoother(n_eval_samples=0)
-        df = pl.DataFrame(
-            {"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))}
-        )
-
-        try:
-            result = smoother.fit(data=df, x="x", y="y")
-            _transform_result = result.transform().collect()
-            # Should have at least some output or raise
-        except (ValueError, Exception):
-            # Expected - 0 samples may not be valid
             pass
 
     def test_fit_with_nan_data(self):

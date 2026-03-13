@@ -102,10 +102,10 @@ class TestKernelSmootherParameterCombinations:
             {"x": np.linspace(0, 10, 50), "y": np.sin(np.linspace(0, 10, 50))}
         )
 
-        smoother = KernelSmoother(bandwidth=bandwidth, n_eval_samples=n_eval)
-        result = smoother.fit(data=df, x="x", y="y").transform().collect()
+        smoother = KernelSmoother(bandwidth=bandwidth)
+        result = smoother.fit_predict(data=df, x="x", y="y")
 
-        assert len(result) == n_eval
+        assert len(result) == len(df.get_column("x"))
 
     @pytest.mark.parametrize("bw_value", [0.1, 0.5, 1.0, 2.0, 5.0])
     def test_manual_bandwidth_values(self, bw_value):
@@ -114,13 +114,10 @@ class TestKernelSmootherParameterCombinations:
             {"x": np.linspace(0, 10, 50), "y": np.sin(np.linspace(0, 10, 50))}
         )
 
-        smoother = KernelSmoother(
-            bandwidth="manual", bandwidth_value=bw_value, n_eval_samples=20
-        )
-        result = smoother.fit(data=df, x="x", y="y").transform().collect()
+        smoother = KernelSmoother(bandwidth="manual", bandwidth_value=bw_value)
+        result = smoother.fit_predict(data=df, x="x", y="y")
 
-        assert len(result) == 20
-        assert "y_kernel" in result.columns
+        assert len(result) == 50
 
 
 class TestDataFrameInputVariations:

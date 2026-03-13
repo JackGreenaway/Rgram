@@ -178,19 +178,18 @@ class TestKernelSmootherNumericalAccuracy:
         x = np.linspace(0, 10, 50)
         y = np.full_like(x, 5.0)
 
-        smoother = KernelSmoother(n_eval_samples=20)
-        result = smoother.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
-        transform_result = result.transform().collect()
+        smoother = KernelSmoother()
+        result = smoother.fit_predict(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
 
         # All smoothed values should be approximately 5.0
-        assert np.allclose(transform_result["y_kernel"].to_numpy(), 5.0, rtol=0.01)
+        assert np.allclose(result, 5.0, rtol=0.01)
 
     def test_linear_function_recovery(self):
         """Test recovery of linear function."""
         x = np.linspace(0, 10, 50)
         y = 2 * x + 3
 
-        smoother = KernelSmoother(n_eval_samples=20)
+        smoother = KernelSmoother()
         result = smoother.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
         pred = result.predict(np.array([5.0]))
 
@@ -204,7 +203,7 @@ class TestKernelSmootherNumericalAccuracy:
         y_true = np.sin(x)
         y_noisy = y_true + np.random.randn(100) * 0.5
 
-        smoother = KernelSmoother(n_eval_samples=50)
+        smoother = KernelSmoother()
         result = smoother.fit(data=pl.DataFrame({"x": x, "y": y_noisy}), x="x", y="y")
         pred = result.predict(x)
 
@@ -223,27 +222,25 @@ class TestKernelSmootherNumericalAccuracy:
 
         # Small bandwidth (more wiggly)
         smoother_small = KernelSmoother(
-            bandwidth="manual", bandwidth_value=0.2, n_eval_samples=50
+            bandwidth="manual",
+            bandwidth_value=0.2,
         )
-        result_small = (
-            smoother_small.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
-            .transform()
-            .collect()
+        result_small = smoother_small.fit_predict(
+            data=pl.DataFrame({"x": x, "y": y}), x="x", y="y"
         )
 
         # Large bandwidth (smoother)
         smoother_large = KernelSmoother(
-            bandwidth="manual", bandwidth_value=2.0, n_eval_samples=50
+            bandwidth="manual",
+            bandwidth_value=2.0,
         )
-        result_large = (
-            smoother_large.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
-            .transform()
-            .collect()
+        result_large = smoother_large.fit_predict(
+            data=pl.DataFrame({"x": x, "y": y}), x="x", y="y"
         )
 
         # Larger bandwidth should have lower variance in predictions
-        var_small = result_small["y_kernel"].to_numpy().var()
-        var_large = result_large["y_kernel"].to_numpy().var()
+        var_small = result_small.var()
+        var_large = result_large.var()
 
         # Note: might not always be strictly lower due to random seed, but trend should hold
         # Just check they're different
@@ -255,25 +252,22 @@ class TestKernelSmootherNumericalAccuracy:
         x = np.linspace(0, 10, 100)
         y = np.sin(x) + np.random.randn(100) * 0.2
 
-        smoother_silverman = KernelSmoother(bandwidth="silverman", n_eval_samples=50)
-        result_silverman = (
-            smoother_silverman.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
-            .transform()
-            .collect()
+        smoother_silverman = KernelSmoother(
+            bandwidth="silverman",
+        )
+        result_silverman = smoother_silverman.fit_predict(
+            data=pl.DataFrame({"x": x, "y": y}), x="x", y="y"
         )
 
-        smoother_scott = KernelSmoother(bandwidth="scott", n_eval_samples=50)
-        result_scott = (
-            smoother_scott.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
-            .transform()
-            .collect()
+        smoother_scott = KernelSmoother(
+            bandwidth="scott",
+        )
+        result_scott = smoother_scott.fit_predict(
+            data=pl.DataFrame({"x": x, "y": y}), x="x", y="y"
         )
 
         # Results should be different
-        diff = np.abs(
-            result_silverman["y_kernel"].to_numpy()
-            - result_scott["y_kernel"].to_numpy()
-        ).mean()
+        diff = np.abs(result_silverman - result_scott).mean()
         assert diff > 0.01
 
     def test_predictions_within_data_range(self):
@@ -281,7 +275,7 @@ class TestKernelSmootherNumericalAccuracy:
         x = np.linspace(0, 10, 50)
         y = np.sin(x)
 
-        smoother = KernelSmoother(n_eval_samples=30)
+        smoother = KernelSmoother()
         smoother.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
         pred = smoother.predict(x)
 

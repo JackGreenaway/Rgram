@@ -268,18 +268,6 @@ class TestKernelSmootherDataValidation:
         result = smoother.fit(data=df, x="x", y="y")
         assert result is smoother
 
-    def test_transform_returns_lazyframe(self):
-        """Test that transform returns LazyFrame."""
-        smoother = KernelSmoother()
-        df = pl.DataFrame(
-            {"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))}
-        )
-
-        smoother.fit(data=df, x="x", y="y")
-        result = smoother.transform()
-
-        assert isinstance(result, pl.LazyFrame)
-
     def test_predict_output_dtype(self):
         """Test predict output is numeric array."""
         smoother = KernelSmoother()
@@ -315,19 +303,6 @@ class TestKernelSmootherDataValidation:
 
         assert isinstance(result, tuple)
         assert len(result) == 3
-
-    def test_transform_columns(self):
-        """Test expected columns in transform output."""
-        smoother = KernelSmoother()
-        df = pl.DataFrame(
-            {"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))}
-        )
-
-        smoother.fit(data=df, x="x", y="y")
-        result = smoother.transform().collect()
-
-        assert "x_eval" in result.columns
-        assert "y_kernel" in result.columns
 
 
 class TestInputTypeHandling:

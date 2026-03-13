@@ -440,10 +440,7 @@ class Regressogram(BaseUtils):
 
         # Get unique x values from training data for prediction
         x_train = (
-            self._training_data.select("x_val")
-            .unique()
-            .sort("x_val")["x_val"]
-            .to_numpy()
+            self._training_data.select("x_val").get_column("x_val").sort().to_numpy()
         )
 
         return self.predict(x_train, return_ci=return_ci)

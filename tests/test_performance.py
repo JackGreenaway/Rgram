@@ -109,7 +109,7 @@ class TestKernelSmootherPerformance:
             {"x": np.linspace(0, 10, 50), "y": np.sin(np.linspace(0, 10, 50))}
         )
 
-        smoother = KernelSmoother(n_eval_samples=20)
+        smoother = KernelSmoother()
         start = time.time()
         smoother.fit(data=df, x="x", y="y")
         elapsed = time.time() - start
@@ -120,7 +120,7 @@ class TestKernelSmootherPerformance:
         """Test fit on large dataset."""
         df = pl.DataFrame({"x": np.random.randn(5000), "y": np.random.randn(5000)})
 
-        smoother = KernelSmoother(n_eval_samples=100)
+        smoother = KernelSmoother()
         start = time.time()
         smoother.fit(data=df, x="x", y="y")
         elapsed = time.time() - start
@@ -152,9 +152,12 @@ class TestKernelSmootherPerformance:
         )
 
         for n_eval in [50, 100, 500]:
-            smoother = KernelSmoother(n_eval_samples=n_eval)
+            x_eval = np.linspace(0, 10, n_eval)
+
+            smoother = KernelSmoother()
             smoother.fit(data=df, x="x", y="y")
-            result = smoother.transform().collect()
+
+            result = smoother.predict(x_eval)
             assert len(result) == n_eval
 
 
@@ -394,6 +397,9 @@ class TestScalingBehavior:
         )
 
         for n_eval in [10, 50, 100, 500]:
-            smoother = KernelSmoother(n_eval_samples=n_eval)
-            result = smoother.fit(data=df, x="x", y="y").transform().collect()
+            x_eval = np.linspace(0, 10, n_eval)
+            
+            smoother = KernelSmoother()
+            result = smoother.fit_predict(data=df, x="x", y="y", x_eval=x_eval)
+
             assert len(result) == n_eval
