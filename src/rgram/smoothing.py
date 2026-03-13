@@ -170,40 +170,11 @@ class KernelSmoother(BaseUtils):
         y_col = y_cols if isinstance(y_cols, str) else y_cols[0]
 
         bw = self._calculate_bandwidth(x_col)
-        # x_eval = self._calculate_x_eval(x_col)
-
-        # ks = (
-        #     data_lf.with_columns([bw, x_eval])
-        #     .explode("x_eval")
-        #     .with_columns(
-        #         [
-        #             ((pl.col("x_eval") - pl.col(x_col)) / pl.col("h")).alias("u"),
-        #         ]
-        #     )
-        #     .with_columns(
-        #         [
-        #             (0.75 * (1 - (pl.col("u") ** 2))).alias("weight"),
-        #         ]
-        #     )
-        #     .filter(pl.col("u").abs() <= 1)
-        #     .group_by("x_eval")
-        #     .agg(
-        #         [
-        #             # epanechnikov kernel
-        #             (
-        #                 (pl.col(y_col) * pl.col("weight")).sum()
-        #                 / pl.col("weight").sum()
-        #             ).alias("y_kernel")
-        #         ]
-        #     )
-        #     .sort(by="x_eval")
-        # )
 
         # Store fitted data for prediction and calculate/store bandwidth value
         self._x_col = x_col
         self._y_col = y_col
         self._fitted_data_lf = data_lf
-        # self._ks_result = ks
 
         # Compute and store the bandwidth value for use in predict()
         bw_value_df = data_lf.select(bw).collect()
@@ -289,20 +260,29 @@ class KernelSmoother(BaseUtils):
             .with_columns(
                 ((pl.col(self._x_col) - pl.col("x_eval")) / pl.col("h")).alias("u")
             )
-            .with_columns((0.75 * (1 - (pl.col("u") ** 2))).alias("weight"))
-            .filter(pl.col("u").abs() <= 1)
+            .with_columns(
+                pl.when(pl.col("u").abs() <= 1)
+                .then(0.75 * (1 - (pl.col("u") ** 2)))
+                .otherwise(0.0)
+                .alias("weight")
+            )
             .group_by(["x_eval", "row_index"], maintain_order=True)
             .agg(
-                (
-                    (pl.col(self._y_col) * pl.col("weight")).sum()
-                    / pl.col("weight").sum()
-                ).alias("y_kernel")
+                [
+                    pl.when(pl.col("weight").sum() > 0)
+                    .then(
+                        (pl.col(self._y_col) * pl.col("weight")).sum()
+                        / pl.col("weight").sum()
+                    )
+                    .otherwise(None)
+                    .alias("y_kernel")
+                ]
             )
-            .drop("row_index")
+            .sort(by=["row_index"])
             .collect()
         )
 
-        y_pred = predictions["y_kernel"].to_numpy()
+        y_pred = predictions.get_column("y_kernel").to_numpy()
 
         if not return_ci:
             return y_pred
