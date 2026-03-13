@@ -245,40 +245,44 @@ class KernelSmoother(BaseUtils):
 
         x_eval = self._validate_arraylike_input(x_eval)
 
-        # Create prediction dataframe directly from input
-        pred_df = (
-            pl.DataFrame({self._x_col: x_eval}).with_row_index(name="row_index").lazy()
+        x_eval_col = "x_eval"
+        x_train_col = "x_train"
+        y_train_col = "y_train"
+
+        pred_df = pl.DataFrame({x_eval_col: x_eval}).with_row_index("row_index").lazy()
+
+        train_df = self._fitted_data_lf.select(
+            [
+                pl.col(self._x_col).alias(x_train_col),
+                pl.col(self._y_col).alias(y_train_col),
+            ]
         )
 
-        # Use the bandwidth learned during fit
         bw = pl.lit(self._bw_value).alias("h")
 
         predictions = (
             pred_df.with_columns(bw)
-            .join(self._fitted_data_lf.select([self._x_col, self._y_col]), how="cross")
-            .rename({self._x_col: "x_eval", (self._x_col + "_right"): self._x_col})
+            .join(train_df, how="cross")
             .with_columns(
-                ((pl.col(self._x_col) - pl.col("x_eval")) / pl.col("h")).alias("u")
+                ((pl.col(x_train_col) - pl.col(x_eval_col)) / pl.col("h")).alias("u")
             )
             .with_columns(
                 pl.when(pl.col("u").abs() <= 1)
-                .then(0.75 * (1 - (pl.col("u") ** 2)))
+                .then(0.75 * (1 - pl.col("u") ** 2))
                 .otherwise(0.0)
                 .alias("weight")
             )
-            .group_by(["x_eval", "row_index"], maintain_order=True)
+            .group_by([x_eval_col, "row_index"], maintain_order=True)
             .agg(
-                [
-                    pl.when(pl.col("weight").sum() > 0)
-                    .then(
-                        (pl.col(self._y_col) * pl.col("weight")).sum()
-                        / pl.col("weight").sum()
-                    )
-                    .otherwise(None)
-                    .alias("y_kernel")
-                ]
+                pl.when(pl.col("weight").sum() > 0)
+                .then(
+                    (pl.col(y_train_col) * pl.col("weight")).sum()
+                    / pl.col("weight").sum()
+                )
+                .otherwise(None)
+                .alias("y_kernel")
             )
-            .sort(by=["row_index"])
+            .sort("row_index")
             .collect()
         )
 
