@@ -176,6 +176,224 @@ class BaseUtils:
         df_dict[col_prefix] = input_data
         return col_prefix
 
+    @staticmethod
+    def _validate_input_types(
+        x: Any, y: Any, data: Optional[pl.DataFrame] = None
+    ) -> None:
+        """
+        Validate input types for x and y before array processing.
+
+        Parameters
+        ----------
+        x : any
+            The x input data.
+        y : any
+            The y input data.
+        data : pl.DataFrame, optional
+            DataFrame if provided.
+
+        Raises
+        ------
+        ValueError
+            If x/y are string column names but data=None.
+        TypeError
+            If x/y are dicts or other invalid types.
+        """
+        if data is None:
+            # When data=None, x and y must be array-like, not column names
+            if isinstance(x, str):
+                raise ValueError(
+                    f"Column name '{x}' provided but data=None. "
+                    "When data=None, provide array-like values, not column names."
+                )
+            if isinstance(y, str):
+                raise ValueError(
+                    f"Column name '{y}' provided but data=None. "
+                    "When data=None, provide array-like values, not column names."
+                )
+
+        # Reject dict inputs
+        if isinstance(x, dict):
+            raise TypeError(
+                "Dictionary input is not supported for x. "
+                "Provide array-like values (list, ndarray, Series) instead."
+            )
+        if isinstance(y, dict):
+            raise TypeError(
+                "Dictionary input is not supported for y. "
+                "Provide array-like values (list, ndarray, Series) instead."
+            )
+
+    @staticmethod
+    def _validate_arrays(
+        x: Any, y: Any, array_name_x: str = "x", array_name_y: str = "y"
+    ) -> tuple[Any, Any]:
+        """
+        Validate x and y arrays for non-empty and matching lengths.
+
+        Parameters
+        ----------
+        x : array-like
+            The x input data.
+        y : array-like
+            The y input data.
+        array_name_x : str, optional
+            Display name for x in error messages.
+        array_name_y : str, optional
+            Display name for y in error messages.
+
+        Returns
+        -------
+        tuple
+            (x, y) if validation passes
+
+        Raises
+        ------
+        ValueError
+            If arrays are empty or have mismatched lengths.
+        """
+        # Check for empty arrays
+        try:
+            len_x = len(x)
+        except (TypeError, AttributeError):
+            raise TypeError(f"{array_name_x} must be array-like with a length")
+
+        try:
+            len_y = len(y)
+        except (TypeError, AttributeError):
+            raise TypeError(f"{array_name_y} must be array-like with a length")
+
+        if len_x == 0:
+            raise ValueError(f"Cannot process empty {array_name_x} array")
+
+        if len_y == 0:
+            raise ValueError(f"Cannot process empty {array_name_y} array")
+
+        # Check for mismatched lengths
+        if len_x != len_y:
+            raise ValueError(
+                f"Length mismatch: {array_name_x} has length {len_x}, "
+                f"but {array_name_y} has length {len_y}. Arrays must have equal length."
+            )
+
+        return x, y
+
+    @staticmethod
+    def _validate_single_array(
+        arr: Any,
+        array_name: str = "x",
+        allow_empty: bool = False,
+    ) -> Any:
+        """
+        Validate a single array for array-like, non-empty, and numeric content.
+
+        Parameters
+        ----------
+        arr : array-like
+            The input array to validate.
+        array_name : str, optional
+            Display name for the array in error messages.
+        allow_empty : bool, optional
+            If True, allow empty arrays. Default False.
+
+        Returns
+        -------
+        arr
+            The validated array.
+
+        Raises
+        ------
+        TypeError
+            If array is not array-like or contains non-numeric values.
+        ValueError
+            If array is empty (when allow_empty=False).
+        """
+        # Check if array-like
+        if not BaseUtils._is_array_like(arr):
+            raise TypeError(
+                f"{array_name} must be array-like (e.g., list, ndarray, Series), "
+                f"got {type(arr).__name__}"
+            )
+
+        # Check for empty
+        try:
+            len_arr = len(arr)
+        except (TypeError, AttributeError):
+            raise TypeError(f"{array_name} must support len() operation")
+
+        if len_arr == 0 and not allow_empty:
+            raise ValueError(f"Cannot process empty {array_name} array")
+
+        # Check for numeric content
+        if len_arr > 0:
+            try:
+                import numpy as np
+
+                np_arr = np.asarray(arr)
+
+                # Check for complex numbers
+                if np.iscomplexobj(np_arr):
+                    raise TypeError(
+                        f"Complex numbers are not supported in {array_name}"
+                    )
+
+                # Check that dtype is numeric
+                if not np.issubdtype(np_arr.dtype, np.number):
+                    raise TypeError(
+                        f"{array_name} contains non-numeric values (dtype: {np_arr.dtype}). "
+                        "Only numeric arrays are supported."
+                    )
+            except TypeError:
+                raise
+            except ImportError:
+                # If numpy not available, skip numeric validation
+                pass
+            except Exception:
+                # If validation fails, let it pass to Polars
+                pass
+
+        return arr
+
+    @staticmethod
+    def _validate_numeric_content(data_dict: dict[str, Any]) -> None:
+        """
+        Validate that processed data contains numeric values.
+
+        Parameters
+        ----------
+        data_dict : dict
+            Dictionary with 'x' and 'y' keys containing arrays.
+
+        Raises
+        ------
+        TypeError
+            If data contains non-numeric values (e.g., complex numbers, or non-numeric objects).
+        """
+        try:
+            import numpy as np
+
+            for col_name, arr in data_dict.items():
+                np_arr = np.asarray(arr)
+
+                # Check for complex numbers
+                if np.iscomplexobj(np_arr):
+                    raise TypeError(f"Complex numbers are not supported in {col_name}")
+
+                # Check that dtype is numeric
+                if not np.issubdtype(np_arr.dtype, np.number):
+                    raise TypeError(
+                        f"{col_name} contains non-numeric values (dtype: {np_arr.dtype}). "
+                        "Only numeric arrays are supported."
+                    )
+        except TypeError:
+            raise
+        except ImportError:
+            # If numpy is not available, let Polars handle the validation
+            pass
+        except Exception:
+            # If validation fails for other reasons, let it pass to Polars
+            pass
+
     def _prepare_data(
         self,
         x: Union[str, Sequence[Any]],
@@ -228,8 +446,17 @@ class BaseUtils:
         if data is None:
             df_dict = {}
 
+            # Validate input types first (checks for invalid string column names, etc.)
+            BaseUtils._validate_input_types(x, y, data)
+
+            # Then validate array lengths and non-empty
+            x, y = self._validate_arrays(x, y, "x", "y")
+
             x = self._process_array_input(x, "x", df_dict)
             y = self._process_array_input(y, "y", df_dict)
+
+            # Validate that data contains numeric values
+            BaseUtils._validate_numeric_content(df_dict)
 
             data = pl.DataFrame(df_dict)
 

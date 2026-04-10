@@ -206,6 +206,26 @@ class Regressogram(BaseUtils):
         -------
         self : object
             Fitted estimator.
+
+        Raises
+        ------
+        ValueError
+            If x and y arrays have different lengths or are empty.
+        TypeError
+            If agg or ci are not callable, or if input contains complex numbers.
+
+        Examples
+        --------
+        >>> import polars as pl
+        >>> import numpy as np
+        >>> from rgram import Regressogram
+        >>>
+        >>> # DataFrame mode
+        >>> df = pl.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
+        >>> rgram = Regressogram().fit(data=df, x="x", y="y")
+        >>>
+        >>> # Array mode
+        >>> rgram = Regressogram().fit(x=[1, 2, 3], y=[4, 5, 6])
         """
         # Validate ci is None or tuple of exactly 2 callables
         if self.ci is not None:
@@ -286,7 +306,6 @@ class Regressogram(BaseUtils):
             select_cols.extend(ci_cols)
 
         self._bin_to_y = data.select(select_cols).unique().collect()
-        # self._training_data = data.collect()
 
         self._is_fitted = True
 
@@ -315,17 +334,21 @@ class Regressogram(BaseUtils):
                 y_pred: numpy array of predictions
                 y_ci_low: numpy array of lower CI or None if ci not configured
                 y_ci_high: numpy array of upper CI or None if ci not configured
+
+        Raises
+        ------
+        RuntimeError
+            If called before fit().
+        TypeError
+            If x is not array-like or contains non-numeric values.
+        ValueError
+            If x is empty.
         """
         if not self._is_fitted:
             raise RuntimeError("Call fit() before predict().")
 
-        # Check for empty input
-        try:
-            if len(x) == 0:
-                raise ValueError("Cannot predict with empty array")
-        except (TypeError, AttributeError):
-            # If len(x) fails, let normal processing handle it
-            pass
+        # Validate input x
+        x = self._validate_single_array(x, "x", allow_empty=False)
 
         lf = pl.DataFrame({"x_val": x}).lazy()
 

@@ -144,9 +144,9 @@ class KernelSmoother(BaseUtils):
         Parameters
         ----------
         x : str or array-like
-            Feature column. Column name if `data` provided, else array-like.
+            Feature column. Column name if `data` provided, else array-like (must be univariate).
         y : str or array-like
-            Target column. Column name if `data` provided, else array-like.
+            Target column. Column name if `data` provided, else array-like (must be univariate).
         data : pl.DataFrame, pl.LazyFrame, or None, optional
             Input data. If provided, x/y are column names.
             If None, x/y are array-like.
@@ -155,6 +155,25 @@ class KernelSmoother(BaseUtils):
         -------
         self : object
             Fitted estimator.
+
+        Raises
+        ------
+        ValueError
+            If x and y arrays have different lengths, are empty, or bandwidth is invalid.
+        TypeError
+            If input contains complex numbers.
+
+        Examples
+        --------
+        >>> import polars as pl
+        >>> from rgram import KernelSmoother
+        >>>
+        >>> # DataFrame mode
+        >>> df = pl.DataFrame({"x": [1.0, 2.0, 3.0], "y": [1.0, 4.0, 9.0]})
+        >>> smoother = KernelSmoother().fit(data=df, x="x", y="y")
+        >>>
+        >>> # Array mode
+        >>> smoother = KernelSmoother().fit(x=[1.0, 2.0, 3.0], y=[1.0, 4.0, 9.0])
         """
         # Validate bandwidth parameter
         valid_bandwidths = ("silverman", "scott", "manual")
@@ -204,6 +223,8 @@ class KernelSmoother(BaseUtils):
             Feature column. Column name if `data` provided, else array-like.
         y : str or array-like
             Target column. Column name if `data` provided, else array-like.
+        x_eval : array-like, optional
+            Evaluation points for prediction. If None, uses training x values.
         return_ci : bool, default=False
             If True, return confidence intervals along with predictions.
 
@@ -212,11 +233,21 @@ class KernelSmoother(BaseUtils):
         np.ndarray or tuple
             If return_ci=False: array of predictions at evaluation points
             If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
+
+        Raises
+        ------
+        TypeError
+            If x_eval is not array-like or contains non-numeric values (when provided).
+        ValueError
+            If x_eval is empty (when provided).
         """
         self.fit(data=data, x=x, y=y)
 
         if x_eval is None:
             x_eval = self._fitted_data_lf.collect().get_column(self._x_col)
+        else:
+            # Validate user-provided x_eval
+            x_eval = self._validate_single_array(x_eval, "x_eval", allow_empty=False)
 
         return self.predict(x_eval, return_ci=return_ci)
 
@@ -240,11 +271,21 @@ class KernelSmoother(BaseUtils):
             If return_ci=False: numpy array of predictions (same length as x_eval)
             If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
                 y_ci_low and y_ci_high are None (not yet implemented for kernel smoother)
+
+        Raises
+        ------
+        RuntimeError
+            If called before fit().
+        TypeError
+            If x_eval is not array-like or contains non-numeric values.
+        ValueError
+            If x_eval is empty.
         """
         if not self._fitted:
             raise RuntimeError("You must call fit() before predict")
 
-        x_eval = self._validate_arraylike_input(x_eval)
+        # Validate input x_eval using BaseUtils validation
+        x_eval = self._validate_single_array(x_eval, "x_eval", allow_empty=False)
 
         x_eval_col = "x_eval"
         x_train_col = "x_train"

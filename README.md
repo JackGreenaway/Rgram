@@ -143,14 +143,11 @@ print(result.head())
 ```python
 from rgram import KernelSmoother
 
-# Apply kernel smoothing to regressogram output
-smoother = KernelSmoother(n_eval_samples=100)
-smoothed_x = result  # result is now an array from fit_predict
-# To get the smoothed curve, we need to use predict on evaluation points
-eval_points = np.linspace(0, 10, 100)
-smoothed = smoother.fit(data=df, x="x", y="y").predict(eval_points)
+# Apply kernel smoothing to data
+smoother = KernelSmoother(bandwidth="silverman")
+smoothed = smoother.fit_predict(data=df, x="x", y="y")
 
-print(smoothed.head())
+print(smoothed)  # Returns array of predictions
 ```
 
 ## Concepts & Architecture
@@ -259,31 +256,23 @@ Fit the regressogram to data.
 
 Returns: self (fitted estimator)
 
-**`transform() -> pl.LazyFrame`**
-
-Returns the fitted regressogram results.
-
-Output columns:
-
-- `x_val`: Binned x values
-- `y_pred_rgram`: Aggregated y predictions (based on `agg` function)
-- `y_pred_rgram_lci`, `y_pred_rgram_uci`: Confidence interval bounds (if `ci` provided)
-- `y_val`: Original y values
-
 **`fit_predict(x, y, data=None, return_ci=False) -> np.ndarray or tuple`**
 
-Fit and return predictions in one step.
+Fit and return predictions in one call.
 
 - Returns `np.ndarray` of predictions by default
 - Returns `(y_pred, y_ci_low, y_ci_high)` tuple when `return_ci=True`
+- When using DataFrame mode, predictions are at the training x values
+- When using array mode, predictions are at the provided x values
 
-**`predict(x: Union[Sequence[float], pl.Series]) -> pl.Series`**
+**`predict(x: Union[Sequence[float], pl.Series]) -> np.ndarray`**
 
 Make predictions on new x values using the fitted binning scheme.
 
 - **x**: Array-like or `pl.Series` of new x points to predict
+- Must call `fit()` before `predict()`
 
-Returns: `pl.Series` containing predicted values based on learned bins
+Returns: NumPy array of predicted values based on learned bins
 
 ---
 
@@ -301,11 +290,11 @@ KernelSmoother(
 )
 ```
 
-| Parameter         | Type  | Default       | Description                                                         |
-| ----------------- | ----- | ------------- | ------------------------------------------------------------------- |
-| `n_eval_samples`  | int   | `100`         | Number of evaluation points where the kernel smoother is evaluated  |
-| `bandwidth`       | str   | `'silverman'` | Bandwidth selection method: `'silverman'`, `'scott'`, or `'manual'` |
-| `bandwidth_value` | float | `None`        | Manual bandwidth value. Required if `bandwidth='manual'`            |
+| Parameter          | Type  | Default       | Description                                                         |
+| ------------------ | ----- | ------------- | ------------------------------------------------------------------- |
+| `bandwidth`        | str   | `'silverman'` | Bandwidth selection method: `'silverman'`, `'scott'`, or `'manual'` |
+| `bandwidth_value`  | float | `None`        | Manual bandwidth value. Required if `bandwidth='manual'`            |
+| `bandwidth_adjust` | float | `1.0`         | Multiplicative adjustment factor for the calculated bandwidth       |
 
 **Bandwidth Methods:**
 
@@ -325,31 +314,24 @@ Fit the kernel smoother to data using the selected bandwidth method.
 
 Returns: self (fitted estimator)
 
-**`transform() -> pl.LazyFrame`**
-
-Returns the kernel smoothed results at evaluation points.
-
-Output columns:
-
-- `x_eval`: Evaluation points
-- `y_kernel`: Kernel-smoothed y values
-
 **`fit_predict(x, y, data=None, return_ci=False) -> np.ndarray or tuple`**
 
 Fit and return predictions in one step.
 
 - Returns `np.ndarray` of predictions by default
-- Returns `(y_pred, None, None)` when `return_ci=True` (CIs not yet implemented for kernel smoother)
+- Predictions are generated at `n_eval_samples` evaluation points spanning the x range
+- `return_ci=True` currently returns `(y_pred, None, None)` (CIs not yet implemented for kernel smoother)
 
-**`predict(x_new) -> pl.Series`**
+**`predict(x_new: Union[Sequence[float], pl.Series]) -> np.ndarray`**
 
 Apply the fitted smoother to new x values without refitting. Uses the bandwidth value determined during `fit()`.
 
 - **x_new**: Array-like or `pl.Series` of new x points
+- Must call `fit()` before `predict()`
 
-Returns: `pl.Series` containing smoothed predictions
+Returns: NumPy array of smoothed predictions
 
-**Note**: The bandwidth is determined once during `fit()` using the selected method and training data. `predict()` applies this same bandwidth to new points, ensuring consistent smoothing behavior. No refitting is required.
+**Note**: The bandwidth is determined once during `fit()` using the selected method and training data. `predict()` applies this same bandwidth to new points, ensuring consistent smoothing behavior.
 
 ---
 
@@ -361,7 +343,7 @@ Returns: `pl.Series` containing smoothed predictions
 import polars as pl
 import numpy as np
 import matplotlib.pyplot as plt
-from rgram import Regressogram, KernelSmoother
+from rgram import Regressogram
 
 # Generate synthetic data
 np.random.seed(42)
@@ -381,19 +363,30 @@ for ax, binning in zip(axes.flat, ["dist", "width", "int", "none"]):
         binning=binning,
         ci=(lambda x: x.mean() - 1.96 * x.std(), lambda x: x.mean() + 1.96 * x.std())
     )
-    result = rgram.fit(data=df, x="x", y="y_noisy").transform().collect()
+
+    # Compute predictions at training points
+    y_pred, y_ci_low, y_ci_high = rgram.fit_predict(data=df, x="x", y="y_noisy", return_ci=True)
+
+    # Sort by x for proper plotting
+    sort_idx = np.argsort(x)
+    x_sorted = x[sort_idx]
+    y_pred_sorted = y_pred[sort_idx]
 
     ax.scatter(x, y_noisy, alpha=0.4, s=20, label="observations")
     ax.plot(x, y_true, "g-", linewidth=2, label="true function")
-    ax.step(result["x_val"], result["y_pred_rgram"], "r-", linewidth=2, label="rgram")
-    ax.fill_between(
-        result["x_val"],
-        result["y_pred_rgram_lci"],
-        result["y_pred_rgram_uci"],
-        alpha=0.2,
-        color="red",
-        label="95% CI"
-    )
+    ax.step(x_sorted, y_pred_sorted, "r-", linewidth=2, where="post", label="rgram")
+
+    if y_ci_low is not None and y_ci_high is not None:
+        y_ci_low_sorted = y_ci_low[sort_idx]
+        y_ci_high_sorted = y_ci_high[sort_idx]
+        ax.fill_between(
+            x_sorted,
+            y_ci_low_sorted,
+            y_ci_high_sorted,
+            alpha=0.2,
+            color="red",
+            label="95% CI"
+        )
 
     ax.set_title(f"Binning: {binning}")
     ax.set_xlabel("x")
@@ -420,22 +413,24 @@ y = np.sin(x) * np.exp(-x / 5) + np.random.normal(0, 0.3, 200)
 
 df = pl.DataFrame({"x": x, "y": y})
 
-# Step 1: Fit regressogram
+# Step 1: Fit regressogram and get predictions
 rgram = Regressogram(binning="dist", ci=None)  # No CI for clarity
-rgram_result = rgram.fit(data=df, x="x", y="y").transform().collect()
+rgram_preds = rgram.fit_predict(data=df, x="x", y="y")
 
 # Step 2: Smooth the regressogram predictions
-smoother = KernelSmoother(n_eval_samples=200)
-smoothed = smoother.fit(
-    data=rgram_result, x="x_val", y="y_pred_rgram"
-).transform().collect()
+# Get the binned predictions via fit_predict with array inputs
+rgram_x = np.array([25, 30, 35, 40])  # Example bin centers
+rgram_y = np.array([30, 35, 40, 35])  # Example bin predictions
+
+smoother = KernelSmoother(bandwidth="silverman")
+smoothed_y = smoother.fit_predict(x=rgram_x, y=rgram_y)
 
 # Visualisation
 fig, ax = plt.subplots(figsize=(12, 6))
 ax.scatter(x, y, alpha=0.3, s=20, label="Raw observations")
-ax.step(rgram_result["x_val"], rgram_result["y_pred_rgram"],
-        where="post", linewidth=2, label="Regressogram")
-ax.plot(smoothed["x_eval"], smoothed["y_kernel"],
+ax.step(rgram_x, rgram_y,
+        where="post", linewidth=2, label="Regressogram predictions")
+ax.plot(np.sort(rgram_x), smoothed_y[np.argsort(rgram_x)],
         linewidth=2.5, color="green", label="Kernel smoothed")
 
 ax.set_xlabel("x")
@@ -469,10 +464,14 @@ rgram_median = Regressogram(
         lambda x: x.quantile(0.75)
     )
 )
-result = rgram_median.fit(data=df, x="x", y="y").transform().collect()
+result = rgram_median.fit_predict(data=df, x="x", y="y", return_ci=True)
 
 print("Regressogram with median aggregation:")
-print(result.select(["x_val", "y_pred_rgram", "y_pred_rgram_lci", "y_pred_rgram_uci"]).head())
+if isinstance(result, tuple):
+    y_pred, y_ci_low, y_ci_high = result
+    print(f"Predictions shape: {y_pred.shape}")
+else:
+    print(f"Predictions: {result}")
 ```
 
 ## Guides
@@ -491,7 +490,8 @@ print(result.select(["x_val", "y_pred_rgram", "y_pred_rgram_lci", "y_pred_rgram_
 rgram = Regressogram(binning="dist")
 # Automatically creates wider bins for underrepresented ages
 # Handles duplicate ages gracefully
-result = rgram.fit(data=df, x="age", y="purchase_amount").transform().collect()
+result = rgram.fit_predict(data=df, x="age", y="purchase_amount")
+print(result)  # Array of predictions
 ```
 
 **Fixed-width binning (`"width"`)**
@@ -504,7 +504,8 @@ result = rgram.fit(data=df, x="age", y="purchase_amount").transform().collect()
 ```python
 rgram = Regressogram(binning="width")
 # Creates consistent income brackets, though some may be nearly empty
-result = rgram.fit(data=df, x="annual_income", y="credit_score").transform().collect()
+result = rgram.fit_predict(data=df, x="annual_income", y="credit_score")
+print(result)  # Array of predictions
 ```
 
 **Integer binning (`"int"`)**
@@ -515,7 +516,8 @@ result = rgram.fit(data=df, x="annual_income", y="credit_score").transform().col
 
 ```python
 rgram = Regressogram(binning="int")
-result = rgram.fit(data=df, x="product_rating", y="num_reviews").transform().collect()
+result = rgram.fit_predict(data=df, x="product_rating", y="num_reviews")
+print(result)  # Array of predictions
 ```
 
 **No binning / Unique values (`"none"`)**
@@ -526,9 +528,8 @@ result = rgram.fit(data=df, x="product_rating", y="num_reviews").transform().col
 
 ```python
 rgram = Regressogram(binning="none", agg=lambda x: x.mean())
-result = rgram.fit(data=df, x="x_col", y="target").transform().collect()
-# Result has one row per unique x value with its corresponding y statistic
-# No binning/grouping across different x values occurs
+result = rgram.fit_predict(data=df, x="x_col", y="target")
+print(result)  # Array with one prediction per unique x value
 ```
 
 ### Controlling Bin Count for Distribution-Based Binning
@@ -546,9 +547,9 @@ rgram_5_bins = Regressogram(binning="dist", n_bins=5)
 rgram_20_bins = Regressogram(binning="dist", n_bins=20)
 
 # Fit and compare
-result_auto = rgram_auto.fit(data=df, x="x", y="y").transform().collect()
-result_5 = rgram_5_bins.fit(data=df, x="x", y="y").transform().collect()
-result_20 = rgram_20_bins.fit(data=df, x="x", y="y").transform().collect()
+result_auto = rgram_auto.fit_predict(data=df, x="x", y="y")
+result_5 = rgram_5_bins.fit_predict(data=df, x="x", y="y")
+result_20 = rgram_20_bins.fit_predict(data=df, x="x", y="y")
 
 # Fewer bins (5) = smoother, coarser estimate
 # More bins (20) = more detailed, but noisier estimate
@@ -580,8 +581,8 @@ rgram_count = Regressogram(
 # Standard deviation
 rgram_std = Regressogram(agg=lambda x: x.std())
 
-result = rgram_count.fit(data=df, x="x", y="dummy_col").transform().collect()
-# y_pred_rgram now contains bin counts
+result = rgram_count.fit_predict(data=df, x="x", y="dummy_col")
+print(result)  # Array of bin counts
 ```
 
 ### Data Input Formats
@@ -601,7 +602,8 @@ df = pl.DataFrame({
 
 # Reference columns by name (like seaborn.kdeplot)
 rgram = Regressogram()
-result = rgram.fit(data=df, x="age", y="salary").transform().collect()
+result = rgram.fit_predict(data=df, x="age", y="salary")
+print(result)  # Array of predictions
 ```
 
 **Pattern 2: Raw Arrays/Series** (Best for quick analysis, interactive work)
@@ -615,7 +617,8 @@ y = np.array([50000, 55000, 60000, 70000, 80000])
 
 # Pass arrays directly without a DataFrame (like seaborn.kdeplot with just x=)
 rgram = Regressogram()
-result = rgram.fit(x=x, y=y).transform().collect()
+result = rgram.fit_predict(x=x, y=y)
+print(result)  # Array of predictions
 ```
 
 **Pattern 3: Mixed with Polars Series**
@@ -630,19 +633,20 @@ df = pl.DataFrame({
 })
 
 # Use Series directly without wrapping in DataFrame
-result = rgram.fit(x=df["age"], y=df["salary"]).transform().collect()
+result = rgram.fit_predict(x=df["age"], y=df["salary"])
+print(result)  # Array of predictions
 ```
 
 **Pattern 4: Multiple features/targets**
 
 ```python
 # Multiple x columns (analysed as separate x-y pair combinations)
-result = rgram.fit(
+result = rgram.fit_predict(
     data=df,
     x=["age", "experience"],
     y="salary"
-).transform().collect()
-# Creates separate results for each x-y feature pair
+)
+print(result)  # Array of predictions across x-y feature pairs
 ```
 
 **When to use which pattern:**
