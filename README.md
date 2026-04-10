@@ -135,7 +135,7 @@ df = pl.DataFrame({"x": x, "y": y})
 rgram = Regressogram(binning="dist")
 result = rgram.fit_predict(data=df, x="x", y="y")
 
-print(result.head())
+print(result)
 ```
 
 ### Kernel Smoothing Example
@@ -705,116 +705,6 @@ print(result)  # Array of predictions across x-y feature pairs
 - **Missing Values**: The current implementation does not explicitly handle missing values. Pre-processing with appropriate techniques (imputation, removal) is required.
 
 - **Categorical Features**: Both classes require numerical input. Categorical variables must be encoded numerically before use.
-
-## Troubleshooting
-
-### Common Issues and Solutions
-
-**Q: I'm getting `RuntimeError: You must call fit() before transform()`**
-
-A: Ensure you call `.fit()` before `.transform()`, or use `.fit_transform()` as a shortcut:
-
-```python
-# ❌ Wrong
-smoother = KernelSmoother()
-result = smoother.transform()  # Error!
-
-# ✅ Correct
-smoother = KernelSmoother()
-smoother.fit(data=df, x="x", y="y")
-result = smoother.transform()
-
-# ✅ Alternative (recommended)
-smoother = KernelSmoother()
-result = smoother.fit_transform(data=df, x="x", y="y")
-```
-
-**Q: My results have very few bins or all data in one bin**
-
-A: This often happens with highly skewed distributions. Try different binning strategies:
-
-```python
-from rgram import Regressogram
-
-# If dist binning creates too few bins, try width or int
-rgram_width = Regressogram(binning="width")
-result = rgram_width.fit_transform(data=df, x="age", y="income").collect()
-
-# Or check your data distribution first
-print(f"X range: {df['age'].min()} to {df['age'].max()}")
-print(f"X std: {df['age'].std()}, IQR: {df['age'].quantile(0.75) - df['age'].quantile(0.25)}")
-```
-
-**Q: KernelSmoother results look too smooth/too wiggly**
-
-A: Adjust the `n_eval_samples` parameter (more samples = smoother curve with finer detail):
-
-```python
-# Too wiggly? Use fewer evaluation points
-smoother_smooth = KernelSmoother(n_eval_samples=50)
-
-# Want more detail? Use more evaluation points
-smoother_detailed = KernelSmoother(n_eval_samples=500)
-```
-
-**Q: Getting `ValueError: If data is None, input must be an array-like`**
-
-A: You mixed column names with array mode. Either pass column names with a DataFrame, or pass arrays without a DataFrame:
-
-```python
-import polars as pl
-import numpy as np
-from rgram import Regressogram
-
-# ❌ Wrong mix
-df = pl.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
-result = Regressogram().fit_transform(x=df["x"], y="y", data=df)  # Error!
-
-# ✅ Correct: use column names with data
-result = Regressogram().fit_transform(data=df, x="x", y="y").collect()
-
-# ✅ Correct: use arrays without data
-x = np.array([1, 2, 3])
-y = np.array([4, 5, 6])
-result = Regressogram().fit_transform(x=x, y=y).collect()
-```
-
-**Q: Data collection `.collect()` is very slow or runs out of memory**
-
-A: Process data in batches using Polars filtering:
-
-```python
-from rgram import Regressogram
-
-rgram = Regressogram()
-rgram.fit(data=large_df, x="x", y="y")
-
-# Process in batches instead of collecting everything at once
-for batch_df in large_df.partition_by("date"):  # or any grouping column
-    results = rgram.transform().filter(
-        pl.col("date") == batch_df["date"][0]
-    ).collect()
-    print(results.head())
-```
-
-**Q: Getting different results between runs with the same data**
-
-A: Polars operations are deterministic. Different results usually mean:
-
-1. Random seed not set (if you generated synthetic data)
-2. Parallelization order differences (set `polars.Config.set_streaming_chunk_size()`)
-3. Data changed between runs (verify your input data)
-
-```python
-import polars as pl
-import numpy as np
-
-# Set reproducible random seed
-np.random.seed(42)
-pl.Config.set_random_seed(42)
-
-# Your analysis...
-```
 
 ## Future Improvements
 
