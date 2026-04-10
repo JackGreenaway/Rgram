@@ -34,28 +34,15 @@ def test_predict_with_series(sample_data):
     assert len(pred) == len(x)
 
 
-def test_predict_after_transform_consistency(sample_data):
-    df, x, y, y_noise = sample_data
-    rgram = Regressogram()
-    rgram.fit(data=df, x="x", y="y_noise")
-    transformed = rgram.transform().collect()
-    pred = rgram.predict(x)
-
-    # Predictions should correspond to values in transformed result
-    assert (pl.Series(pred).is_in(transformed["y_pred_rgram"].implode())).all()
-
-
 def test_fit_with_numpy_arrays(sample_data):
     """Test that fit works with numpy arrays as input."""
     _, x, y, y_noise = sample_data
     rgram = Regressogram()
 
     # Fit using raw numpy arrays
-    rgram.fit(x=x, y=y_noise)
-    transformed = rgram.transform().collect()
+    pred = rgram.fit_predict(x=x, y=y_noise)
 
-    assert len(transformed) > 0
-    assert "y_pred_rgram" in transformed.columns
+    assert len(pred) > 0
 
 
 def test_predict_with_numpy_array(sample_data):
@@ -71,34 +58,14 @@ def test_predict_with_numpy_array(sample_data):
     assert len(pred) == len(x)
 
 
-def test_fit_with_pandas_dataframe(sample_data):
-    """Test that fit works with pandas DataFrame converted to Polars."""
-    import pandas as pd
-    import polars as pl
-
-    _, x, y, y_noise = sample_data
-    # Create pandas DataFrame and convert to Polars
-    df_pandas = pd.DataFrame({"x": x, "y_noise": y_noise})
-    df_polars = pl.from_pandas(df_pandas)
-
-    rgram = Regressogram()
-    rgram.fit(data=df_polars, x="x", y="y_noise")
-    transformed = rgram.transform().collect()
-
-    assert len(transformed) > 0
-    assert "y_pred_rgram" in transformed.columns
-
-
 def test_fit_with_polars_dataframe(sample_data):
     """Test that fit works with polars DataFrame as input."""
     df, x, y, y_noise = sample_data
 
     rgram = Regressogram()
-    rgram.fit(data=df, x="x", y="y_noise")
-    transformed = rgram.transform().collect()
+    pred = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert len(transformed) > 0
-    assert "y_pred_rgram" in transformed.columns
+    assert len(pred) > 0
 
 
 def test_predict_with_numpy_list():

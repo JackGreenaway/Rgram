@@ -73,6 +73,8 @@ class Regressogram(BaseUtils):
         self.ci = ci
         self.n_bins = n_bins
 
+        self._is_fitted = False
+
     def _learn_bin_params(self, data: pl.LazyFrame) -> None:
         x_min, x_max, q25, q75, n = (
             data.select(
@@ -284,59 +286,11 @@ class Regressogram(BaseUtils):
             select_cols.extend(ci_cols)
 
         self._bin_to_y = data.select(select_cols).unique().collect()
-        self._training_data = data.collect()
+        # self._training_data = data.collect()
+
+        self._is_fitted = True
 
         return self
-
-    def _get_full_predictions(self) -> pl.DataFrame:
-        """Internal method to compute full predictions with all columns."""
-        if not hasattr(self, "_training_data"):
-            raise RuntimeError("You must call fit() before getting predictions.")
-
-        data = self._training_data.lazy()
-
-        if self.ci:
-            ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
-            ci_exprs = [
-                ci_calc(pl.col("y_val").fill_null(pl.col("y_val").mean()))
-                .over(self.over_cols + ["rgram_bin"])
-                .alias(alias)
-                for ci_calc, alias in zip(self.ci, ci_cols)
-            ]
-
-            data = data.with_columns(ci_exprs)
-
-        # Collect once to check columns and decide what to drop
-        collected = data.collect()
-        cols_to_drop = []
-
-        schema = collected.schema
-        # Only drop x_var and y_var if there's only one unique value
-        # (they add no information in that case). Keep them for multi-feature/multi-target cases.
-        if "x_var" in schema:
-            unique_x_count = collected["x_var"].n_unique()
-            if unique_x_count <= 1:
-                cols_to_drop.append("x_var")
-
-        if "y_var" in schema:
-            unique_y_count = collected["y_var"].n_unique()
-            if unique_y_count <= 1:
-                cols_to_drop.append("y_var")
-
-        return collected.drop(cols_to_drop).sort(by=["x_val"])
-
-    def transform(self) -> pl.LazyFrame:
-        """
-        Return the full binned regression results (for backward compatibility).
-
-        Returns full data with bin assignments and predictions.
-
-        Returns
-        -------
-        pl.LazyFrame
-            Full results including all columns. Call `.collect()` to materialize.
-        """
-        return self._get_full_predictions().lazy()
 
     def predict(
         self, x: Union[Sequence[float], pl.Series], return_ci: bool = False
@@ -362,7 +316,7 @@ class Regressogram(BaseUtils):
                 y_ci_low: numpy array of lower CI or None if ci not configured
                 y_ci_high: numpy array of upper CI or None if ci not configured
         """
-        if not hasattr(self, "_bin_to_y"):
+        if not self._is_fitted:
             raise RuntimeError("Call fit() before predict().")
 
         # Check for empty input
@@ -438,9 +392,4 @@ class Regressogram(BaseUtils):
         """
         self.fit(data=data, x=x, y=y)
 
-        # Get unique x values from training data for prediction
-        x_train = (
-            self._training_data.select("x_val").get_column("x_val").sort().to_numpy()
-        )
-
-        return self.predict(x_train, return_ci=return_ci)
+        return self.predict(x=x, return_ci=return_ci)

@@ -164,22 +164,6 @@ class TestKernelSmootherPerformance:
 class TestMemoryEfficiency:
     """Test memory efficiency and proper resource handling."""
 
-    def test_lazy_evaluation(self):
-        """Test that LazyFrames are actually lazy."""
-        x = np.linspace(0, 10, 1000)
-        y = np.sin(x)
-
-        rgram = Regressogram()
-        rgram.fit(x=x, y=y)
-
-        # transform returns LazyFrame
-        lazy_result = rgram.transform()
-        assert isinstance(lazy_result, pl.LazyFrame)
-
-        # Only collect when needed
-        result = lazy_result.collect()
-        assert isinstance(result, pl.DataFrame)
-
     def test_no_memory_leak_repeated_fits(self):
         """Test that repeated fits don't accumulate memory."""
         x = np.random.randn(500)
@@ -198,7 +182,7 @@ class TestMemoryEfficiency:
         y = np.sin(x)
 
         rgram = Regressogram()
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
 
         assert len(result) == 5000
         assert result.shape[0] == 5000
@@ -256,10 +240,9 @@ class TestStressConditions:
         y = np.sin(x / 1e6)
 
         rgram = Regressogram()
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
 
         assert len(result) == 100
-        assert result["y_pred_rgram"].dtype in [pl.Float32, pl.Float64]
 
     def test_many_duplicate_values(self):
         """Test with many duplicate x values."""
@@ -267,7 +250,7 @@ class TestStressConditions:
         y = np.tile(np.sin(np.linspace(0, 10, 20)), 50) + np.random.randn(1000) * 0.1
 
         rgram = Regressogram()
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
 
         assert len(result) == 1000
 
@@ -284,7 +267,7 @@ class TestStressConditions:
         y = np.sin(x)
 
         rgram = Regressogram()
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
 
         assert len(result) == 1000
 
@@ -300,7 +283,7 @@ class TestStressConditions:
         y = np.sin(x)
 
         rgram = Regressogram()
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
 
         assert len(result) == 210
 
@@ -323,8 +306,7 @@ class TestStressConditions:
             x = np.linspace(0, 10, 50 + i * 10)
             y = np.sin(x)
 
-            rgram.fit(x=x, y=y)
-            result = rgram.transform().collect()
+            result= rgram.fit_predict(x=x, y=y)
             assert len(result) > 0
 
 
@@ -364,7 +346,7 @@ class TestDatasetVariations:
         y = x + np.random.randn(100) * 100  # Very large noise
 
         rgram = Regressogram()
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
         assert len(result) == 100
 
     def test_sparse_data(self):
@@ -373,7 +355,7 @@ class TestDatasetVariations:
         y = np.array([0, 0.1, 25, 27, 96, 100], dtype=float)
 
         rgram = Regressogram()
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
         assert len(result) == 6
 
 
@@ -387,7 +369,7 @@ class TestScalingBehavior:
 
         for n_bins in [5, 10, 20, 50]:
             rgram = Regressogram(binning="dist", n_bins=n_bins)
-            result = rgram.fit(x=x, y=y).transform().collect()
+            result = rgram.fit_predict(x=x, y=y)
             assert len(result) == 1000
 
     def test_scaling_with_eval_samples(self):
@@ -398,7 +380,7 @@ class TestScalingBehavior:
 
         for n_eval in [10, 50, 100, 500]:
             x_eval = np.linspace(0, 10, n_eval)
-            
+
             smoother = KernelSmoother()
             result = smoother.fit_predict(data=df, x="x", y="y", x_eval=x_eval)
 

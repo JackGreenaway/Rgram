@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import polars as pl
+import warnings
 
 from rgram.base import BaseUtils
 from typing import Sequence, Union, Optional, Any, Literal
@@ -293,6 +294,14 @@ class KernelSmoother(BaseUtils):
 
         # For kernel smoother, confidence intervals would require bootstrap or analytically computed
         # Currently not implemented, return None
+
+        warnings.warn(
+            "Confidence intervals are not implemented for KernelSmoother yet. "
+            "Returning (y_pred, None, None).",
+            UserWarning,
+            stacklevel=2,
+        )
+
         return y_pred, None, None
 
     @staticmethod
