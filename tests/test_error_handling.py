@@ -47,12 +47,12 @@ class TestRegressogramErrorHandling:
         with pytest.raises(RuntimeError, match="Call fit\\(\\) before predict"):
             rgram.predict([1, 2, 3])
 
-    def test_transform_before_fit_raises(self):
-        """Test that transform before fit raises RuntimeError."""
+    def test_predict_before_fit_raises(self):
+        """Test that predict before fit raises RuntimeError."""
         rgram = Regressogram()
 
-        with pytest.raises(RuntimeError, match="must call fit"):
-            rgram.transform()
+        with pytest.raises(RuntimeError, match="Call fit\\(\\) before predict"):
+            rgram.predict([1, 2, 3])
 
     def test_fit_with_none_data_and_invalid_input_raises(self):
         """Test that providing string col name without DataFrame raises error."""
@@ -69,12 +69,9 @@ class TestRegressogramErrorHandling:
 
         # Should handle or raise appropriately
         try:
-            result = rgram.fit(x=x, y=y).transform().collect()
+            result = rgram.fit_predict(x=x, y=y)
             # If it doesn't raise, predictions should be NaN or handled gracefully
-            assert (
-                result["y_pred_rgram"].is_nan().all()
-                or result["y_pred_rgram"].null_count() > 0
-            )
+            assert np.all(np.isnan(result)) or len(result) == 0
         except Exception:
             # Expected if library doesn't support all-NaN data
             pass
@@ -97,10 +94,10 @@ class TestRegressogramErrorHandling:
         x = np.array([5.0, 5.0, 5.0, 5.0])
         y = np.array([1.0, 2.0, 3.0, 4.0])
 
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
         assert len(result) > 0
         # All predictions should be the same (aggregated y value)
-        assert result["y_pred_rgram"].unique().len() == 1
+        assert np.allclose(result, result[0])
 
     def test_fit_with_single_unique_y_value(self):
         """Test that single unique y value returns constant predictions."""
@@ -108,8 +105,8 @@ class TestRegressogramErrorHandling:
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([5.0, 5.0, 5.0, 5.0, 5.0])
 
-        result = rgram.fit(x=x, y=y).transform().collect()
-        assert (result["y_pred_rgram"] == 5.0).all()
+        result = rgram.fit_predict(x=x, y=y)
+        assert np.allclose(result, 5.0)
 
     def test_fit_with_inf_values_raises_or_handles(self):
         """Test behavior with infinite values."""
@@ -119,7 +116,7 @@ class TestRegressogramErrorHandling:
 
         # Should either handle gracefully or raise
         try:
-            result = rgram.fit(x=x, y=y).transform().collect()
+            result = rgram.fit_predict(x=x, y=y)
             assert len(result) > 0
         except Exception:
             # Expected behavior if inf not supported
@@ -151,7 +148,7 @@ class TestRegressogramErrorHandling:
         y = np.array([1.0, 2.0, 3.0])
 
         try:
-            rgram.fit(x=x, y=y).transform().collect()
+            rgram.fit_predict(x=x, y=y)
         except (TypeError, ValueError, IndexError):
             # Expected - CI tuple should be length 2
             pass
@@ -163,7 +160,7 @@ class TestRegressogramErrorHandling:
         y = np.array([1.0, 2.0, 3.0])
 
         try:
-            result = rgram.fit(x=x, y=y).transform().collect()
+            result = rgram.fit_predict(x=x, y=y)
             # If no error, n_bins should be clamped to at least 1
             assert len(result) > 0
         except (ValueError, Exception):
@@ -291,7 +288,7 @@ class TestDataValidationErrors:
         x = np.array([1, 2.5, 3, 4.7, 5])
         y = np.array([1, 2, 3, 4, 5])
 
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
         assert len(result) > 0
 
     def test_fit_with_large_array_shape_mismatch(self):

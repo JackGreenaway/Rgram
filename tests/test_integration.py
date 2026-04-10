@@ -96,12 +96,10 @@ class TestRegressogramWorkflows:
         y = x + np.random.randn(20) * 0.5
 
         rgram = Regressogram()
-        rgram.fit(x=x, y=y)
+        result = rgram.fit_predict(x=x, y=y)
 
-        result = rgram.transform().collect()
-
-        assert "y_pred_rgram" in result.columns
-        assert len(result) == 20
+        assert isinstance(result, np.ndarray)
+        assert len(result) == len(x)
 
     def test_multiple_binning_strategies_same_data(self):
         """Test using different binning strategies on same data."""
@@ -139,8 +137,8 @@ class TestRegressogramWorkflows:
         results = {}
         for name, agg_func in agg_funcs.items():
             rgram = Regressogram(binning="int", agg=agg_func)
-            result = rgram.fit(x=x, y=y).transform().collect()
-            results[name] = result["y_pred_rgram"].to_numpy()
+            result = rgram.fit_predict(x=x, y=y)
+            results[name] = result
 
         # Results should be different
         assert not np.allclose(results["mean"], results["min"])
@@ -206,9 +204,7 @@ class TestKernelSmootherWorkflows:
             {"x": np.linspace(0, 10, 50), "y": np.exp(np.linspace(0, 10, 50) / 5)}
         )
 
-        smoother = KernelSmoother(
-            bandwidth="manual", bandwidth_value=1.5
-        )
+        smoother = KernelSmoother(bandwidth="manual", bandwidth_value=1.5)
         smoother.fit(data=df, x="x", y="y")
         pred = smoother.predict(np.linspace(0, 10, 20))
 
@@ -296,22 +292,18 @@ class TestMixedInputWorkflows:
         assert len(pred) == 3
 
     def test_array_input_then_dataframe_analysis(self):
-        """Test using array input then analyzing with DataFrame operations."""
+        """Test using array input then analyzing predictions."""
         x = np.linspace(0, 10, 30)
         y = np.sin(x)
 
         rgram = Regressogram()
-        rgram.fit(x=x, y=y)
+        result = rgram.fit_predict(x=x, y=y)
 
-        # Get full results as DataFrame
-        result_df = rgram.transform().collect()
+        assert isinstance(result, np.ndarray)
+        assert len(result) == len(x)
 
-        assert isinstance(result_df, pl.DataFrame)
-        assert "y_pred_rgram" in result_df.columns
-
-        # Can then filter/operate on DataFrame
-        high_pred = result_df.filter(pl.col("y_pred_rgram") > 0)
-        assert len(high_pred) > 0
+        # Check that predictions are reasonable
+        assert not np.all(np.isnan(result))
 
 
 class TestModelComparison:
@@ -370,7 +362,7 @@ class TestErrorRecoveryWorkflows:
         # Should be able to fit with valid data
         x = np.array([1.0, 2.0, 3.0])
         y = np.array([1.0, 2.0, 3.0])
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
 
         assert len(result) > 0
 

@@ -258,12 +258,11 @@ class TestCIComputation:
         ci = (lambda col: col.quantile(0.1), lambda col: col.quantile(0.9))
 
         rgram = Regressogram(ci=ci)
-        result = rgram.fit_predict(x=x, y=y)
+        pred, lci, uci = rgram.fit_predict(x=x, y=y, return_ci=True)
 
-        lci = result["y_pred_rgram_lci"].drop_nulls().to_numpy()
-        uci = result["y_pred_rgram_uci"].drop_nulls().to_numpy()
-
-        assert (uci >= lci).all()
+        # Remove NaN values for comparison
+        valid_idx = ~(np.isnan(lci) | np.isnan(uci))
+        assert np.all(uci[valid_idx] >= lci[valid_idx])
 
     def test_tight_ci(self):
         """Test with tight CI (close to prediction)."""
@@ -273,7 +272,7 @@ class TestCIComputation:
         ci = (lambda col: col.mean() - 0.01, lambda col: col.mean() + 0.01)
 
         rgram = Regressogram(ci=ci)
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(x=x, y=y, return_ci=True)
 
         assert len(result) == 3
 

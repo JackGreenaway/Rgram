@@ -7,7 +7,7 @@ from rgram.rgram import Regressogram
 def test_transform_before_fit_raises():
     rgram = Regressogram()
     with pytest.raises(RuntimeError):
-        rgram.transform()
+        rgram.predict([1, 2, 3])
 
 
 def test_predict_before_fit_raises():
@@ -22,7 +22,7 @@ def test_empty_data_raises():
     empty_df = pl.DataFrame({"x": [], "y": []})
 
     with pytest.raises(Exception):
-        rgram.fit(data=empty_df, x="x", y="y").transform().collect()
+        rgram.fit_predict(data=empty_df, x="x", y="y")
 
 
 def test_unknown_binning_raises(sample_data):
@@ -31,16 +31,16 @@ def test_unknown_binning_raises(sample_data):
     rgram = Regressogram(binning="unknown_strategy")
 
     with pytest.raises(ValueError):
-        rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+        rgram.fit_predict(data=df, x="x", y="y_noise")
 
 
 def test_unique_binning_type(sample_data):
     """Test 'none' binning strategy uses each unique x value as a bin."""
     df, x, y, y_noise = sample_data
     rgram = Regressogram(binning="none")
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
@@ -48,9 +48,9 @@ def test_int_binning_type(sample_data):
     """Test 'int' binning strategy bins by integer values."""
     df, x, y, y_noise = sample_data
     rgram = Regressogram(binning="int")
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
@@ -58,11 +58,11 @@ def test_ci_none_no_ci_columns(sample_data):
     """Test that ci=None produces no confidence interval columns."""
     df, x, y, y_noise = sample_data
     rgram = Regressogram(ci=None)
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    pred, lci, uci = rgram.fit_predict(data=df, x="x", y="y_noise", return_ci=True)
 
-    assert "y_pred_rgram" in result.columns
-    assert "y_pred_rgram_lci" not in result.columns
-    assert "y_pred_rgram_uci" not in result.columns
+    assert isinstance(pred, np.ndarray)
+    assert lci is None
+    assert uci is None
 
 
 def test_custom_ci_functions(sample_data):
@@ -74,26 +74,26 @@ def test_custom_ci_functions(sample_data):
     ci_upper = lambda x: x.quantile(0.95)  # noqa: E731
 
     rgram = Regressogram(ci=(ci_lower, ci_upper))
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    pred, lci, uci = rgram.fit_predict(data=df, x="x", y="y_noise", return_ci=True)
 
-    assert "y_pred_rgram_lci" in result.columns
-    assert "y_pred_rgram_uci" in result.columns
+    assert isinstance(pred, np.ndarray)
+    assert isinstance(lci, np.ndarray)
+    assert isinstance(uci, np.ndarray)
 
-    # CI upper should generally be >= CI lower
-    lci = result["y_pred_rgram_lci"].drop_nulls()
-    uci = result["y_pred_rgram_uci"].drop_nulls()
-    if len(lci) > 0 and len(uci) > 0:
-        assert (uci >= lci).all()
+    # CI upper should generally be >= CI lower (ignoring NaNs)
+    valid = ~np.isnan(lci) & ~np.isnan(uci)
+    if np.any(valid):
+        assert np.all(uci[valid] >= lci[valid])
 
 
 def test_single_point_per_bin(sample_data):
     """Test behavior when bins have single data points."""
     df, x, y, y_noise = sample_data
     rgram = Regressogram(binning="int")
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
     # Should not crash and should have predictions
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
@@ -103,10 +103,10 @@ def test_single_value_input():
     y = np.array([10.0])
 
     rgram = Regressogram(binning="dist")
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
+    assert isinstance(result, np.ndarray)
     assert len(result) >= 1
-    assert "y_pred_rgram" in result.columns
 
 
 def test_very_large_values():
@@ -115,9 +115,9 @@ def test_very_large_values():
     y = np.array([1e8, 2e8, 3e8, 4e8, 5e8])
 
     rgram = Regressogram(binning="width")
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
@@ -127,9 +127,9 @@ def test_very_small_values():
     y = np.array([1e-8, 2e-8, 3e-8, 4e-8, 5e-8])
 
     rgram = Regressogram(binning="width")
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
@@ -139,9 +139,9 @@ def test_negative_x_values():
     y = np.array([1, 2, 3, 4, 5, 6, 7])
 
     rgram = Regressogram(binning="dist")
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
@@ -151,9 +151,9 @@ def test_all_same_x_values():
     y = np.array([1.0, 2.0, 3.0, 4.0])
 
     rgram = Regressogram(binning="dist")
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
 
 
 def test_all_same_y_values():
@@ -162,11 +162,11 @@ def test_all_same_y_values():
     y = np.array([5.0, 5.0, 5.0, 5.0])
 
     rgram = Regressogram()
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
     # All predictions should be 5.0
-    assert "y_pred_rgram" in result.columns
-    assert (result["y_pred_rgram"] == 5.0).all()
+    assert isinstance(result, np.ndarray)
+    assert np.allclose(result, 5.0)
 
 
 def test_mixed_positive_negative_y():
@@ -175,9 +175,9 @@ def test_mixed_positive_negative_y():
     y = np.array([-2, -1, 1, 2, -3, 4, -5, 6])
 
     rgram = Regressogram(binning="width")
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
@@ -191,13 +191,13 @@ def test_dist_binning_with_duplicate_x_values():
     )
 
     rgram = Regressogram(binning="dist")
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
     # Check that predictions are reasonable
-    assert result["y_pred_rgram"].min() >= y.min() - 1
-    assert result["y_pred_rgram"].max() <= y.max() + 1
+    assert np.min(result) >= y.min() - 1
+    assert np.max(result) <= y.max() + 1
 
 
 def test_dist_binning_with_many_duplicate_clusters():
@@ -207,9 +207,9 @@ def test_dist_binning_with_many_duplicate_clusters():
     y = np.array(list(range(1, 11)) * 5)  # 1-10 repeated 5 times
 
     rgram = Regressogram(binning="dist")
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
@@ -219,9 +219,9 @@ def test_dist_binning_with_mostly_duplicates():
     y = np.array([1.0] * 20 + [2.0] * 5 + [3.0] * 20 + [4.0] * 5)
 
     rgram = Regressogram(binning="dist")
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0
 
 
@@ -231,7 +231,7 @@ def test_dist_binning_duplicates_with_custom_agg():
     y = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
 
     rgram = Regressogram(binning="dist", agg=lambda s: s.median())
-    result = rgram.fit(x=x, y=y).transform().collect()
+    result = rgram.fit_predict(x=x, y=y)
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     assert len(result) > 0

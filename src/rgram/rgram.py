@@ -392,4 +392,12 @@ class Regressogram(BaseUtils):
         """
         self.fit(data=data, x=x, y=y)
 
+        # Extract actual x values for predict
+        # If data was provided, x is a column name - extract values from data
+        if data is not None:
+            if isinstance(data, pl.LazyFrame):
+                data = data.collect()
+
+            x = data.get_column(x).to_numpy()
+
         return self.predict(x=x, return_ci=return_ci)

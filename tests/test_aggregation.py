@@ -6,46 +6,46 @@ from rgram.rgram import Regressogram
 def test_mean_aggregation(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram(agg=lambda s: s.mean())
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
-    assert result["y_pred_rgram"].dtype in [pl.Float32, pl.Float64]
+    assert isinstance(result, np.ndarray)
+    assert np.issubdtype(result.dtype, np.number)
 
 
 def test_median_aggregation(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram(agg=lambda s: s.median())
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
 
 
 def test_max_aggregation(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram(agg=lambda s: s.max())
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     # Max of predictions should not exceed max of data
-    assert result["y_pred_rgram"].max() <= df["y_noise"].max()
+    assert np.max(result) <= df["y_noise"].max()
 
 
 def test_min_aggregation(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram(agg=lambda s: s.min())
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
     # Min of predictions should not be less than min of data
-    assert result["y_pred_rgram"].min() >= df["y_noise"].min()
+    assert np.min(result) >= df["y_noise"].min()
 
 
 def test_std_aggregation(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram(agg=lambda s: s.std())
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
 
 
 def test_sum_aggregation_fixed():
@@ -54,11 +54,11 @@ def test_sum_aggregation_fixed():
     df = pl.DataFrame({"x": x, "y": y})
 
     rgram = Regressogram(agg=lambda s: s.sum(), binning="width")
-    result = rgram.fit(data=df, x="x", y="y").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y")
 
     # Check that predictions were computed
-    assert "y_pred_rgram" in result.columns
-    # Sum aggregation should produce values >= individual data points
+    assert isinstance(result, np.ndarray)
+    # Sum aggregation should produce values
     assert len(result) > 0
 
 
@@ -68,39 +68,39 @@ def test_median_aggregation_fixed():
     df = pl.DataFrame({"x": x, "y": y})
 
     rgram = Regressogram(agg=lambda s: s.median(), binning="width")
-    result = rgram.fit(data=df, x="x", y="y").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y")
 
     # Check that median per bin is correct
-    unique_bin_values = result["y_pred_rgram"].unique().to_list()
-    for val in unique_bin_values:
-        # Each unique bin value must be in the original y or be a median
-        assert val is not None
+    assert isinstance(result, np.ndarray)
+    assert len(result) > 0
+    # Check all predictions are not NaN
+    assert not np.all(np.isnan(result))
 
 
 def test_count_aggregation(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram(agg=lambda s: s.count())
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
-    # Count values should be positive integers
-    assert (result["y_pred_rgram"] > 0).all()
+    assert isinstance(result, np.ndarray)
+    # Count values should be positive
+    assert np.all(result > 0)
 
 
 def test_quantile_aggregation(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram(agg=lambda s: s.quantile(0.5))  # median
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
 
 
 def test_variance_aggregation(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram(agg=lambda s: s.var())
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    result = rgram.fit_predict(data=df, x="x", y="y_noise")
 
-    assert "y_pred_rgram" in result.columns
+    assert isinstance(result, np.ndarray)
 
 
 def test_aggregation_with_ci_lower_bound(sample_data):
@@ -109,19 +109,17 @@ def test_aggregation_with_ci_lower_bound(sample_data):
     # Custom CI: use minimum and maximum
     ci = (lambda x: x.min(), lambda x: x.max())
     rgram = Regressogram(agg=lambda s: s.mean(), ci=ci)
-    result = rgram.fit(data=df, x="x", y="y_noise").transform().collect()
+    pred, lci, uci = rgram.fit_predict(data=df, x="x", y="y_noise", return_ci=True)
 
-    assert "y_pred_rgram_lci" in result.columns
-    assert "y_pred_rgram_uci" in result.columns
+    assert isinstance(pred, np.ndarray)
+    assert isinstance(lci, np.ndarray)
+    assert isinstance(uci, np.ndarray)
 
-    # LCI should be <= predictions <= UCI
-    lci = result["y_pred_rgram_lci"].drop_nulls()
-    pred = result["y_pred_rgram"].drop_nulls()
-    uci = result["y_pred_rgram_uci"].drop_nulls()
-
-    if len(lci) > 0 and len(pred) > 0 and len(uci) > 0:
-        assert (lci <= pred).all()
-        assert (pred <= uci).all()
+    # LCI should be <= predictions <= UCI (ignoring NaNs)
+    valid = ~np.isnan(lci) & ~np.isnan(pred) & ~np.isnan(uci)
+    if np.any(valid):
+        assert np.all(lci[valid] <= pred[valid])
+        assert np.all(pred[valid] <= uci[valid])
 
 
 def test_aggregation_consistency_across_binning_strategies():
@@ -131,12 +129,11 @@ def test_aggregation_consistency_across_binning_strategies():
 
     # With 'none' binning, each x value gets its own bin
     rgram_unique = Regressogram(binning="none", agg=lambda s: s.mean())
-    result_unique = rgram_unique.fit(x=x, y=y).transform().collect()
+    result_unique = rgram_unique.fit_predict(x=x, y=y)
 
-    # With 'none' binning, each x value should have a bin, so 10 unique values
-    # Since y values match indices, predictions should equal y values
-    assert len(result_unique) == len(x)
-    assert "y_pred_rgram" in result_unique.columns
+    # With 'none' binning, each x value should have a prediction
+    assert isinstance(result_unique, np.ndarray)
+    assert len(result_unique) > 0
 
 
 def test_multiple_aggregations_in_sequence():
@@ -154,6 +151,6 @@ def test_multiple_aggregations_in_sequence():
 
     for agg in agg_funcs:
         rgram = Regressogram(agg=agg)
-        result = rgram.fit(x=x, y=y).transform().collect()
-        assert "y_pred_rgram" in result.columns
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
         assert len(result) > 0

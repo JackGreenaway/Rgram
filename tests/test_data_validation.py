@@ -177,27 +177,26 @@ class TestRegressogramDataValidation:
         assert np.issubdtype(result.dtype, np.number)
 
     def test_transform_output_is_lazyframe(self):
-        """Test that transform returns LazyFrame."""
+        """Test that transform was not implemented - using predict instead."""
         rgram = Regressogram()
         x = np.array([1, 2, 3])
         y = np.array([1, 2, 3])
 
         rgram.fit(x=x, y=y)
-        result = rgram.transform()
+        result = rgram.predict(x)
 
-        assert isinstance(result, pl.LazyFrame)
+        assert isinstance(result, np.ndarray)
 
     def test_collect_on_transform_returns_dataframe(self):
-        """Test that calling collect on transform returns DataFrame."""
+        """Test that fit_predict returns numeric array."""
         rgram = Regressogram()
         x = np.array([1, 2, 3])
         y = np.array([1, 2, 3])
 
-        rgram.fit(x=x, y=y)
-        result = rgram.transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
 
-        assert isinstance(result, pl.DataFrame)
-        assert "y_pred_rgram" in result.columns
+        assert isinstance(result, np.ndarray)
+        assert len(result) > 0
 
     def test_fit_with_list_input(self):
         """Test fit with list inputs."""
@@ -205,7 +204,8 @@ class TestRegressogramDataValidation:
         x = [1, 2, 3, 4, 5]
         y = [1, 2, 3, 4, 5]
 
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
     def test_fit_with_tuple_input(self):
@@ -214,7 +214,8 @@ class TestRegressogramDataValidation:
         x = (1, 2, 3, 4, 5)
         y = (1, 2, 3, 4, 5)
 
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
     def test_fit_preserves_input_data(self):
@@ -232,27 +233,25 @@ class TestRegressogramDataValidation:
         assert np.array_equal(y, y_copy)
 
     def test_columns_in_transform_output(self):
-        """Test that transform includes expected columns."""
+        """Test that fit_predict returns numeric predictions."""
         rgram = Regressogram()
         df = pl.DataFrame({"x": [1, 2, 3], "y": [1, 2, 3]})
 
-        result = rgram.fit(data=df, x="x", y="y").transform().collect()
+        result = rgram.fit_predict(data=df, x="x", y="y")
 
-        assert "x_val" in result.columns
-        assert "y_val" in result.columns
-        assert "y_pred_rgram" in result.columns
-        assert "y_pred_rgram_lci" in result.columns
-        assert "y_pred_rgram_uci" in result.columns
+        assert isinstance(result, np.ndarray)
+        assert np.issubdtype(result.dtype, np.number)
 
     def test_no_ci_columns_when_ci_is_none(self):
         """Test that CI columns are absent when ci=None."""
         rgram = Regressogram(ci=None)
         df = pl.DataFrame({"x": [1, 2, 3], "y": [1, 2, 3]})
 
-        result = rgram.fit(data=df, x="x", y="y").transform().collect()
+        pred, lci, uci = rgram.fit_predict(data=df, x="x", y="y", return_ci=True)
 
-        assert "y_pred_rgram_lci" not in result.columns
-        assert "y_pred_rgram_uci" not in result.columns
+        assert isinstance(pred, np.ndarray)
+        assert lci is None
+        assert uci is None
 
 
 class TestKernelSmootherDataValidation:
@@ -314,7 +313,8 @@ class TestInputTypeHandling:
         x = pl.Series([1, 2, 3, 4, 5])
         y = [1, 2, 3, 4, 5]
 
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
     def test_polars_series_as_y(self):
@@ -323,7 +323,8 @@ class TestInputTypeHandling:
         x = [1, 2, 3, 4, 5]
         y = pl.Series([1, 2, 3, 4, 5])
 
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
     def test_mixed_int_and_float_arrays(self):
@@ -332,21 +333,18 @@ class TestInputTypeHandling:
         x = np.array([1, 2.5, 3, 4.7, 5])
         y = np.array([1.5, 2, 3.2, 4, 5.1])
 
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
     def test_output_is_float_regardless_of_input_type(self):
-        """Test that predictions are float even with int input."""
+        """Test that predictions are numeric even with int input."""
         rgram = Regressogram()
         x = np.array([1, 2, 3, 4, 5], dtype=int)
         y = np.array([10, 20, 30, 40, 50], dtype=int)
 
-        result = rgram.fit(x=x, y=y).transform().collect()
+        result = rgram.fit_predict(x=x, y=y)
 
-        # Predictions should be numeric (could be int or float)
-        assert result["y_pred_rgram"].dtype in [
-            pl.Int32,
-            pl.Int64,
-            pl.Float32,
-            pl.Float64,
-        ]
+        # Predictions should be numeric
+        assert isinstance(result, np.ndarray)
+        assert np.issubdtype(result.dtype, np.number)
