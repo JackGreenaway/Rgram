@@ -77,9 +77,37 @@ Rgram is **NOT** the best choice for:
 
 ## Installation
 
-### Using UV (Recommended)
+### From PyPI (Recommended for Users)
 
-[UV](https://docs.astral.sh/uv/) is a fast Python package installer and resolver written in Rust. It's the recommended way to work with this project.
+The easiest way to install Rgram is from [PyPI](https://pypi.org/project/rgram/):
+
+**Using pip**:
+```bash
+pip install rgram
+```
+
+**Using UV**:
+```bash
+uv pip install rgram
+```
+
+**Using conda**:
+```bash
+conda install -c conda-forge rgram
+```
+
+Then verify installation:
+```bash
+python -c "from rgram import Regressogram, KernelSmoother; print('Installation successful!')"
+```
+
+### From Source (For Development)
+
+To build and install from source for development:
+
+#### Using UV (Recommended)
+
+[UV](https://docs.astral.sh/uv/) is a fast Python package installer and resolver written in Rust. It's the recommended way to work with this project for development.
 
 1. **Clone the repository**:
 
@@ -88,31 +116,37 @@ Rgram is **NOT** the best choice for:
    cd Rgram
    ```
 
-2. **Install with UV**:
+2. **Install dependencies and the package in development mode**:
 
    ```bash
    uv sync
    ```
 
-3. **Install the package in development mode**:
-
-   ```bash
-   uv pip install -e .
-   ```
-
-4. **Verify installation**:
+3. **Verify installation**:
    ```bash
    python -c "from rgram import Regressogram, KernelSmoother; print('Installation successful!')"
    ```
 
-### Using pip
+#### Using pip
 
-If you prefer using standard pip:
+If you prefer standard pip:
 
 ```bash
 git clone https://github.com/JackGreenaway/Rgram.git
 cd Rgram
 pip install -e .
+```
+
+#### Building the Package
+
+To build a distribution package:
+
+```bash
+# Using UV
+uv build
+
+# Or using pip/setuptools
+python -m build
 ```
 
 ## Quick Start
