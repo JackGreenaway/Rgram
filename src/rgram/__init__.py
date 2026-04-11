@@ -14,7 +14,7 @@ KernelSmoother
 
 References
 ----------
-García-Portugués, E. (2023). Notes for nonparametric statistics. 
+García-Portugués, E. (2023). Notes for nonparametric statistics.
 Carlos III University of Madrid.
 """
 
