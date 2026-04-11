@@ -82,21 +82,19 @@ Rgram is **NOT** the best choice for:
 The easiest way to install Rgram is from [PyPI](https://pypi.org/project/rgram/):
 
 **Using pip**:
+
 ```bash
 pip install rgram
 ```
 
 **Using UV**:
-```bash
-uv pip install rgram
-```
 
-**Using conda**:
 ```bash
-conda install -c conda-forge rgram
+uv install rgram
 ```
 
 Then verify installation:
+
 ```bash
 python -c "from rgram import Regressogram, KernelSmoother; print('Installation successful!')"
 ```
