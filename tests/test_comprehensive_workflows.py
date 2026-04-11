@@ -73,7 +73,7 @@ class TestRegressogramComprehensiveWorkflows:
             assert len(result) > 0
 
     def test_workflow_dataframe_input_multiple_xy(self):
-        """Test workflow with DataFrame input and multiple x/y columns."""
+        """Test workflow with DataFrame input - univariate only for fit_predict."""
         df = pl.DataFrame(
             {
                 "x1": [1.0, 2.0, 3.0, 4.0, 5.0],
@@ -83,15 +83,15 @@ class TestRegressogramComprehensiveWorkflows:
             }
         )
 
-        # Single x, single y
+        # Single x, single y - should work
         rgram1 = Regressogram()
         result1 = rgram1.fit_predict(data=df, x="x1", y="y1")
         assert isinstance(result1, np.ndarray)
 
-        # Single x, multiple y
+        # fit_predict does not support multiple y columns (univariate only)
         rgram3 = Regressogram()
-        result3 = rgram3.fit_predict(data=df, x="x1", y=["y1", "y2"])
-        assert isinstance(result3, np.ndarray)
+        with pytest.raises(ValueError, match="fit_predict only supports univariate"):
+            rgram3.fit_predict(data=df, x="x1", y=["y1", "y2"])
 
     def test_workflow_with_ci_various_definitions(self):
         """Test workflow with different CI definitions."""

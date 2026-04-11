@@ -130,8 +130,8 @@ class KernelSmoother(BaseUtils):
 
     def fit(
         self,
-        y: Union[str, Sequence[Any]],
         x: Union[str, Sequence[Any]],
+        y: Union[str, Sequence[Any]],
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
     ) -> Self:
         """
@@ -144,12 +144,12 @@ class KernelSmoother(BaseUtils):
         Parameters
         ----------
         x : str or array-like
-            Feature column. Column name if `data` provided, else array-like (must be univariate).
+            Feature column name if `data` provided, else array-like (must be univariate).
         y : str or array-like
-            Target column. Column name if `data` provided, else array-like (must be univariate).
+            Target column name if `data` provided, else array-like (must be univariate).
         data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y are column names.
-            If None, x/y are array-like.
+            Input data. If provided, x/y must be column names (str).
+            If None, x/y must be array-like data (list, ndarray, Series).
 
         Returns
         -------
@@ -206,23 +206,24 @@ class KernelSmoother(BaseUtils):
 
     def fit_predict(
         self,
-        data: Union[pl.DataFrame, pl.LazyFrame],
-        x: Union[str, Sequence[Any]],
-        y: Union[str, Sequence[Any]],
+        x: Union[str, Any],
+        y: Union[str, Any],
+        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
         x_eval: Optional[Sequence[Any]] = None,
         return_ci: bool = False,
     ) -> Union[np.ndarray, tuple]:
         """
-        Fit and predict at evaluation points in one call.
+        Fit and predict at evaluation points in one call (univariate only).
 
         Parameters
         ----------
-        data : pl.DataFrame or pl.LazyFrame
-            Input data.
         x : str or array-like
-            Feature column. Column name if `data` provided, else array-like.
+            Single feature column name if `data` provided, else single array-like data.
         y : str or array-like
-            Target column. Column name if `data` provided, else array-like.
+            Single target column name if `data` provided, else single array-like data.
+        data : pl.DataFrame or pl.LazyFrame, optional
+            Input data. If provided, x/y must be column names (str).
+            If None, x/y must be array-like data.
         x_eval : array-like, optional
             Evaluation points for prediction. If None, uses training x values.
         return_ci : bool, default=False
@@ -239,8 +240,21 @@ class KernelSmoother(BaseUtils):
         TypeError
             If x_eval is not array-like or contains non-numeric values (when provided).
         ValueError
-            If x_eval is empty (when provided).
+            If x_eval is empty or if x/y are sequences (multivariate not supported).
         """
+        # Validate univariate constraint when data is provided
+        if data is not None:
+            if isinstance(x, (list, tuple)):
+                raise ValueError(
+                    "fit_predict only supports univariate (single feature) input. "
+                    "When data is provided, x must be a single column name (str), not a list/tuple of column names."
+                )
+            if isinstance(y, (list, tuple)):
+                raise ValueError(
+                    "fit_predict only supports univariate (single target) input. "
+                    "When data is provided, y must be a single column name (str), not a list/tuple of column names."
+                )
+
         self.fit(data=data, x=x, y=y)
 
         if x_eval is None:

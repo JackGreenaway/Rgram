@@ -72,7 +72,7 @@ class BaseUtils:
             return dataclass(**var_input)
 
         elif isinstance(var_input, dataclass):
-            return dataclass
+            return var_input
 
         else:
             return None

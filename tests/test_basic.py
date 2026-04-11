@@ -1,5 +1,6 @@
 import polars as pl
 import numpy as np
+import pytest
 from rgram.rgram import Regressogram
 
 
@@ -43,14 +44,14 @@ def test_fit_transform_int_binning(sample_data):
 
 
 def test_fit_multiple_y_columns(sample_data):
+    """Test that fit_predict rejects multivariate (multiple y columns)."""
     df, x, y, y_noise = sample_data
     df = df.with_columns((pl.col("y") + 1).alias("y2"))
     rgram = Regressogram()
-    result = rgram.fit_predict(data=df, x="x", y=["y_noise", "y2"])
 
-    assert isinstance(result, np.ndarray)
-    # Should have results for each y column
-    assert len(result) > 0
+    # fit_predict should reject multiple y columns
+    with pytest.raises(ValueError, match="fit_predict only supports univariate"):
+        rgram.fit_predict(data=df, x="x", y=["y_noise", "y2"])
 
 
 def test_fit_multiple_x_columns(sample_data):

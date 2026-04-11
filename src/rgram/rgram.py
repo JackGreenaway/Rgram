@@ -181,25 +181,25 @@ class Regressogram(BaseUtils):
 
     def fit(
         self,
-        x: Union[str, Sequence[Any]],
-        y: Union[str, Sequence[Any]],
+        x: Union[str, Any],
+        y: Union[str, Any],
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
     ) -> "Regressogram":
         """
-        Learn bin parameters from training data.
+        Learn bin parameters from training data (univariate only).
 
         Supports flexible input similar to seaborn (e.g., kdeplot):
-        - Provide DataFrame + column names (recommended for production)
-        - Provide raw arrays/Series (convenient for exploration)
+        - Provide DataFrame + single column name (recommended for production)
+        - Provide raw array/Series (convenient for exploration)
 
         Parameters
         ----------
         x : str or array-like
-            Feature(s) to bin. Column name(s) if `data` provided, else array-like.
+            Single feature to bin. Column name if `data` provided, else array-like.
         y : str or array-like
-            Target(s). Column name(s) if `data` provided, else array-like.
+            Single target. Column name if `data` provided, else array-like.
         data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y are treated as column names.
+            Input data. If provided, x/y are treated as column names (str).
             If None, x/y are treated as array-like values.
 
         Returns
@@ -210,6 +210,7 @@ class Regressogram(BaseUtils):
         Raises
         ------
         ValueError
+            If x/y are sequences of column names (multivariate not supported).
             If x and y arrays have different lengths or are empty.
         TypeError
             If agg or ci are not callable, or if input contains complex numbers.
@@ -227,6 +228,29 @@ class Regressogram(BaseUtils):
         >>> # Array mode
         >>> rgram = Regressogram().fit(x=[1, 2, 3], y=[4, 5, 6])
         """
+        # Validate univariate constraint - only when data is provided with column names
+        # Lists/tuples are valid as data input, but list of column names must be single column
+        if data is not None:
+            # When data is provided, check if x/y are lists of column names
+            if (
+                isinstance(x, (list, tuple))
+                and len(x) > 0
+                and all(isinstance(item, str) for item in x)
+            ):
+                raise ValueError(
+                    "fit only supports univariate (single feature) input. "
+                    "When data is provided, x must be a single column name (str), not a list/tuple of column names."
+                )
+            if (
+                isinstance(y, (list, tuple))
+                and len(y) > 0
+                and all(isinstance(item, str) for item in y)
+            ):
+                raise ValueError(
+                    "fit only supports univariate (single target) input. "
+                    "When data is provided, y must be a single column name (str), not a list/tuple of column names."
+                )
+
         # Validate ci is None or tuple of exactly 2 callables
         if self.ci is not None:
             if not isinstance(self.ci, tuple):
@@ -312,15 +336,15 @@ class Regressogram(BaseUtils):
         return self
 
     def predict(
-        self, x: Union[Sequence[float], pl.Series], return_ci: bool = False
+        self, x: Union[float, Sequence[float], pl.Series], return_ci: bool = False
     ) -> Union[np.ndarray, tuple]:
         """
-        Predict binned regression values at new x points.
+        Predict binned regression values at new x points (univariate only).
 
         Parameters
         ----------
         x : array-like or pl.Series
-            New x values at which to predict.
+            Single feature values at which to predict.
         return_ci : bool, default=False
             If True, return confidence intervals along with predictions.
             Returns tuple (y_pred, y_ci_low, y_ci_high).
@@ -342,12 +366,12 @@ class Regressogram(BaseUtils):
         TypeError
             If x is not array-like or contains non-numeric values.
         ValueError
-            If x is empty.
+            If x is empty or multivariate (must be univariate).
         """
         if not self._is_fitted:
             raise RuntimeError("Call fit() before predict().")
 
-        # Validate input x
+        # Validate input x is univariate
         x = self._validate_single_array(x, "x", allow_empty=False)
 
         lf = pl.DataFrame({"x_val": x}).lazy()
@@ -387,23 +411,23 @@ class Regressogram(BaseUtils):
 
     def fit_predict(
         self,
-        x: Union[str, Sequence[Any]],
-        y: Union[str, Sequence[Any]],
+        x: Union[str, Any],
+        y: Union[str, Any],
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
         return_ci: bool = False,
     ) -> Union[np.ndarray, tuple]:
         """
-        Fit and predict on training x values in one call.
+        Fit and predict on training x values in one call (univariate only).
 
         Parameters
         ----------
         x : str or array-like
-            Feature(s) to bin. Column name(s) if `data` provided, else array-like.
+            Single feature column name if `data` provided, else single array-like data values.
         y : str or array-like
-            Target(s). Column name(s) if `data` provided, else array-like.
+            Single target column name if `data` provided, else single array-like data values.
         data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y are column names.
-            If None, x/y are array-like.
+            Input data. If provided, x/y must be column names (str).
+            If None, x/y must be array-like data (list, ndarray, Series).
         return_ci : bool, default=False
             If True, return confidence intervals along with predictions.
 
@@ -412,15 +436,39 @@ class Regressogram(BaseUtils):
         np.ndarray or tuple
             If return_ci=False: array of predictions at training x values
             If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
+
+        Raises
+        ------
+        TypeError
+            If x/y are not str when data is provided, or not array-like when data is None.
+        ValueError
+            If x/y are sequences of column names (univariate only).
         """
+        # Validate univariate constraint when data is provided
+        if data is not None:
+            if isinstance(x, (list, tuple)):
+                raise ValueError(
+                    "fit_predict only supports univariate (single feature) input. "
+                    "When data is provided, x must be a single column name (str), not a list/tuple of column names."
+                )
+            if isinstance(y, (list, tuple)):
+                raise ValueError(
+                    "fit_predict only supports univariate (single target) input. "
+                    "When data is provided, y must be a single column name (str), not a list/tuple of column names."
+                )
+
         self.fit(data=data, x=x, y=y)
 
         # Extract actual x values for predict
-        # If data was provided, x is a column name - extract values from data
         if data is not None:
+            # When data is provided, x must be a str (column name)
+            if not isinstance(x, str):
+                raise TypeError(
+                    f"When data is provided, x must be a column name (str), "
+                    f"got {type(x).__name__}"
+                )
             if isinstance(data, pl.LazyFrame):
                 data = data.collect()
-
             x = data.get_column(x).to_numpy()
 
         return self.predict(x=x, return_ci=return_ci)
