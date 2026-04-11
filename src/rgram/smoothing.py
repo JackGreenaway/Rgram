@@ -18,8 +18,6 @@ class KernelSmoother(BaseUtils):
 
     Parameters
     ----------
-    n_eval_samples : int, default=100
-        Number of evaluation points for the smoother during fit_predict.
     bandwidth : {'silverman', 'scott', 'manual'}, default='silverman'
         Bandwidth selection method.
         - 'silverman': Silverman's rule of thumb (0.9 * min(std, IQR/1.34) * n^(-1/5))
@@ -27,16 +25,20 @@ class KernelSmoother(BaseUtils):
         - 'manual': Use bandwidth_value parameter
     bandwidth_value : float, optional
         Manual bandwidth value. Required if bandwidth='manual'.
+    bandwidth_adjust : float, default=1.0
+        Multiplicative bandwidth adjustment factor.
+    n_eval_samples : int, default=100
+        Number of evaluation points for the smoother during fit_predict.
 
     Methods
     -------
-    fit(data, x, y)
+    fit(x, y, data=None)
         Learn smoothing parameters from training data.
-    predict(x_new, return_ci=False)
+    predict(x_eval, return_ci=False)
         Predict smooth values at new x points.
         Returns array or tuple with optional confidence intervals.
-    fit_predict(data, x, y, return_ci=False)
-        Fit and predict at n_eval_samples evaluation points.
+    fit_predict(x, y, data=None, x_eval=None, return_ci=False)
+        Fit and predict at evaluation points.
     """
 
     def __init__(
@@ -44,6 +46,7 @@ class KernelSmoother(BaseUtils):
         bandwidth: Literal["silverman", "scott", "manual"] = "silverman",
         bandwidth_value: Optional[float] = None,
         bandwidth_adjust: float = 1.0,
+        n_eval_samples: int = 100,
     ) -> None:
         """
         Construct a KernelSmoother instance.
@@ -54,13 +57,16 @@ class KernelSmoother(BaseUtils):
             Bandwidth selection method.
         bandwidth_value : float, optional
             Manual bandwidth value. Required if bandwidth='manual'.
-        bandwidth_adjust : float
-            Multiplicative bandwidth adjust value.
+        bandwidth_adjust : float, default=1.0
+            Multiplicative bandwidth adjustment factor for the calculated bandwidth.
+        n_eval_samples : int, default=100
+            Number of evaluation points for generating smooth predictions during fit_predict.
         """
         super().__init__()
         self.bandwidth = bandwidth
         self.bandwidth_value = bandwidth_value
         self.bandwidth_adjust = bandwidth_adjust
+        self.n_eval_samples = n_eval_samples
 
         if bandwidth == "manual" and bandwidth_value is None:
             raise ValueError(
@@ -228,6 +234,7 @@ class KernelSmoother(BaseUtils):
             Evaluation points for prediction. If None, uses training x values.
         return_ci : bool, default=False
             If True, return confidence intervals along with predictions.
+            Note: Currently returns (y_pred, None, None) as CIs not yet implemented.
 
         Returns
         -------

@@ -142,16 +142,8 @@ class TestRegressogramErrorHandling:
     def test_invalid_ci_tuple_length(self):
         """Test that CI tuple with wrong length is handled."""
         # CI should be None or tuple of exactly 2 functions
-        rgram = Regressogram(ci=(lambda x: x.mean(),))  # Only one function
-
-        x = np.array([1.0, 2.0, 3.0])
-        y = np.array([1.0, 2.0, 3.0])
-
-        try:
-            rgram.fit_predict(x=x, y=y)
-        except (TypeError, ValueError, IndexError):
-            # Expected - CI tuple should be length 2
-            pass
+        with pytest.raises(ValueError, match="ci tuple must have exactly 2 elements"):
+            Regressogram(ci=(lambda x: x.mean(),))  # Only one function
 
     def test_n_bins_negative_raises(self):
         """Test that negative n_bins raises error or is handled."""

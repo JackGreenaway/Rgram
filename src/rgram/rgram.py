@@ -36,6 +36,8 @@ class Regressogram(BaseUtils):
         Fit and predict on training x values.
     """
 
+    ALLOW_DUPLICATE_EDGES = True
+
     def __init__(
         self,
         *,
@@ -67,6 +69,17 @@ class Regressogram(BaseUtils):
         # Validate agg is callable
         if not callable(agg):
             raise TypeError(f"agg must be callable, got {type(agg).__name__}")
+
+        # Validate ci is None or tuple of exactly 2 callables
+        if ci is not None:
+            if not isinstance(ci, tuple):
+                raise TypeError(f"ci must be None or tuple, got {type(ci).__name__}")
+            if len(ci) != 2:
+                raise ValueError(
+                    f"ci tuple must have exactly 2 elements, got {len(ci)}"
+                )
+            if not all(callable(c) for c in ci):
+                raise TypeError("All elements in ci tuple must be callable")
 
         self.binning = binning
         self.agg = agg
@@ -122,7 +135,7 @@ class Regressogram(BaseUtils):
                         pl.col("x_val")
                         .qcut(
                             quantiles=self._n_bins,
-                            allow_duplicates=True,
+                            allow_duplicates=self.ALLOW_DUPLICATE_EDGES,
                             include_breaks=True,
                         )
                         .struct.field("breakpoint")
@@ -250,19 +263,6 @@ class Regressogram(BaseUtils):
                     "fit only supports univariate (single target) input. "
                     "When data is provided, y must be a single column name (str), not a list/tuple of column names."
                 )
-
-        # Validate ci is None or tuple of exactly 2 callables
-        if self.ci is not None:
-            if not isinstance(self.ci, tuple):
-                raise TypeError(
-                    f"ci must be None or tuple, got {type(self.ci).__name__}"
-                )
-            if len(self.ci) != 2:
-                raise ValueError(
-                    f"ci tuple must have exactly 2 elements, got {len(self.ci)}"
-                )
-            if not all(callable(c) for c in self.ci):
-                raise TypeError("All elements in ci tuple must be callable")
 
         data_lf, x_cols, y_cols = self._prepare_data(data=data, x=x, y=y)
 

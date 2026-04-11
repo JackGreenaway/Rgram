@@ -284,9 +284,10 @@ The `KernelSmoother` class performs kernel smoothing using the Epanechnikov kern
 
 ```python
 KernelSmoother(
-    n_eval_samples: int = 100,
     bandwidth: Literal['silverman', 'scott', 'manual'] = 'silverman',
-    bandwidth_value: Optional[float] = None
+    bandwidth_value: Optional[float] = None,
+    bandwidth_adjust: float = 1.0,
+    n_eval_samples: int = 100
 )
 ```
 
@@ -314,24 +315,23 @@ Fit the kernel smoother to data using the selected bandwidth method.
 
 Returns: self (fitted estimator)
 
-**`fit_predict(x, y, data=None, return_ci=False) -> np.ndarray or tuple`**
+**`fit_predict(x, y, data=None, x_eval=None, return_ci=False) -> np.ndarray or tuple`**
 
 Fit and return predictions in one step.
 
 - Returns `np.ndarray` of predictions by default
-- Predictions are generated at `n_eval_samples` evaluation points spanning the x range
+- **x_eval**: Optional array-like of x values for predictions. If `None`, predictions are at training x values
+- Predictions use the fitted bandwidth determined during `fit()`
 - `return_ci=True` currently returns `(y_pred, None, None)` (CIs not yet implemented for kernel smoother)
 
-**`predict(x_new: Union[Sequence[float], pl.Series]) -> np.ndarray`**
+**`predict(x_eval: Union[Sequence[float], pl.Series], return_ci=False) -> np.ndarray or tuple`**
 
 Apply the fitted smoother to new x values without refitting. Uses the bandwidth value determined during `fit()`.
 
-- **x_new**: Array-like or `pl.Series` of new x points
+- **x_eval**: Array-like or `pl.Series` of x points for predictions
 - Must call `fit()` before `predict()`
 
-Returns: NumPy array of smoothed predictions
-
-**Note**: The bandwidth is determined once during `fit()` using the selected method and training data. `predict()` applies this same bandwidth to new points, ensuring consistent smoothing behavior.
+Returns: NumPy array of smoothed predictions or tuple with optional confidence intervals
 
 ---
 
