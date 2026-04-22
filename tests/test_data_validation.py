@@ -1,6 +1,7 @@
 """
 Data validation and type checking tests.
 Ensures proper handling of various data types and input validation.
+Also includes BaseUtils utility function tests.
 """
 
 import pytest
@@ -11,7 +12,252 @@ from rgram.smoothing import KernelSmoother
 from rgram.base import BaseUtils
 
 
+class TestBaseUtilsDataConversion:
+    """Test BaseUtils data conversion helper functions."""
+
+    def test_to_list_with_none(self):
+        """Test _to_list with None input."""
+        assert BaseUtils._to_list(None) is None
+
+    def test_to_list_with_string(self):
+        """Test _to_list with single string."""
+        assert BaseUtils._to_list("single") == ["single"]
+
+    def test_to_list_with_list(self):
+        """Test _to_list preserves lists."""
+        assert BaseUtils._to_list([1, 2, 3]) == [1, 2, 3]
+
+    def test_to_list_with_tuple(self):
+        """Test _to_list converts tuples to lists."""
+        assert BaseUtils._to_list((1, 2, 3)) == [1, 2, 3]
+
+    def test_to_list_with_numpy_array(self):
+        """Test _to_list converts numpy arrays to lists."""
+        result = BaseUtils._to_list(np.array([1, 2]))
+        assert isinstance(result, list)
+        assert len(result) == 2
+
+    def test_to_list_with_generator(self):
+        """Test _to_list with generator."""
+        gen = (x for x in [1, 2, 3])
+        result = BaseUtils._to_list(gen)
+        assert isinstance(result, list)
+        assert len(result) == 3
+
+    def test_to_list_preserves_order(self):
+        """Test that _to_list preserves element order."""
+        original = [3, 1, 4, 1, 5, 9]
+        result = BaseUtils._to_list(original)
+        assert result == original
+
+    def test_to_list_empty_list(self):
+        """Test _to_list with empty list."""
+        assert BaseUtils._to_list([]) == []
+
+
+class TestBaseUtilsArrayLikeDetection:
+    """Test BaseUtils array-like type detection."""
+
+    def test_is_array_like_true_cases(self):
+        """Test _is_array_like returns True for array-like objects."""
+        assert BaseUtils._is_array_like([1, 2, 3])
+        assert BaseUtils._is_array_like((1, 2, 3))
+        assert BaseUtils._is_array_like(np.array([1, 2, 3]))
+        assert BaseUtils._is_array_like(pl.Series([1, 2, 3]))
+
+    def test_is_array_like_false_cases(self):
+        """Test _is_array_like returns False for non-array objects."""
+        assert not BaseUtils._is_array_like("string")
+        assert not BaseUtils._is_array_like(123)
+        assert not BaseUtils._is_array_like(None)
+        assert not BaseUtils._is_array_like(3.14)
+        assert not BaseUtils._is_array_like({1, 2, 3})
+
+    def test_is_array_like_empty_collections(self):
+        """Test _is_array_like with empty collections."""
+        assert BaseUtils._is_array_like([])
+        assert BaseUtils._is_array_like(())
+        assert BaseUtils._is_array_like(np.array([]))
+
+
+class TestBaseUtilsArrayInput:
+    """Test BaseUtils _process_array_input method."""
+
+    def test_process_array_input_with_list(self):
+        """Test _process_array_input with list."""
+        utils = BaseUtils()
+        df_dict = {}
+        col_name = utils._process_array_input([1, 2, 3], "test", df_dict)
+        assert col_name == "test"
+        assert df_dict["test"] == [1, 2, 3]
+
+    def test_process_array_input_with_numpy_array(self):
+        """Test _process_array_input with numpy array."""
+        utils = BaseUtils()
+        df_dict = {}
+        arr = np.array([1, 2, 3])
+        col_name = utils._process_array_input(arr, "numpy_col", df_dict)
+        assert col_name == "numpy_col"
+        assert np.array_equal(df_dict["numpy_col"], arr)
+
+    def test_process_array_input_with_polars_series(self):
+        """Test _process_array_input with Polars Series."""
+        utils = BaseUtils()
+        df_dict = {}
+        arr = pl.Series([1, 2, 3])
+        col_name = utils._process_array_input(arr, "series_col", df_dict)
+        assert col_name == "series_col"
+
+    def test_process_array_input_rejects_string_without_data(self):
+        """Test that string column name is rejected when data=None."""
+        utils = BaseUtils()
+        df_dict = {}
+        with pytest.raises(ValueError, match="Column name .* provided but data=None"):
+            utils._process_array_input("column_name", "x", df_dict)
+
+    def test_process_array_input_rejects_invalid_type(self):
+        """Test that non-array-like objects are rejected."""
+        utils = BaseUtils()
+        df_dict = {}
+        with pytest.raises(ValueError, match="Input must be array-like"):
+            utils._process_array_input(123, "x", df_dict)
+
+
+class TestBaseUtilsDataPreparation:
+    """Test BaseUtils _prepare_data method."""
+
+    def test_prepare_data_with_dataframe(self):
+        """Test _prepare_data with DataFrame."""
+        df = pl.DataFrame({"feature": [1, 2, 3], "target": [10, 20, 30]})
+        utils = BaseUtils()
+        lf, x_col, y_col = utils._prepare_data(data=df, x="feature", y="target")
+
+        assert isinstance(lf, pl.LazyFrame)
+        assert x_col == "feature"
+        assert y_col == "target"
+
+    def test_prepare_data_with_arrays(self):
+        """Test _prepare_data with array inputs."""
+        utils = BaseUtils()
+        x = [1, 2, 3]
+        y = [4, 5, 6]
+        lf, x_col, y_col = utils._prepare_data(data=None, x=x, y=y)
+
+        assert isinstance(lf, pl.LazyFrame)
+        assert x_col == "x"
+        assert y_col == "y"
+
+    def test_prepare_data_creates_proper_dataframe(self):
+        """Test that _prepare_data creates proper DataFrame content."""
+        utils = BaseUtils()
+        x = np.array([1.0, 2.0, 3.0])
+        y = np.array([4.0, 5.0, 6.0])
+        lf, _, _ = utils._prepare_data(data=None, x=x, y=y)
+
+        df = lf.collect()
+        assert "x" in df.columns
+        assert "y" in df.columns
+        assert len(df) == 3
+
+    def test_prepare_data_with_lazyframe_input(self):
+        """Test _prepare_data with LazyFrame input."""
+        df = pl.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
+        lf_input = df.lazy()
+        utils = BaseUtils()
+        lf, x_col, y_col = utils._prepare_data(data=lf_input, x="x", y="y")
+
+        assert isinstance(lf, pl.LazyFrame)
+        assert x_col == "x"
+        assert y_col == "y"
+
+
 class TestBaseUtilsDataValidation:
+    """Test BaseUtils data processing and validation (legacy tests)."""
+
+    def test_to_list_with_various_types(self):
+        """Test to_list with different input types."""
+        assert BaseUtils._to_list(None) is None
+        assert BaseUtils._to_list("single") == ["single"]
+        assert BaseUtils._to_list([1, 2, 3]) == [1, 2, 3]
+        assert BaseUtils._to_list((1, 2)) == [1, 2]
+        result = BaseUtils._to_list(np.array([1, 2]))
+        assert isinstance(result, list)
+        assert len(result) == 2
+
+    def test_is_array_like_detection(self):
+        """Test is_array_like detection of various types."""
+        assert BaseUtils._is_array_like([1, 2, 3])
+        assert BaseUtils._is_array_like((1, 2, 3))
+        assert BaseUtils._is_array_like(np.array([1, 2, 3]))
+        assert BaseUtils._is_array_like(pl.Series([1, 2, 3]))
+        assert not BaseUtils._is_array_like("string")
+        assert not BaseUtils._is_array_like(123)
+        assert not BaseUtils._is_array_like(None)
+        assert not BaseUtils._is_array_like(3.14)
+        assert not BaseUtils._is_array_like({1, 2, 3})
+
+    def test_is_array_like_empty_collections(self):
+        """Test is_array_like with empty collections."""
+        assert BaseUtils._is_array_like([])
+        assert BaseUtils._is_array_like(())
+        assert BaseUtils._is_array_like(np.array([]))
+
+
+class TestRegressogramDataValidation:
+    """Test Regressogram data validation."""
+
+    def test_fit_returns_self_for_chaining(self):
+        """Test that fit returns self for method chaining."""
+        rgram = Regressogram()
+        x = np.array([1, 2, 3])
+        y = np.array([1, 2, 3])
+
+        result = rgram.fit(x=x, y=y)
+        assert result is rgram
+
+    def test_fit_predict_returns_numpy_array(self):
+        """Test that fit_predict returns numpy array."""
+        rgram = Regressogram()
+        x = np.array([1, 2, 3, 4, 5])
+        y = np.array([1, 2, 3, 4, 5])
+
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
+
+    def test_fit_predict_with_ci_returns_tuple(self):
+        """Test that fit_predict with CI returns tuple."""
+        rgram = Regressogram()
+        x = np.array([1, 2, 3, 4, 5])
+        y = np.array([1, 2, 3, 4, 5])
+
+        result = rgram.fit_predict(x=x, y=y, return_ci=True)
+        assert isinstance(result, tuple)
+        assert len(result) == 3
+        y_pred, y_ci_low, y_ci_high = result
+        assert isinstance(y_pred, np.ndarray)
+
+    def test_predict_output_dtype(self):
+        """Test that predict output is numeric numpy array."""
+        rgram = Regressogram()
+        x = np.array([1.0, 2.0, 3.0])
+        y = np.array([1.0, 2.0, 3.0])
+
+        rgram.fit(x=x, y=y)
+        result = rgram.predict(x)
+
+        assert isinstance(result, np.ndarray)
+        assert np.issubdtype(result.dtype, np.number)
+
+    def test_predict_returns_array(self):
+        """Test that predict returns numeric array."""
+        rgram = Regressogram()
+        x = np.array([1, 2, 3])
+        y = np.array([1, 2, 3])
+
+        result = rgram.fit_predict(x=x, y=y)
+
+        assert isinstance(result, np.ndarray)
+        assert len(result) > 0
     """Test BaseUtils data processing and validation."""
 
     def test_to_list_with_various_types(self):

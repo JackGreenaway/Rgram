@@ -385,3 +385,112 @@ class TestErrorRecoveryWorkflows:
         pred2 = rgram2.predict([12.5])
 
         assert pred1[0] != pred2[0]
+
+
+class TestDuplicateAggregationConsistency:
+    """Test that duplicates are aggregated consistently."""
+
+    def test_fit_predict_match_fit_then_predict_duplicates(self):
+        """Test that fit_predict and fit+predict give same results with duplicates."""
+        x = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0])
+        y = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0])
+
+        rgram1 = Regressogram(binning="int", agg=lambda s: s.mean())
+        result_fit_predict = rgram1.fit_predict(x=x, y=y)
+
+        rgram2 = Regressogram(binning="int", agg=lambda s: s.mean())
+        rgram2.fit(x=x, y=y)
+        result_fit_then_predict = rgram2.predict(x=x)
+
+        assert np.allclose(result_fit_predict, result_fit_then_predict)
+
+    def test_duplicate_mean_aggregation_matches_manual(self):
+        """Test that duplicate mean aggregation matches manual calculation."""
+        x = np.array([1.0, 1.0, 1.0])
+        y = np.array([10.0, 20.0, 30.0])
+        expected_mean = 20.0
+
+        rgram = Regressogram(binning="int", agg=lambda s: s.mean())
+        result = rgram.fit_predict(x=x, y=y)
+
+        assert np.isclose(result[0], expected_mean)
+
+    def test_duplicate_sum_matches_manual(self):
+        """Test that sum aggregation matches manual sum."""
+        x = np.array([1.0, 1.0, 1.0])
+        y = np.array([10.0, 20.0, 30.0])
+        expected_sum = 60.0
+
+        rgram = Regressogram(binning="int", agg=lambda s: s.sum())
+        result = rgram.fit_predict(x=x, y=y)
+
+        assert np.isclose(result[0], expected_sum)
+
+    def test_duplicate_count_aggregation(self):
+        """Test that count aggregation is accurate."""
+        x = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+
+        rgram = Regressogram(binning="int", agg=lambda s: s.count())
+        result = rgram.fit_predict(x=x, y=y)
+
+        assert np.isclose(result[0], 5.0)
+
+    def test_duplicate_median_aggregation(self):
+        """Test that median aggregation is accurate."""
+        x = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        expected_median = 3.0
+
+        rgram = Regressogram(binning="int", agg=lambda s: s.median())
+        result = rgram.fit_predict(x=x, y=y)
+
+        assert np.isclose(result[0], expected_median)
+
+
+class TestDuplicatePreservation:
+    """Test that duplicates are properly handled and aggregated."""
+
+    def test_multiple_y_values_per_x_aggregated(self):
+        """Test that multiple y values at same x are aggregated correctly."""
+        x = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
+
+        rgram = Regressogram(binning="int", agg=lambda s: s.mean())
+        result = rgram.fit_predict(x=x, y=y)
+
+        assert isinstance(result, np.ndarray)
+        assert len(result) > 0
+
+    def test_duplicates_with_median_aggregation(self):
+        """Test duplicate aggregation with median."""
+        x = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+
+        rgram = Regressogram(binning="int", agg=lambda s: s.median())
+        result = rgram.fit_predict(x=x, y=y)
+
+        assert isinstance(result, np.ndarray)
+        assert np.isclose(result[0], 3.0)
+
+    def test_duplicates_with_max_aggregation(self):
+        """Test duplicate aggregation with max."""
+        x = np.array([2.0, 2.0, 2.0, 2.0])
+        y = np.array([5.0, 15.0, 10.0, 8.0])
+
+        rgram = Regressogram(binning="int", agg=lambda s: s.max())
+        result = rgram.fit_predict(x=x, y=y)
+
+        assert isinstance(result, np.ndarray)
+        assert np.isclose(result[0], 15.0)
+
+    def test_duplicates_with_min_aggregation(self):
+        """Test duplicate aggregation with min."""
+        x = np.array([5.0, 5.0, 5.0, 5.0])
+        y = np.array([100.0, 20.0, 50.0, 75.0])
+
+        rgram = Regressogram(binning="int", agg=lambda s: s.min())
+        result = rgram.fit_predict(x=x, y=y)
+
+        assert isinstance(result, np.ndarray)
+        assert np.isclose(result[0], 20.0)

@@ -6,7 +6,6 @@ import warnings
 
 from rgram.base import BaseUtils
 from typing import Sequence, Union, Optional, Any, Literal
-from typing_extensions import Self
 
 
 class KernelSmoother(BaseUtils):
@@ -73,7 +72,7 @@ class KernelSmoother(BaseUtils):
                 "bandwidth_value must be specified when bandwidth='manual'"
             )
 
-        self._fitted = False
+        self._is_fitted = False
 
     def _calculate_bandwidth(self, x_col: str) -> pl.Expr:
         """
@@ -139,7 +138,7 @@ class KernelSmoother(BaseUtils):
         x: Union[str, Sequence[Any]],
         y: Union[str, Sequence[Any]],
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-    ) -> Self:
+    ) -> "KernelSmoother":
         """
         Fit the kernel smoother to the data.
 
@@ -200,13 +199,13 @@ class KernelSmoother(BaseUtils):
         # Store fitted data for prediction and calculate/store bandwidth value
         self._x_col = x_col
         self._y_col = y_col
-        self._fitted_data_lf = data_lf
+        self._is_fitted_data_lf = data_lf
 
         # Compute and store the bandwidth value for use in predict()
         bw_value_df = data_lf.select(bw).collect()
         self._bw_value = bw_value_df["h"][0]
 
-        self._fitted = True
+        self._is_fitted = True
 
         return self
 
@@ -265,7 +264,7 @@ class KernelSmoother(BaseUtils):
         self.fit(data=data, x=x, y=y)
 
         if x_eval is None:
-            x_eval = self._fitted_data_lf.collect().get_column(self._x_col)
+            x_eval = self._is_fitted_data_lf.collect().get_column(self._x_col)
         else:
             # Validate user-provided x_eval
             x_eval = self._validate_single_array(x_eval, "x_eval", allow_empty=False)
@@ -302,7 +301,7 @@ class KernelSmoother(BaseUtils):
         ValueError
             If x_eval is empty.
         """
-        if not self._fitted:
+        if not self._is_fitted:
             raise RuntimeError("You must call fit() before predict")
 
         # Validate input x_eval using BaseUtils validation
@@ -314,7 +313,7 @@ class KernelSmoother(BaseUtils):
 
         pred_df = pl.DataFrame({x_eval_col: x_eval}).with_row_index("row_index").lazy()
 
-        train_df = self._fitted_data_lf.select(
+        train_df = self._is_fitted_data_lf.select(
             [
                 pl.col(self._x_col).alias(x_train_col),
                 pl.col(self._y_col).alias(y_train_col),
