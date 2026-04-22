@@ -103,8 +103,6 @@ python -c "from rgram import Regressogram, KernelSmoother; print('Installation s
 
 To build and install from source for development:
 
-#### Using UV (Recommended)
-
 [UV](https://docs.astral.sh/uv/) is a fast Python package installer and resolver written in Rust. It's the recommended way to work with this project for development.
 
 1. **Clone the repository**:
@@ -124,28 +122,6 @@ To build and install from source for development:
    ```bash
    python -c "from rgram import Regressogram, KernelSmoother; print('Installation successful!')"
    ```
-
-#### Using pip
-
-If you prefer standard pip:
-
-```bash
-git clone https://github.com/JackGreenaway/Rgram.git
-cd Rgram
-pip install -e .
-```
-
-#### Building the Package
-
-To build a distribution package:
-
-```bash
-# Using UV
-uv build
-
-# Or using pip/setuptools
-python -m build
-```
 
 ## Quick Start
 
