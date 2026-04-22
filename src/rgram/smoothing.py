@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import numpy as np
 import polars as pl
 import warnings
@@ -12,8 +13,8 @@ class KernelSmoother(BaseUtils):
     """
     KernelSmoother
 
-    Epanechnikov kernel regression smoother for one-dimensional data.
-    Predicts smooth values with optional confidence intervals.
+    Kernel regression smoother for one-dimensional data.
+    Predicts smooth values with optional confidence intervals using various kernel functions.
 
     Parameters
     ----------
@@ -26,6 +27,10 @@ class KernelSmoother(BaseUtils):
         Manual bandwidth value. Required if bandwidth='manual'.
     bandwidth_adjust : float, default=1.0
         Multiplicative bandwidth adjustment factor.
+    kernel : str or callable, default='epanechnikov'
+        Kernel function to use. Supported strings: 'epanechnikov', 'gaussian', 'uniform',
+        'triangular', 'cosine', 'logistic'. Can also be a callable that takes a Polars
+        expression (u) and returns a Polars expression (weight).
     n_eval_samples : int, default=100
         Number of evaluation points for the smoother during fit_predict.
 
@@ -40,11 +45,22 @@ class KernelSmoother(BaseUtils):
         Fit and predict at evaluation points.
     """
 
+    # Built-in kernel definitions
+    _KERNELS = {
+        'epanechnikov': lambda u: pl.when(u.abs() <= 1).then(0.75 * (1 - u ** 2)).otherwise(0.0),
+        'gaussian': lambda u: (1 / (2 * math.pi) ** 0.5) * ((-0.5 * u ** 2).exp()),
+        'uniform': lambda u: pl.when(u.abs() <= 1).then(0.5).otherwise(0.0),
+        'triangular': lambda u: pl.when(u.abs() <= 1).then(1 - u.abs()).otherwise(0.0),
+        'cosine': lambda u: pl.when(u.abs() <= 1).then((math.pi / 4) * (((math.pi / 2) * u).cos())).otherwise(0.0),
+        'logistic': lambda u: 1 / (u.exp() + 2 + (-u).exp()),
+    }
+
     def __init__(
         self,
         bandwidth: Literal["silverman", "scott", "manual"] = "silverman",
         bandwidth_value: Optional[float] = None,
         bandwidth_adjust: float = 1.0,
+        kernel: Union[str, Any] = "epanechnikov",
         n_eval_samples: int = 100,
     ) -> None:
         """
@@ -58,6 +74,10 @@ class KernelSmoother(BaseUtils):
             Manual bandwidth value. Required if bandwidth='manual'.
         bandwidth_adjust : float, default=1.0
             Multiplicative bandwidth adjustment factor for the calculated bandwidth.
+        kernel : str or callable, default='epanechnikov'
+            Kernel function. If str, must be one of: 'epanechnikov', 'gaussian', 'uniform',
+            'triangular', 'cosine', 'logistic'. If callable, should accept a Polars expression
+            and return a Polars expression.
         n_eval_samples : int, default=100
             Number of evaluation points for generating smooth predictions during fit_predict.
         """
@@ -66,13 +86,39 @@ class KernelSmoother(BaseUtils):
         self.bandwidth_value = bandwidth_value
         self.bandwidth_adjust = bandwidth_adjust
         self.n_eval_samples = n_eval_samples
+        self.kernel = kernel
 
         if bandwidth == "manual" and bandwidth_value is None:
             raise ValueError(
                 "bandwidth_value must be specified when bandwidth='manual'"
             )
 
+        # Validate kernel parameter
+        if isinstance(kernel, str):
+            if kernel not in self._KERNELS:
+                raise ValueError(
+                    f"kernel must be one of {list(self._KERNELS.keys())}, got '{kernel}'"
+                )
+        elif not callable(kernel):
+            raise TypeError(
+                f"kernel must be a string or callable, got {type(kernel).__name__}"
+            )
+
         self._is_fitted = False
+
+    def _get_kernel_fn(self) -> Any:
+        """
+        Get the kernel function based on the kernel parameter.
+
+        Returns
+        -------
+        callable
+            A function that takes a Polars expression (u) and returns a Polars expression (weights).
+        """
+        if isinstance(self.kernel, str):
+            return self._KERNELS[self.kernel]
+        else:
+            return self.kernel
 
     def _calculate_bandwidth(self, x_col: str) -> pl.Expr:
         """
@@ -329,10 +375,7 @@ class KernelSmoother(BaseUtils):
                 ((pl.col(x_train_col) - pl.col(x_eval_col)) / pl.col("h")).alias("u")
             )
             .with_columns(
-                pl.when(pl.col("u").abs() <= 1)
-                .then(0.75 * (1 - pl.col("u") ** 2))
-                .otherwise(0.0)
-                .alias("weight")
+                self._get_kernel_fn()(pl.col("u")).alias("weight")
             )
             .group_by([x_eval_col, "row_index"], maintain_order=True)
             .agg(

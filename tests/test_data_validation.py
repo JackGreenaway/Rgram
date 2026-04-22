@@ -258,6 +258,7 @@ class TestRegressogramDataValidation:
 
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
+
     """Test BaseUtils data processing and validation."""
 
     def test_to_list_with_various_types(self):

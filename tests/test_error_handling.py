@@ -97,7 +97,9 @@ class TestRegressogramEdgeCases:
     def test_predict_with_nan_values(self):
         """Test that NaN inputs in predict are handled."""
         rgram = Regressogram()
-        rgram.fit(x=np.array([1.0, 2.0, 3.0, 4.0, 5.0]), y=np.array([1.0, 2.0, 3.0, 4.0, 5.0]))
+        rgram.fit(
+            x=np.array([1.0, 2.0, 3.0, 4.0, 5.0]), y=np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        )
         result = rgram.predict([1.0, np.nan, 5.0])
         assert isinstance(result, np.ndarray)
         assert len(result) == 3
@@ -177,8 +179,12 @@ class TestRegressogramEdgeCases:
 
     def test_duplicated_x_values_stress(self):
         """Test dist binning with many duplicate x values."""
-        x = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0, 5.0, 5.0, 5.0])
-        y = np.array([1.0, 1.1, 0.9, 2.0, 2.1, 1.9, 3.0, 3.1, 2.9, 4.0, 4.1, 3.9, 5.0, 5.1, 4.9])
+        x = np.array(
+            [1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 3.0, 3.0, 3.0, 4.0, 4.0, 4.0, 5.0, 5.0, 5.0]
+        )
+        y = np.array(
+            [1.0, 1.1, 0.9, 2.0, 2.1, 1.9, 3.0, 3.1, 2.9, 4.0, 4.1, 3.9, 5.0, 5.1, 4.9]
+        )
         rgram = Regressogram(binning="dist")
         result = rgram.fit_predict(x=x, y=y)
         assert isinstance(result, np.ndarray)
@@ -267,7 +273,9 @@ class TestKernelSmootherEdgeCases:
     def test_negative_bandwidth_value(self):
         """Test that negative bandwidth is handled."""
         smoother = KernelSmoother(bandwidth="manual", bandwidth_value=-0.5)
-        df = pl.DataFrame({"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))})
+        df = pl.DataFrame(
+            {"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))}
+        )
         try:
             smoother.fit(data=df, x="x", y="y")
         except (ValueError, Exception):
@@ -312,12 +320,15 @@ class TestDataValidationErrors:
         """Test that raw pandas Series are handled."""
         try:
             import pandas as pd
+
             rgram = Regressogram()
             x = pd.Series([1, 2, 3])
             y = pd.Series([1, 2, 3])
             rgram.fit(x=x, y=y)
         except ImportError:
             pytest.skip("pandas not installed")
+
+
 """
 Comprehensive error handling tests for Regressogram and KernelSmoother.
 Tests invalid inputs, edge cases, and proper error messages.
