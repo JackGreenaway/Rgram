@@ -6,7 +6,7 @@ import polars as pl
 import warnings
 
 from rgram.base import BaseUtils
-from typing import Sequence, Union, Optional, Any, Literal
+from typing import Sequence, Union, Optional, Any, Literal, Callable
 
 
 class KernelSmoother(BaseUtils):
@@ -45,7 +45,7 @@ class KernelSmoother(BaseUtils):
         Fit and predict at evaluation points.
     """
 
-    # Built-in kernel definitions
+    # fmt: off
     _KERNELS = {
         'epanechnikov': lambda u: pl.when(u.abs() <= 1).then(0.75 * (1 - u ** 2)).otherwise(0.0),
         'gaussian': lambda u: (1 / (2 * math.pi) ** 0.5) * ((-0.5 * u ** 2).exp()),
@@ -54,13 +54,14 @@ class KernelSmoother(BaseUtils):
         'cosine': lambda u: pl.when(u.abs() <= 1).then((math.pi / 4) * (((math.pi / 2) * u).cos())).otherwise(0.0),
         'logistic': lambda u: 1 / (u.exp() + 2 + (-u).exp()),
     }
+    # fmt: on
 
     def __init__(
         self,
         bandwidth: Literal["silverman", "scott", "manual"] = "silverman",
         bandwidth_value: Optional[float] = None,
         bandwidth_adjust: float = 1.0,
-        kernel: Union[str, Any] = "epanechnikov",
+        kernel: Union[str, Callable[[pl.Expr], pl.Expr]] = "epanechnikov",
         n_eval_samples: int = 100,
     ) -> None:
         """
@@ -106,7 +107,7 @@ class KernelSmoother(BaseUtils):
 
         self._is_fitted = False
 
-    def _get_kernel_fn(self) -> Any:
+    def _get_kernel_fn(self) -> pl.Expr:
         """
         Get the kernel function based on the kernel parameter.
 
@@ -117,6 +118,7 @@ class KernelSmoother(BaseUtils):
         """
         if isinstance(self.kernel, str):
             return self._KERNELS[self.kernel]
+
         else:
             return self.kernel
 
@@ -374,9 +376,7 @@ class KernelSmoother(BaseUtils):
             .with_columns(
                 ((pl.col(x_train_col) - pl.col(x_eval_col)) / pl.col("h")).alias("u")
             )
-            .with_columns(
-                self._get_kernel_fn()(pl.col("u")).alias("weight")
-            )
+            .with_columns(self._get_kernel_fn()(pl.col("u")).alias("weight"))
             .group_by([x_eval_col, "row_index"], maintain_order=True)
             .agg(
                 pl.when(pl.col("weight").sum() > 0)
@@ -407,21 +407,3 @@ class KernelSmoother(BaseUtils):
         )
 
         return y_pred, None, None
-
-    @staticmethod
-    def _validate_arraylike_input(input: Any) -> np.typing.ArrayLike:
-        # Validate input type
-        try:
-            # Try to convert to numeric array
-            if isinstance(input, pl.Series):
-                x_array = input.to_numpy()
-            else:
-                x_array = np.asarray(input)
-            # Check if numeric
-            if not np.issubdtype(x_array.dtype, np.number):
-                raise TypeError(f"x_eval must be numeric, got {x_array.dtype}")
-
-            return x_array
-
-        except (ValueError, TypeError) as e:
-            raise TypeError(f"x_eval must contain numeric values, got: {e}")

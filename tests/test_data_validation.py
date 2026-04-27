@@ -378,129 +378,6 @@ class TestRegressogramDataValidation:
         assert y_col == "y"
 
 
-class TestRegressogramDataValidation:
-    """Test Regressogram data validation."""
-
-    def test_fit_returns_self_for_chaining(self):
-        """Test that fit returns self for method chaining."""
-        rgram = Regressogram()
-        x = np.array([1, 2, 3])
-        y = np.array([1, 2, 3])
-
-        result = rgram.fit(x=x, y=y)
-        assert result is rgram
-
-    def test_fit_predict_returns_numpy_array(self):
-        """Test that fit_predict returns numpy array."""
-        rgram = Regressogram()
-        x = np.array([1, 2, 3, 4, 5])
-        y = np.array([1, 2, 3, 4, 5])
-
-        result = rgram.fit_predict(x=x, y=y)
-        assert isinstance(result, np.ndarray)
-
-    def test_fit_predict_with_ci_returns_tuple(self):
-        """Test that fit_predict with CI returns tuple."""
-        rgram = Regressogram()
-        x = np.array([1, 2, 3, 4, 5])
-        y = np.array([1, 2, 3, 4, 5])
-
-        result = rgram.fit_predict(x=x, y=y, return_ci=True)
-        assert isinstance(result, tuple)
-        assert len(result) == 3
-        y_pred, y_ci_low, y_ci_high = result
-        assert isinstance(y_pred, np.ndarray)
-
-    def test_predict_output_dtype(self):
-        """Test that predict output is numeric numpy array."""
-        rgram = Regressogram()
-        x = np.array([1.0, 2.0, 3.0])
-        y = np.array([1.0, 2.0, 3.0])
-
-        rgram.fit(x=x, y=y)
-        result = rgram.predict(x)
-
-        assert isinstance(result, np.ndarray)
-        assert np.issubdtype(result.dtype, np.number)
-
-    def test_transform_output_is_lazyframe(self):
-        """Test that transform was not implemented - using predict instead."""
-        rgram = Regressogram()
-        x = np.array([1, 2, 3])
-        y = np.array([1, 2, 3])
-
-        rgram.fit(x=x, y=y)
-        result = rgram.predict(x)
-
-        assert isinstance(result, np.ndarray)
-
-    def test_collect_on_transform_returns_dataframe(self):
-        """Test that fit_predict returns numeric array."""
-        rgram = Regressogram()
-        x = np.array([1, 2, 3])
-        y = np.array([1, 2, 3])
-
-        result = rgram.fit_predict(x=x, y=y)
-
-        assert isinstance(result, np.ndarray)
-        assert len(result) > 0
-
-    def test_fit_with_list_input(self):
-        """Test fit with list inputs."""
-        rgram = Regressogram()
-        x = [1, 2, 3, 4, 5]
-        y = [1, 2, 3, 4, 5]
-
-        result = rgram.fit_predict(x=x, y=y)
-        assert isinstance(result, np.ndarray)
-        assert len(result) > 0
-
-    def test_fit_with_tuple_input(self):
-        """Test fit with tuple inputs."""
-        rgram = Regressogram()
-        x = (1, 2, 3, 4, 5)
-        y = (1, 2, 3, 4, 5)
-
-        result = rgram.fit_predict(x=x, y=y)
-        assert isinstance(result, np.ndarray)
-        assert len(result) > 0
-
-    def test_fit_preserves_input_data(self):
-        """Test that fit doesn't modify input arrays."""
-        rgram = Regressogram()
-        x = np.array([1.0, 2.0, 3.0])
-        y = np.array([1.0, 2.0, 3.0])
-
-        x_copy = x.copy()
-        y_copy = y.copy()
-
-        rgram.fit(x=x, y=y)
-
-        assert np.array_equal(x, x_copy)
-        assert np.array_equal(y, y_copy)
-
-    def test_columns_in_transform_output(self):
-        """Test that fit_predict returns numeric predictions."""
-        rgram = Regressogram()
-        df = pl.DataFrame({"x": [1, 2, 3], "y": [1, 2, 3]})
-
-        result = rgram.fit_predict(data=df, x="x", y="y")
-
-        assert isinstance(result, np.ndarray)
-        assert np.issubdtype(result.dtype, np.number)
-
-    def test_no_ci_columns_when_ci_is_none(self):
-        """Test that CI columns are absent when ci=None."""
-        rgram = Regressogram(ci=None)
-        df = pl.DataFrame({"x": [1, 2, 3], "y": [1, 2, 3]})
-
-        pred, lci, uci = rgram.fit_predict(data=df, x="x", y="y", return_ci=True)
-
-        assert isinstance(pred, np.ndarray)
-        assert lci is None
-        assert uci is None
-
-
 class TestKernelSmootherDataValidation:
     """Test KernelSmoother data validation."""
 
@@ -595,3 +472,268 @@ class TestInputTypeHandling:
         # Predictions should be numeric
         assert isinstance(result, np.ndarray)
         assert np.issubdtype(result.dtype, np.number)
+
+
+class TestPandasCoercion:
+    """Test coercion and handling of pandas DataFrames and Series."""
+
+    def test_pandas_series_as_x_array_mode(self):
+        """Test that pandas Series is accepted as x in array mode."""
+        import pandas as pd
+
+        rgram = Regressogram()
+        x = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
+        y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 5
+
+    def test_pandas_series_as_y_array_mode(self):
+        """Test that pandas Series is accepted as y in array mode."""
+        import pandas as pd
+
+        rgram = Regressogram()
+        x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        y = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
+
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 5
+
+    def test_both_pandas_series(self):
+        """Test with both x and y as pandas Series."""
+        import pandas as pd
+
+        rgram = Regressogram()
+        x = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
+        y = pd.Series([2.0, 4.0, 6.0, 8.0, 10.0])
+
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 5
+
+    def test_pandas_dataframe_with_column_names(self):
+        """Test that pandas DataFrame can be used with column names."""
+        import pandas as pd
+
+        rgram = Regressogram()
+        pd_df = pd.DataFrame(
+            {"feature": [1.0, 2.0, 3.0, 4.0, 5.0], "target": [2.0, 4.0, 6.0, 8.0, 10.0]}
+        )
+
+        # Convert to polars for fit since the method expects polars
+        pl_df = pl.from_pandas(pd_df)
+        result = rgram.fit_predict(data=pl_df, x="feature", y="target")
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 5
+
+    def test_pandas_series_with_non_default_index(self):
+        """Test pandas Series with custom index is properly coerced."""
+        import pandas as pd
+
+        rgram = Regressogram()
+        # Custom index (not default 0,1,2,...)
+        x = pd.Series([1.0, 2.0, 3.0], index=["a", "b", "c"])
+        y = pd.Series([2.0, 4.0, 6.0], index=["x", "y", "z"])
+
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 3
+
+    def test_pandas_series_float32(self):
+        """Test pandas Series with float32 dtype."""
+        import pandas as pd
+
+        rgram = Regressogram()
+        x = pd.Series([1.0, 2.0, 3.0], dtype="float32")
+        y = pd.Series([2.0, 4.0, 6.0], dtype="float32")
+
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 3
+
+    def test_pandas_series_int64(self):
+        """Test pandas Series with int64 dtype."""
+        import pandas as pd
+
+        rgram = Regressogram()
+        x = pd.Series([1, 2, 3, 4, 5], dtype="int64")
+        y = pd.Series([2, 4, 6, 8, 10], dtype="int64")
+
+        result = rgram.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 5
+
+    def test_pandas_series_fit_and_predict_separately(self):
+        """Test pandas Series with separate fit and predict calls."""
+        import pandas as pd
+
+        rgram = Regressogram()
+        x_train = pd.Series([1.0, 2.0, 3.0, 4.0])
+        y_train = pd.Series([1.0, 2.0, 3.0, 4.0])
+        x_test = pd.Series([1.5, 2.5, 3.5])
+
+        rgram.fit(x=x_train, y=y_train)
+        result = rgram.predict(x=x_test)
+
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 3
+
+    def test_pandas_series_with_nan_detection(self):
+        """Test that fit fails gracefully with NaN in pandas Series."""
+        import pandas as pd
+
+        rgram = Regressogram()
+        x = pd.Series([1.0, 2.0, np.nan, 4.0])
+        y = pd.Series([1.0, 2.0, 3.0, 4.0])
+
+        # Should raise an error due to NaN validation
+        with pytest.raises((ValueError, TypeError)):
+            rgram.fit_predict(x=x, y=y)
+
+    def test_kernel_smoother_with_pandas_series(self):
+        """Test KernelSmoother with pandas Series."""
+        import pandas as pd
+
+        ks = KernelSmoother()
+        x = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
+        y = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
+
+        result = ks.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
+        assert len(result) == 5
+
+
+class TestDuplicatePreservation:
+    """Test that duplicate values are preserved (not dropped)."""
+
+    def test_duplicate_x_values_preserved_in_output(self):
+        """Test that duplicate x values result in aggregated y values, not dropped."""
+        rgram = Regressogram(binning="int", agg=lambda s: s.mean())
+        x = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 3.0])
+        y = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+
+        result = rgram.fit_predict(x=x, y=y)
+        # fit_predict returns predictions for each input point
+        # x=1: mean of [10, 20, 30] = 20
+        # x=2: mean of [40, 50] = 45
+        # x=3: mean of [60] = 60
+        assert len(result) == 6  # One prediction per input point
+        # All three x=1 values should get the same aggregated prediction
+        assert np.isclose(result[0], 20.0)  # x=1
+        assert np.isclose(result[1], 20.0)  # x=1
+        assert np.isclose(result[2], 20.0)  # x=1
+        # x=2 values get their aggregation
+        assert np.isclose(result[3], 45.0)  # x=2
+        assert np.isclose(result[4], 45.0)  # x=2
+        # x=3 value
+        assert np.isclose(result[5], 60.0)  # x=3
+
+    def test_all_duplicate_x_values(self):
+        """Test with all x values being identical."""
+        rgram = Regressogram(binning="int", agg=lambda s: s.mean())
+        x = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+        y = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
+
+        result = rgram.fit_predict(x=x, y=y)
+        # All duplicates should aggregate to mean of all y values
+        expected_mean = np.mean([10.0, 20.0, 30.0, 40.0, 50.0])
+        assert np.isclose(result[0], expected_mean)
+
+    def test_duplicate_y_values_preserved(self):
+        """Test that duplicate y values are preserved in aggregation."""
+        rgram = Regressogram(binning="int", agg=lambda s: s.count())
+        x = np.array([1.0, 1.0, 1.0, 2.0, 2.0])
+        y = np.array([5.0, 5.0, 5.0, 8.0, 8.0])  # Duplicate y values
+
+        result = rgram.fit_predict(x=x, y=y)
+        # Count should be 3 for x=1 and 2 for x=2, not 1
+        assert np.isclose(result[0], 3.0)  # Three values at x=1
+        assert np.isclose(result[3], 2.0)  # Two values at x=2
+
+    def test_duplicate_pairs_preserved(self):
+        """Test that exact duplicate (x, y) pairs are all counted."""
+        rgram = Regressogram(binning="int", agg=lambda s: s.count())
+        x = np.array([1.0, 1.0, 1.0, 1.0])
+        y = np.array([5.0, 5.0, 5.0, 5.0])  # Identical values
+
+        result = rgram.fit_predict(x=x, y=y)
+        # Should count all 4 values, not drop duplicates
+        assert np.isclose(result[0], 4.0)
+
+    def test_duplicates_with_sum_aggregation(self):
+        """Test that duplicates are not dropped with sum aggregation."""
+        rgram = Regressogram(binning="int", agg=lambda s: s.sum())
+        x = np.array([1.0, 1.0, 1.0])
+        y = np.array([10.0, 20.0, 30.0])
+
+        result = rgram.fit_predict(x=x, y=y)
+        # Sum of [10, 20, 30] = 60
+        assert np.isclose(result[0], 60.0)
+
+    def test_duplicates_with_min_aggregation(self):
+        """Test that duplicates are considered with min aggregation."""
+        rgram = Regressogram(binning="int", agg=lambda s: s.min())
+        x = np.array([1.0, 1.0, 1.0, 2.0])
+        y = np.array([10.0, 20.0, 30.0, 50.0])
+
+        result = rgram.fit_predict(x=x, y=y)
+        # Min of [10, 20, 30] = 10
+        assert np.isclose(result[0], 10.0)
+        # Min of [50] = 50
+        assert np.isclose(result[-1], 50.0)
+
+    def test_duplicates_with_max_aggregation(self):
+        """Test that duplicates are considered with max aggregation."""
+        rgram = Regressogram(binning="int", agg=lambda s: s.max())
+        x = np.array([1.0, 1.0, 1.0, 2.0])
+        y = np.array([10.0, 20.0, 30.0, 50.0])
+
+        result = rgram.fit_predict(x=x, y=y)
+        # Max of [10, 20, 30] = 30
+        assert np.isclose(result[0], 30.0)
+        # Max of [50] = 50
+        assert np.isclose(result[-1], 50.0)
+
+    def test_fit_predict_preserves_duplicates_same_as_separate_fit_predict(self):
+        """Test that duplicates are handled consistently in fit_predict vs fit then predict."""
+        x = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 3.0])
+        y = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+
+        # fit_predict
+        rgram1 = Regressogram(binning="int", agg=lambda s: s.mean())
+        result_fit_predict = rgram1.fit_predict(x=x, y=y)
+
+        # fit then predict
+        rgram2 = Regressogram(binning="int", agg=lambda s: s.mean())
+        rgram2.fit(x=x, y=y)
+        result_separate = rgram2.predict(x=x)
+
+        # Results should be identical
+        assert np.allclose(result_fit_predict, result_separate)
+
+    def test_duplicates_in_dataframe_mode(self):
+        """Test that duplicates are preserved in DataFrame mode."""
+        df = pl.DataFrame(
+            {"x": [1.0, 1.0, 1.0, 2.0, 2.0], "y": [10.0, 20.0, 30.0, 40.0, 50.0]}
+        )
+
+        rgram = Regressogram(binning="int", agg=lambda s: s.sum())
+        result = rgram.fit_predict(data=df, x="x", y="y")
+
+        # Sum for x=1: 10+20+30 = 60
+        assert np.isclose(result[0], 60.0)
+        # Sum for x=2: 40+50 = 90
+        assert np.isclose(result[3], 90.0)
+
+    def test_kernel_smoother_preserves_duplicates(self):
+        """Test that KernelSmoother preserves duplicate x values."""
+        ks = KernelSmoother()
+        x = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 3.0])
+        y = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
+
+        result = ks.fit_predict(x=x, y=y)
+        assert isinstance(result, np.ndarray)
+        # Should have output for all 6 input points
+        assert len(result) == 6

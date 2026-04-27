@@ -1,6 +1,6 @@
 [project]
 name = "rgram"
-version = "0.2.7"
+version = "0.2.9"
 description = "A Python library for regressograms and kernel smoothing, designed for data analysis and visualisation."
 readme = "README.md"
 authors = [

@@ -277,24 +277,31 @@ class TestKernelTypes:
 
     def test_all_kernels_produce_similar_results(self, sample_data):
         """Test that all kernels produce reasonably similar smoothing results."""
-        kernels = ["epanechnikov", "gaussian", "uniform", "triangular", "cosine", "logistic"]
+        kernels = [
+            "epanechnikov",
+            "gaussian",
+            "uniform",
+            "triangular",
+            "cosine",
+            "logistic",
+        ]
         x_eval = np.linspace(0, 10, 50)
-        
+
         results = {}
         for kernel_name in kernels:
             smoother = KernelSmoother(kernel=kernel_name, bandwidth="silverman")
             smoother.fit(data=sample_data, x="x", y="y")
             results[kernel_name] = smoother.predict(x_eval)
-        
+
         # Check that all results are valid
         for kernel_name, result in results.items():
             assert np.all(np.isfinite(result)), f"{kernel_name} produced NaN values"
-        
+
         # All kernels should produce predictions in roughly the same range
         all_results = np.concatenate(list(results.values()))
         min_val = np.min(all_results)
         max_val = np.max(all_results)
-        
+
         for kernel_name, result in results.items():
             # Each kernel's predictions should be within the overall range
             assert np.min(result) >= min_val - 0.1  # Small tolerance
@@ -321,6 +328,7 @@ class TestCustomKernel:
 
     def test_custom_kernel_callable(self, sample_data):
         """Test custom kernel as a callable."""
+
         def custom_kernel(u: Any) -> Any:
             """A simple custom box kernel."""
             return pl.when(u.abs() <= 1).then(1.0).otherwise(0.0)
@@ -348,6 +356,7 @@ class TestCustomKernel:
 
     def test_custom_kernel_stored(self, sample_data):
         """Test that custom kernel is stored as-is."""
+
         def my_kernel(u: Any) -> Any:
             return pl.when(u.abs() <= 1).then(0.5).otherwise(0.0)
 
@@ -356,6 +365,7 @@ class TestCustomKernel:
 
     def test_custom_kernel_vs_builtin(self, sample_data):
         """Test that custom kernel produces different results than built-in."""
+
         # Create a custom kernel that's significantly different
         def sharp_kernel(u: Any) -> Any:
             """Very sharp kernel: only near-zero distances get weight."""
@@ -393,13 +403,21 @@ class TestKernelValidation:
 
     def test_valid_kernel_strings(self):
         """Test that all valid kernel strings are accepted."""
-        valid_kernels = ["epanechnikov", "gaussian", "uniform", "triangular", "cosine", "logistic"]
+        valid_kernels = [
+            "epanechnikov",
+            "gaussian",
+            "uniform",
+            "triangular",
+            "cosine",
+            "logistic",
+        ]
         for kernel_name in valid_kernels:
             smoother = KernelSmoother(kernel=kernel_name)
             assert smoother.kernel == kernel_name
 
     def test_kernel_callable_no_validation_at_init(self):
         """Test that callable kernels are accepted without validation at init."""
+
         # Should not raise, even though the callable doesn't do anything useful
         def dummy_kernel(u):
             return u
@@ -436,14 +454,18 @@ class TestKernelWithDifferentBandwidths:
 
     def test_gaussian_kernel_with_manual(self, sample_data):
         """Test Gaussian kernel with manual bandwidth."""
-        smoother = KernelSmoother(kernel="gaussian", bandwidth="manual", bandwidth_value=0.5)
+        smoother = KernelSmoother(
+            kernel="gaussian", bandwidth="manual", bandwidth_value=0.5
+        )
         result = smoother.fit_predict(data=sample_data, x="x", y="y")
         assert len(result) == 100
         assert np.all(np.isfinite(result))
 
     def test_uniform_kernel_with_manual(self, sample_data):
         """Test uniform kernel with manual bandwidth."""
-        smoother = KernelSmoother(kernel="uniform", bandwidth="manual", bandwidth_value=1.0)
+        smoother = KernelSmoother(
+            kernel="uniform", bandwidth="manual", bandwidth_value=1.0
+        )
         result = smoother.fit_predict(data=sample_data, x="x", y="y")
         assert len(result) == 100
         assert np.all(np.isfinite(result))

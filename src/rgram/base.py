@@ -155,23 +155,17 @@ class BaseUtils:
                 "Provide array-like values (list, ndarray, Series) instead."
             )
 
-        if not BaseUtils._is_array_like(input_data):
-            raise ValueError(
-                f"Input must be array-like (e.g., list, ndarray, Series), got {type(input_data).__name__}."
-            )
-
-        # Check for complex numbers
+        # Validate array using consolidated validation method
+        # Convert TypeError to ValueError for API consistency
         try:
-            import numpy as np
-
-            arr = np.asarray(input_data)
-            if np.iscomplexobj(arr):
-                raise TypeError(f"Complex numbers are not supported in {col_prefix}")
-        except TypeError:
+            BaseUtils._validate_single_array(
+                input_data, col_prefix, allow_empty=False, numeric_only=True
+            )
+        except TypeError as e:
+            # If it's not array-like, convert to ValueError to maintain API
+            if "must be array-like" in str(e):
+                raise ValueError(f"Input must be {str(e).split('must be')[1].strip()}")
             raise
-        except Exception:
-            # If numpy check fails, let it pass and catch later in Polars
-            pass
 
         df_dict[col_prefix] = input_data
         return col_prefix
@@ -283,9 +277,13 @@ class BaseUtils:
         arr: Any,
         array_name: str = "x",
         allow_empty: bool = False,
+        numeric_only: bool = True,
     ) -> Any:
         """
-        Validate a single array for array-like, non-empty, and numeric content.
+        Validate a single array for array-like, non-empty, and optionally numeric content.
+
+        Supports numpy arrays, Polars Series, and native Python sequences.
+        Complex number check works with any numeric type that numpy can interpret.
 
         Parameters
         ----------
@@ -295,6 +293,8 @@ class BaseUtils:
             Display name for the array in error messages.
         allow_empty : bool, optional
             If True, allow empty arrays. Default False.
+        numeric_only : bool, optional
+            If True, validate that array contains only numeric values. Default True.
 
         Returns
         -------
@@ -304,7 +304,7 @@ class BaseUtils:
         Raises
         ------
         TypeError
-            If array is not array-like or contains non-numeric values.
+            If array is not array-like, contains non-numeric values, or is invalid type.
         ValueError
             If array is empty (when allow_empty=False).
         """
@@ -324,8 +324,8 @@ class BaseUtils:
         if len_arr == 0 and not allow_empty:
             raise ValueError(f"Cannot process empty {array_name} array")
 
-        # Check for numeric content
-        if len_arr > 0:
+        # Check for numeric content (if not empty and numeric_only=True)
+        if numeric_only and len_arr > 0:
             try:
                 import numpy as np
 
@@ -353,46 +353,6 @@ class BaseUtils:
                 pass
 
         return arr
-
-    @staticmethod
-    def _validate_numeric_content(data_dict: dict[str, Any]) -> None:
-        """
-        Validate that processed data contains numeric values.
-
-        Parameters
-        ----------
-        data_dict : dict
-            Dictionary with 'x' and 'y' keys containing arrays.
-
-        Raises
-        ------
-        TypeError
-            If data contains non-numeric values (e.g., complex numbers, or non-numeric objects).
-        """
-        try:
-            import numpy as np
-
-            for col_name, arr in data_dict.items():
-                np_arr = np.asarray(arr)
-
-                # Check for complex numbers
-                if np.iscomplexobj(np_arr):
-                    raise TypeError(f"Complex numbers are not supported in {col_name}")
-
-                # Check that dtype is numeric
-                if not np.issubdtype(np_arr.dtype, np.number):
-                    raise TypeError(
-                        f"{col_name} contains non-numeric values (dtype: {np_arr.dtype}). "
-                        "Only numeric arrays are supported."
-                    )
-        except TypeError:
-            raise
-        except ImportError:
-            # If numpy is not available, let Polars handle the validation
-            pass
-        except Exception:
-            # If validation fails for other reasons, let it pass to Polars
-            pass
 
     def _prepare_data(
         self,
@@ -447,16 +407,14 @@ class BaseUtils:
             df_dict = {}
 
             # Validate input types first (checks for invalid string column names, etc.)
-            BaseUtils._validate_input_types(x, y, data)
+            self._validate_input_types(x, y, data)
 
             # Then validate array lengths and non-empty
             x, y = self._validate_arrays(x, y, "x", "y")
 
+            # Process and validate arrays (includes numeric validation)
             x = self._process_array_input(x, "x", df_dict)
             y = self._process_array_input(y, "y", df_dict)
-
-            # Validate that data contains numeric values
-            BaseUtils._validate_numeric_content(df_dict)
 
             data = pl.DataFrame(df_dict)
 
