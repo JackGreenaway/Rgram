@@ -22,8 +22,6 @@ def test_predict_before_fit_raises():
 
 
 def test_predict_with_series(sample_data):
-    import polars as pl
-
     df, x, y, y_noise = sample_data
     rgram = Regressogram()
     rgram.fit(data=df, x="x", y="y_noise")

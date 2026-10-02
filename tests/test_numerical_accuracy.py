@@ -72,7 +72,9 @@ class TestRegressogramNumericalAccuracy:
         x = np.linspace(0, 10, 50)
         y = np.sin(x) + np.random.randn(50) * 0.2
 
-        rgram = Regressogram()
+        rgram = Regressogram(
+            ci=(lambda v: v.mean() - v.std(), lambda v: v.mean() + v.std())
+        )
         pred, lci, uci = rgram.fit_predict(x=x, y=y, return_ci=True)
 
         # Remove NaN values for comparison
@@ -85,7 +87,9 @@ class TestRegressogramNumericalAccuracy:
         x = np.linspace(0, 10, 50)
         y = np.sin(x) + np.random.randn(50) * 0.1
 
-        rgram = Regressogram()
+        rgram = Regressogram(
+            ci=(lambda v: v.mean() - v.std(), lambda v: v.mean() + v.std())
+        )
         pred, lci, uci = rgram.fit_predict(x=x, y=y, return_ci=True)
 
         # Predictions should be between bounds (allow for NaN)

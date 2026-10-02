@@ -47,13 +47,13 @@ class TestRegressogramErrorHandling:
 
     def test_invalid_agg_function(self):
         """Test that invalid aggregation function is handled."""
-        with pytest.raises(TypeError):
-            Regressogram(agg="not_callable")
+        with pytest.raises(ValueError, match="Unknown aggregation"):
+            Regressogram(agg="not_callable").fit([1.0, 2.0], [1.0, 2.0])
 
     def test_invalid_ci_tuple_length(self):
         """Test that CI tuple with wrong length is handled."""
         with pytest.raises(ValueError, match="ci tuple must have exactly 2 elements"):
-            Regressogram(ci=(lambda x: x.mean(),))
+            Regressogram(ci=(lambda x: x.mean(),)).fit([1.0, 2.0], [1.0, 2.0])
 
     def test_n_bins_negative(self):
         """Test that negative n_bins is handled."""
@@ -100,9 +100,8 @@ class TestRegressogramEdgeCases:
         rgram.fit(
             x=np.array([1.0, 2.0, 3.0, 4.0, 5.0]), y=np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         )
-        result = rgram.predict([1.0, np.nan, 5.0])
-        assert isinstance(result, np.ndarray)
-        assert len(result) == 3
+        with pytest.raises(ValueError, match="NaN"):
+            rgram.predict([1.0, np.nan, 5.0])
 
     def test_single_unique_x_value(self):
         """Test with single unique x value (many duplicates)."""
@@ -230,7 +229,7 @@ class TestKernelSmootherErrorHandling:
     def test_manual_bandwidth_without_value_raises(self):
         """Test that manual bandwidth without value raises."""
         with pytest.raises(ValueError, match="bandwidth_value must be specified"):
-            KernelSmoother(bandwidth="manual")
+            KernelSmoother(bandwidth="manual").fit([1.0, 2.0], [1.0, 2.0])
 
     def test_invalid_bandwidth_strategy_raises(self):
         """Test that invalid bandwidth strategy raises."""
@@ -334,14 +333,8 @@ Comprehensive error handling tests for Regressogram and KernelSmoother.
 Tests invalid inputs, edge cases, and proper error messages.
 """
 
-import pytest
-import numpy as np
-import polars as pl
-from rgram.rgram import Regressogram
-from rgram.smoothing import KernelSmoother
 
-
-class TestRegressogramErrorHandling:
+class TestRegressogramErrorHandling:  # noqa: F811
     """Test error conditions and invalid inputs for Regressogram."""
 
     def test_invalid_binning_strategy_raises_valueerror(self):
@@ -407,10 +400,8 @@ class TestRegressogramErrorHandling:
         y_data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
         rgram.fit(x=x_data, y=y_data)
-        result = rgram.predict([1.0, np.nan, 5.0])
-
-        assert isinstance(result, np.ndarray)
-        assert len(result) == 3
+        with pytest.raises(ValueError, match="NaN"):
+            rgram.predict([1.0, np.nan, 5.0])
 
     def test_fit_with_single_unique_x_value(self):
         """Test that single unique x value is handled."""
@@ -460,14 +451,16 @@ class TestRegressogramErrorHandling:
     def test_invalid_agg_function(self):
         """Test that invalid aggregation function is handled."""
         # Pass a non-callable agg
-        with pytest.raises(TypeError):
-            Regressogram(agg="not_callable")
+        with pytest.raises(ValueError, match="Unknown aggregation"):
+            Regressogram(agg="not_callable").fit([1.0, 2.0], [1.0, 2.0])
 
     def test_invalid_ci_tuple_length(self):
         """Test that CI tuple with wrong length is handled."""
         # CI should be None or tuple of exactly 2 functions
         with pytest.raises(ValueError, match="ci tuple must have exactly 2 elements"):
-            Regressogram(ci=(lambda x: x.mean(),))  # Only one function
+            Regressogram(ci=(lambda x: x.mean(),)).fit(
+                [1.0, 2.0], [1.0, 2.0]
+            )  # Only one function
 
     def test_n_bins_negative_raises(self):
         """Test that negative n_bins raises error or is handled."""
@@ -493,13 +486,13 @@ class TestRegressogramErrorHandling:
             rgram.fit(x=x, y=y)
 
 
-class TestKernelSmootherErrorHandling:
+class TestKernelSmootherErrorHandling:  # noqa: F811
     """Test error conditions for KernelSmoother."""
 
     def test_manual_bandwidth_without_value_raises(self):
         """Test that manual bandwidth without value raises."""
         with pytest.raises(ValueError, match="bandwidth_value must be specified"):
-            KernelSmoother(bandwidth="manual")
+            KernelSmoother(bandwidth="manual").fit([1.0, 2.0], [1.0, 2.0])
 
     def test_invalid_bandwidth_strategy_raises(self):
         """Test that invalid bandwidth strategy raises."""
@@ -574,7 +567,7 @@ class TestKernelSmootherErrorHandling:
             smoother.predict(["a", "b", "c"])
 
 
-class TestDataValidationErrors:
+class TestDataValidationErrors:  # noqa: F811
     """Test data validation and type checking."""
 
     def test_fit_with_pandas_series_raises(self):

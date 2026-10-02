@@ -50,7 +50,7 @@ class TestKernelSmootherBandwidthSelection:
     def test_manual_bandwidth_missing_value_raises(self):
         """Test that manual bandwidth without bandwidth_value raises error."""
         with pytest.raises(ValueError, match="bandwidth_value must be specified"):
-            KernelSmoother(bandwidth="manual")
+            KernelSmoother(bandwidth="manual").fit([1.0, 2.0], [1.0, 2.0])
 
     def test_different_bandwidths_produce_different_smoothing(self, sample_data):
         """Test that different bandwidth methods produce different results."""
@@ -343,8 +343,10 @@ class TestCustomKernel:
 
     def test_custom_kernel_lambda(self, sample_data):
         """Test custom kernel as a lambda function."""
+
         # Custom triangular kernel using lambda
-        custom_kernel = lambda u: pl.when(u.abs() <= 1).then(1 - u.abs()).otherwise(0.0)
+        def custom_kernel(u):
+            return pl.when(u.abs() <= 1).then(1 - u.abs()).otherwise(0.0)
 
         smoother = KernelSmoother(kernel=custom_kernel, bandwidth="silverman")
         smoother.fit(data=sample_data, x="x", y="y")
@@ -394,12 +396,12 @@ class TestKernelValidation:
     def test_invalid_kernel_string_raises(self):
         """Test that invalid kernel string raises ValueError."""
         with pytest.raises(ValueError, match="kernel must be one of"):
-            KernelSmoother(kernel="invalid_kernel")
+            KernelSmoother(kernel="invalid_kernel").fit([1.0, 2.0], [1.0, 2.0])
 
     def test_invalid_kernel_type_raises(self):
         """Test that invalid kernel type raises TypeError."""
         with pytest.raises(TypeError, match="kernel must be a string or callable"):
-            KernelSmoother(kernel=123)
+            KernelSmoother(kernel=123).fit([1.0, 2.0], [1.0, 2.0])
 
     def test_valid_kernel_strings(self):
         """Test that all valid kernel strings are accepted."""

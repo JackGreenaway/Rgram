@@ -133,8 +133,8 @@ class TestBaseUtilsDataPreparation:
         lf, x_col, y_col = utils._prepare_data(data=df, x="feature", y="target")
 
         assert isinstance(lf, pl.LazyFrame)
-        assert x_col == "feature"
-        assert y_col == "target"
+        assert x_col == "x"
+        assert y_col == "y"
 
     def test_prepare_data_with_arrays(self):
         """Test _prepare_data with array inputs."""
@@ -340,8 +340,8 @@ class TestRegressogramDataValidation:
         lf, x_col, y_col = utils._prepare_data(data=df, x="feature", y="target")
 
         assert isinstance(lf, pl.LazyFrame)
-        assert x_col == "feature"
-        assert y_col == "target"
+        assert x_col == "x"
+        assert y_col == "y"
 
     def test_prepare_data_with_arrays(self):
         """Test prepare_data with array inputs."""

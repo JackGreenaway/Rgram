@@ -19,7 +19,9 @@ class TestRegressogramWorkflows:
         x_train = np.linspace(0, 10, 50)
         y_train = np.sin(x_train) + np.random.randn(50) * 0.2
 
-        rgram = Regressogram()
+        rgram = Regressogram(
+            ci=(lambda v: v.mean() - v.std(), lambda v: v.mean() + v.std())
+        )
 
         # Fit
         rgram.fit(x=x_train, y=y_train)
@@ -50,7 +52,9 @@ class TestRegressogramWorkflows:
         x = np.linspace(0, 10, 30)
         y = np.sin(x)
 
-        rgram = Regressogram()
+        rgram = Regressogram(
+            ci=(lambda v: v.mean() - v.std(), lambda v: v.mean() + v.std())
+        )
         pred, ci_low, ci_high = rgram.fit_predict(x=x, y=y, return_ci=True)
 
         assert isinstance(pred, np.ndarray)

@@ -3,7 +3,6 @@ Tests for sorting and input order preservation.
 Ensures that input order doesn't affect output and sorting is consistent.
 """
 
-import pytest
 import numpy as np
 import polars as pl
 from rgram.rgram import Regressogram

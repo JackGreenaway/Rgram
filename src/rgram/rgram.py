@@ -1,157 +1,322 @@
 from __future__ import annotations
 
+from typing import Literal, Optional, Sequence, Union
+
 import numpy as np
 import polars as pl
+from numpy.typing import ArrayLike
+from sklearn.base import BaseEstimator, RegressorMixin, clone
+
+from rgram._typing import CV, Input, Prediction
+from rgram.aggregation import (
+    AGGREGATIONS,
+    Aggregation,
+    ArrayAggregation,
+    aggregation_expr,
+)
 from rgram.base import BaseUtils
-from typing import Callable, Literal, Sequence, Optional, Union, Any
+from rgram.warnings import BinningWarning, ExtrapolationWarning, SupportWarning
 
 
-class Regressogram(BaseUtils):
+def _mean(x: pl.Expr) -> pl.Expr:
+    return x.mean()
+
+
+def _lower_spread(x: pl.Expr) -> pl.Expr:
+    return x.mean() - x.std()
+
+
+def _upper_spread(x: pl.Expr) -> pl.Expr:
+    return x.mean() + x.std()
+
+
+class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
     """
     Regressogram
 
-    Binned regression estimator for one or more features and targets.
+    Binned regression estimator for one feature and target.
     Predicts using binned aggregation with optional confidence intervals.
 
     Parameters
     ----------
     binning : {'dist', 'width', 'none', 'int'}, default='dist'
         Binning strategy.
-    agg : callable, default=mean
-        Aggregation function for y in each bin.
-    ci : tuple of callables, optional
-        Tuple of lower/upper confidence interval functions.
-    n_bins : int, optional
-        Number of bins for 'dist' binning. If None, automatically calculated
-        using Freedman-Diaconis rule. Ignored for other binning strategies.
+    agg : str or callable, default='mean'
+        Named reduction, Polars expression callable, or array_aggregation adapter.
+        Every bin must produce one real numeric scalar; weights are never ignored.
+    ci : tuple of aggregations or None, default=None
+        Explicit lower/upper descriptive summaries. No intervals are computed by
+        default. Use predict_interval for pointwise bootstrap inference.
+    n_bins : int, str or None, default=None
+        Count or selection rule for both dist and width. None means 'auto'.
+        Rules: auto, cv, fd, scott, sturges, sqrt, rice. Dist auto uses a bounded
+        cube-root count; width auto combines FD and Sturges. CV minimizes held-out
+        regression MSE and requires full prediction support in every fold.
+    bin_width : float or None, default=None
+        Explicit width in feature units; requires width binning and n_bins=None.
+        The last bin may be shorter. Counts that exceed max_bins raise.
+    max_bins : int, default=512
+        Allocation guard. Automatic rules are capped; larger explicit counts raise.
+    min_samples_bin : int, default=5
+        Bounds the default dist-auto count and generated CV candidates by n // value.
+        This is a target occupancy, not a guarantee with ties or explicit counts.
+    cv : int, splitter or iterable, default=5
+        Used only for n_bins='cv'. Integers use shuffled KFold.
+    bin_candidates : sequence of int or None, default=None
+        Candidate counts for CV. Defaults to a bounded geometric grid.
+    random_state : int or None, default=0
+        Seed for default CV splitting.
+    extrapolation : {'clip', 'nan', 'raise'}, default='clip'
+        Outside the training range, map to edge bins (with a warning), leave
+        unsupported, or raise. Query values are never modified.
+    unsupported : {'nan', 'raise'}, default='nan'
+        Preserve missing estimates as NaN with a warning, or raise.
+
+    Attributes
+    ----------
+    n_bins_ : int
+        Number of fitted cells (empty cells may exist).
+    bin_edges_ : ndarray
+        Interior fitted boundaries for dist/width binning.
+    bin_width_ : float or None
+        Width for width binning; None for other strategies.
+    bins_ : polars.DataFrame
+        Occupied bin estimates and original observation counts.
+    cv_results_ : dict
+        Error and coverage by candidate, available when n_bins='cv'.
 
     Methods
     -------
-    fit(data, x, y)
+    fit(x, y, data=None, sample_weight=None)
         Learn bin parameters from training data.
     predict(x, return_ci=False)
         Predict binned regression values at new x points.
         Returns array or tuple with optional confidence intervals.
-    fit_predict(data, x, y, return_ci=False)
+    fit_predict(x, y, data=None, return_ci=False)
         Fit and predict on training x values.
     """
-
-    ALLOW_DUPLICATE_EDGES = True
 
     def __init__(
         self,
         *,
         binning: Literal["dist", "width", "none", "int"] = "dist",
-        agg: Callable[[pl.Expr], pl.Expr] = lambda x: x.mean(),
-        ci: Optional[
-            tuple[Callable[[pl.Expr], pl.Expr], Callable[[pl.Expr], pl.Expr]]
-        ] = (
-            lambda x: x.mean() - x.std(),
-            lambda x: x.mean() + x.std(),
-        ),
-        n_bins: Optional[int] = None,
-    ):
-        """
-        Construct a Regressogram instance.
-
-        Parameters
-        ----------
-        binning : {'dist', 'width', 'none', 'int'}, default='dist'
-            Binning strategy.
-        agg : callable, default=mean
-            Aggregation function for y in each bin.
-        ci : tuple of callables, optional
-            Tuple of lower/upper confidence interval functions.
-        n_bins : int, optional
-            Number of bins for 'dist' binning. If None, automatically calculated
-            using Freedman-Diaconis rule. Ignored for other binning strategies.
-        """
-        # Validate agg is callable
-        if not callable(agg):
-            raise TypeError(f"agg must be callable, got {type(agg).__name__}")
-
-        # Validate ci is None or tuple of exactly 2 callables
-        if ci is not None:
-            if not isinstance(ci, tuple):
-                raise TypeError(f"ci must be None or tuple, got {type(ci).__name__}")
-            if len(ci) != 2:
-                raise ValueError(
-                    f"ci tuple must have exactly 2 elements, got {len(ci)}"
-                )
-            if not all(callable(c) for c in ci):
-                raise TypeError("All elements in ci tuple must be callable")
-
+        agg: Aggregation = "mean",
+        ci: Optional[tuple[Aggregation, Aggregation]] = None,
+        n_bins: Optional[Union[int, str]] = None,
+        bin_width: Optional[float] = None,
+        max_bins: int = 512,
+        min_samples_bin: int = 5,
+        cv: CV = 5,
+        bin_candidates: Optional[Sequence[int]] = None,
+        random_state: Optional[int] = 0,
+        extrapolation: str = "clip",
+        unsupported: str = "nan",
+    ) -> None:
         self.binning = binning
         self.agg = agg
         self.ci = ci
         self.n_bins = n_bins
+        self.bin_width = bin_width
+        self.max_bins = max_bins
+        self.min_samples_bin = min_samples_bin
+        self.cv = cv
+        self.bin_candidates = bin_candidates
+        self.random_state = random_state
+        self.extrapolation = extrapolation
+        self.unsupported = unsupported
 
-        self._is_fitted = False
+    def _validate_parameters(self) -> None:
+        if isinstance(self.agg, str):
+            if self.agg not in AGGREGATIONS:
+                raise ValueError(
+                    f"Unknown aggregation {self.agg!r}; choose {AGGREGATIONS} or supply a callable"
+                )
+        elif not callable(self.agg):
+            raise TypeError("agg must be a named aggregation or callable")
+        if self.extrapolation not in ("clip", "nan", "raise"):
+            raise ValueError("extrapolation must be 'clip', 'nan', or 'raise'")
+        if self.unsupported not in ("nan", "raise"):
+            raise ValueError("unsupported must be 'nan' or 'raise'")
 
-    def _learn_bin_params(self, data: pl.LazyFrame) -> None:
-        x_min, x_max, q25, q75, n = (
-            data.select(
-                pl.col("x_val").min().alias("min"),
-                pl.col("x_val").max().alias("max"),
-                pl.col("x_val").quantile(0.25).alias("q25"),
-                pl.col("x_val").quantile(0.75).alias("q75"),
-                pl.len(),
-            )
-            .collect()
-            .row(0)
-        )
-
-        self._x_min = x_min
-        self._x_max = x_max
-
-        if self.binning in ("int", "none"):
-            self._min_bin = x_min
-            self._max_bin = x_max
-
-        if self.binning in ("width", "dist"):
-            self._bin_width = 2 * (q75 - q25) / (n ** (1 / 3))
-
-            # Handle edge case where bin_width is 0 (all x values identical)
-            if self._bin_width == 0:
-                self._bin_width = 1.0
-
-            if self.binning == "dist":
-                # Use user-specified n_bins or calculate from Freedman-Diaconis rule
-                if self.n_bins is not None:
-                    n_bins = max(1, self.n_bins)
-
-                else:
-                    n_bins = max(1, int((x_max - x_min) // self._bin_width))
-
-                self._n_bins = n_bins
-
-                self._min_bin = 0
-                self._max_bin = n_bins - 1
-
-                # Store bin edges from qcut for use during predict
-                # This ensures stability by using the same bins at predict time
-                self._bin_edges = (
-                    data.select(
-                        pl.col("x_val")
-                        .qcut(
-                            quantiles=self._n_bins,
-                            allow_duplicates=self.ALLOW_DUPLICATE_EDGES,
-                            include_breaks=True,
-                        )
-                        .struct.field("breakpoint")
-                        .clip(pl.col("x_val").min(), pl.col("x_val").max())
-                        .alias("bin_edge")
-                    )
-                    .unique()
-                    .sort("bin_edge")
-                    .collect()
-                    .get_column("bin_edge")
-                    .to_list()
+        # Validate ci is None or tuple of exactly 2 callables
+        if self.ci is not None:
+            if not isinstance(self.ci, tuple):
+                raise TypeError(
+                    f"ci must be None or tuple, got {type(self.ci).__name__}"
+                )
+            if len(self.ci) != 2:
+                raise ValueError(
+                    f"ci tuple must have exactly 2 elements, got {len(self.ci)}"
+                )
+            if not all(callable(c) or isinstance(c, str) for c in self.ci):
+                raise TypeError(
+                    "All elements in ci tuple must be named aggregations or callable"
                 )
 
+        if self.binning not in ("dist", "width", "none", "int"):
+            raise ValueError(f"Unknown binning type: {self.binning}")
+        rules = ("auto", "cv", "fd", "scott", "sturges", "sqrt", "rice")
+        if isinstance(self.n_bins, str):
+            if self.n_bins not in rules:
+                raise ValueError(
+                    f"n_bins must be a positive integer, None, or one of {rules}"
+                )
+        elif self.n_bins is not None and (
+            isinstance(self.n_bins, bool)
+            or not isinstance(self.n_bins, (int, np.integer))
+            or self.n_bins < 1
+        ):
+            raise ValueError(
+                "n_bins must be a positive integer, None, or a selection rule"
+            )
+        for name in ("max_bins", "min_samples_bin"):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, np.integer))
+                or value < 1
+            ):
+                raise ValueError(f"{name} must be a positive integer")
+        if isinstance(self.n_bins, (int, np.integer)) and self.n_bins > self.max_bins:
+            raise ValueError("n_bins exceeds max_bins; increase max_bins explicitly")
+        if self.bin_width is not None:
+            if self.binning != "width" or self.n_bins is not None:
+                raise ValueError("bin_width requires binning='width' and n_bins=None")
+            if (
+                isinstance(self.bin_width, (bool, str))
+                or not np.isscalar(self.bin_width)
+                or not np.isfinite(self.bin_width)
+                or self.bin_width <= 0
+            ):
+                raise ValueError("bin_width must be a finite positive number")
+        if self.binning not in ("dist", "width") and self.n_bins is not None:
+            raise ValueError("n_bins applies only to dist or width binning")
+
+    def _cv_bin_count(
+        self, x: Input, y: Input, sample_weight: Optional[ArrayLike] = None
+    ) -> int:
+        from rgram.model_selection import CoverageSearchCV
+
+        limit = min(self.max_bins, max(1, len(x) // self.min_samples_bin))
+        candidates = self.bin_candidates
+        if candidates is None:
+            candidates = np.unique(
+                np.geomspace(1, limit, min(limit, 12)).round().astype(int)
+            ).tolist()
+        else:
+            candidates = list(candidates)
+        if not candidates or any(
+            isinstance(k, bool)
+            or not isinstance(k, (int, np.integer))
+            or k < 1
+            or k > self.max_bins
+            for k in candidates
+        ):
+            raise ValueError(
+                "bin_candidates must contain positive integers no greater than max_bins"
+            )
+        search = CoverageSearchCV(
+            clone(self).set_params(n_bins=1),
+            {"n_bins": candidates},
+            cv=self.cv,
+            random_state=self.random_state,
+        ).fit(x, y, sample_weight=sample_weight)
+        self.cv_results_ = search.cv_results_
+        return search.best_params_["n_bins"]
+
+    def _learn_bin_params(self, data: pl.LazyFrame) -> None:
+        x = data.select("x_val").collect()["x_val"].to_numpy()
+        n = len(x)
+        self._x_min, self._x_max = x.min().item(), x.max().item()
+        if self.binning in ("int", "none"):
+            self._min_bin = int(self._x_min) if self.binning == "int" else self._x_min
+            self._max_bin = int(self._x_max) if self.binning == "int" else self._x_max
+            self.n_bins_ = len(
+                np.unique(x.astype(np.int64) if self.binning == "int" else x)
+            )
+            return
+        x = self._float_array(x, "x")
+        with np.errstate(over="ignore"):
+            span = self._x_max - self._x_min
+        if not np.isfinite(span):
+            raise ValueError("Feature range is too large; rescale x before binning")
+        choice = self.selected_n_bins_
+        cap = min(n, self.max_bins)
+        if span == 0:
+            count = 1
+        elif self.bin_width is not None:
+            with np.errstate(over="ignore"):
+                count = np.ceil(span / self.bin_width)
+            if not np.isfinite(count) or count > self.max_bins:
+                raise ValueError(
+                    "bin_width requires more than max_bins; increase width or max_bins"
+                )
+            count = max(1, int(count))
+        elif isinstance(choice, (int, np.integer)):
+            count = min(int(choice), cap) if self.binning == "dist" else int(choice)
+        else:
+            rule = "auto" if choice is None else choice
+            sturges = np.ceil(np.log2(n) + 1)
+            if rule == "auto" and self.binning == "dist":
+                # Quantile cells already adapt to density; range/IQR can explode
+                # under outliers and is not a suitable default for their count.
+                count = min(np.ceil(np.cbrt(n)), max(1, n // self.min_samples_bin))
+            elif rule in ("sturges", "sqrt", "rice"):
+                count = {
+                    "sturges": sturges,
+                    "sqrt": np.ceil(np.sqrt(n)),
+                    "rice": np.ceil(2 * np.cbrt(n)),
+                }[rule]
             else:
-                self._min_bin = 0
-                self._max_bin = int((x_max - x_min) // self._bin_width)
+                # Work in unit range to avoid overflow in scale estimation.
+                z = (x - self._x_min) / span
+                if rule == "scott":
+                    width = np.std(z) * np.cbrt(24 * np.sqrt(np.pi) / n)
+                else:
+                    width = 2 * np.subtract(*np.quantile(z, [0.75, 0.25])) / np.cbrt(n)
+                with np.errstate(over="ignore", divide="ignore"):
+                    count = np.ceil(1 / width) if width > 0 else sturges
+                if rule == "auto":
+                    count = max(count, sturges)
+            if count > cap:
+                self._warn(
+                    f"Automatic bin count capped at {cap}; all observations are retained",
+                    BinningWarning,
+                )
+            count = max(1, int(min(count, cap)))
+        if isinstance(choice, (int, np.integer)) and count != choice:
+            self._warn(
+                f"Requested {choice} bins but fitted {count} because of sample count or constant x; all rows are retained",
+                BinningWarning,
+            )
+        self.requested_n_bins_ = (
+            int(choice) if isinstance(choice, (int, np.integer)) else int(count)
+        )
+        if self.binning == "dist":
+            edges = np.unique(np.quantile(x, np.arange(1, count) / count))
+            edges = edges[edges < self._x_max]
+        elif span == 0:
+            edges = np.array([], dtype=float)
+        elif self.bin_width is not None:
+            edges = self._x_min + np.arange(1, count) * self.bin_width
+        else:
+            edges = np.linspace(self._x_min, self._x_max, count + 1)[1:-1]
+        self._bin_edges = np.unique(edges).tolist()
+        if len(self._bin_edges) + 1 != count:
+            self._warn(
+                f"Repeated boundaries merged {count} requested cells into {len(self._bin_edges) + 1}; all rows are retained",
+                BinningWarning,
+            )
+        self._min_bin = 0
+        self._max_bin = len(self._bin_edges)
+        self.n_bins_ = self._max_bin + 1
+        self._n_bins = self.n_bins_
+        self.bin_width_ = (
+            (self.bin_width if self.bin_width is not None else span / count)
+            if self.binning == "width"
+            else None
+        )
+        self._bin_width = self.bin_width_
 
     def _predict_bin_expr(self) -> pl.Expr:
         """
@@ -162,22 +327,16 @@ class Regressogram(BaseUtils):
         pl.Expr
             The binning expression.
         """
-        if self.binning == "width":
-            bin_id = ((pl.col("x_val") - self._x_min) // self._bin_width).cast(int)
-
-        elif self.binning == "dist":
-            if not hasattr(self, "_bin_edges"):
-                raise RuntimeError(
-                    "Bin edges not stored. This should not happen if fit() was called properly."
-                )
-
-            # left_closed=True means each bin is [left, right)
-            bin_id = (
-                pl.col("x_val")
-                .cut(breaks=self._bin_edges, left_closed=True, include_breaks=True)
-                .struct.field("breakpoint")
-                .rank(method="dense")
-                .cast(int)
+        if self.binning in ("width", "dist"):
+            # Quantiles are right-closed; widths are left-closed with the maximum
+            # included in the last bin. Both assignments are fixed after fitting.
+            side = "left" if self.binning == "dist" else "right"
+            bin_id = pl.col("x_val").map_batches(
+                lambda values: pl.Series(
+                    np.searchsorted(self._bin_edges, values.to_numpy(), side=side)
+                ),
+                return_dtype=pl.Int64,
+                is_elementwise=True,
             )
 
         elif self.binning == "int":
@@ -194,9 +353,10 @@ class Regressogram(BaseUtils):
 
     def fit(
         self,
-        x: Union[str, Any],
-        y: Union[str, Any],
+        x: Input,
+        y: Input,
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
+        sample_weight: Optional[ArrayLike] = None,
     ) -> "Regressogram":
         """
         Learn bin parameters from training data (univariate only).
@@ -241,65 +401,39 @@ class Regressogram(BaseUtils):
         >>> # Array mode
         >>> rgram = Regressogram().fit(x=[1, 2, 3], y=[4, 5, 6])
         """
-        # Validate univariate constraint - only when data is provided with column names
-        # Lists/tuples are valid as data input, but list of column names must be single column
-        if data is not None:
-            # When data is provided, check if x/y are lists of column names
-            if (
-                isinstance(x, (list, tuple))
-                and len(x) > 0
-                and all(isinstance(item, str) for item in x)
-            ):
-                raise ValueError(
-                    "fit only supports univariate (single feature) input. "
-                    "When data is provided, x must be a single column name (str), not a list/tuple of column names."
-                )
-            if (
-                isinstance(y, (list, tuple))
-                and len(y) > 0
-                and all(isinstance(item, str) for item in y)
-            ):
-                raise ValueError(
-                    "fit only supports univariate (single target) input. "
-                    "When data is provided, y must be a single column name (str), not a list/tuple of column names."
-                )
-
-        data_lf, x_cols, y_cols = self._prepare_data(data=data, x=x, y=y)
-
-        x_list = self._to_list(x_cols) or [x_cols]
-        y_list = self._to_list(y_cols) or [y_cols]
-
-        idx_cols = y_list or []
-        self.over_cols = ["x_var", "y_var"]
-
-        data = (
-            data_lf.select(x_list + idx_cols)
-            .unpivot(
-                on=x_list, index=idx_cols, variable_name="x_var", value_name="x_val"
+        self._is_fitted = False
+        self._validate_parameters()
+        self._bin_edges = []
+        self.bin_width_ = None
+        self.__dict__.pop("cv_results_", None)
+        data_lf, _, _ = self._prepare_data(data=data, x=x, y=y)
+        frame = data_lf.collect()
+        self.X_ = frame["x"].to_numpy().copy()
+        self.y_ = frame["y"].to_numpy().copy()
+        self._float_array(self.y_, "y")
+        self._record_feature_name(x, data)
+        self.sample_weight_provided_ = sample_weight is not None
+        self.sample_weight_ = self._sample_weights(sample_weight, len(self.X_))
+        if not np.isfinite(self.sample_weight_.sum(dtype=float)):
+            raise ValueError(
+                "sample_weight sum overflows float64; rescale weights explicitly"
             )
-            .unpivot(
-                on=y_list,
-                index=["x_val", "x_var"],
-                variable_name="y_var",
-                value_name="y_val",
-            )
-            .filter(pl.col("x_var") != pl.col("y_var"))
-            .with_columns([pl.col("y_val").cast(float)])
+        self._check_order(self.X_)
+        self.selected_n_bins_ = (
+            self._cv_bin_count(self.X_, self.y_, sample_weight)
+            if self.n_bins == "cv"
+            else self.n_bins
         )
-
-        # Validate that x and y don't contain complex numbers (check after initial processing)
-        try:
-            sample = data.select(["x_val", "y_val"]).limit(1).collect()
-            for col in ["x_val", "y_val"]:
-                if col in sample.columns:
-                    dtype = sample[col].dtype
-                    if "complex" in str(dtype).lower():
-                        raise TypeError(f"Complex numbers are not supported in {col}")
-        except TypeError:
-            raise
-        except Exception:
-            # If we can't check dtype early, it will fail later
-            pass
+        data = data_lf.select(
+            pl.col("x").alias("x_val"),
+            pl.col("y").cast(float).alias("y_val"),
+            pl.lit("x").alias("x_var"),
+            pl.lit("y").alias("y_var"),
+        )
+        data = data.with_columns(pl.Series("sample_weight", self.sample_weight_))
+        self.over_cols = ["x_var", "y_var"]
+        self.n_features_in_ = 1
+        self.n_samples_in_ = data.select(pl.len()).collect().item()
 
         # learn bin parameters and assign bins
         self._learn_bin_params(data)
@@ -307,115 +441,168 @@ class Regressogram(BaseUtils):
             [self._predict_bin_expr().over(self.over_cols).alias("rgram_bin")]
         )
 
-        # aggregate y values per bin
-        data = data.with_columns(
-            [
-                self.agg(pl.col("y_val"))
-                .over(self.over_cols + ["rgram_bin"])
-                .alias("y_pred_rgram")
-            ]
+        # Native reductions stay in Polars; numeric callbacks run in Python so
+        # their exceptions cannot cross a Rust UDF boundary as engine panics.
+        reductions = [("y_pred_rgram", self.agg)]
+        if self.ci is not None:
+            reductions.extend(zip(("y_pred_rgram_lci", "y_pred_rgram_uci"), self.ci))
+        expressions = [
+            pl.len().alias("n_samples"),
+            pl.col("sample_weight").sum().alias("weight_sum"),
+            (pl.col("sample_weight") > 0).sum().alias("n_positive_weight"),
+            pl.col("x_val").min().alias("x_min_observed"),
+            pl.col("x_val").max().alias("x_max_observed"),
+        ]
+        expressions.extend(
+            aggregation_expr(
+                calc,
+                pl.col("y_val"),
+                pl.col("sample_weight") if self.sample_weight_provided_ else None,
+            ).alias(name)
+            for name, calc in reductions
+            if not isinstance(calc, ArrayAggregation)
         )
-
-        # Compute and store confidence intervals for each bin (if configured)
-        select_cols = ["rgram_bin", "y_pred_rgram"]
-        if self.ci:
-            ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
-            ci_exprs = [
-                ci_calc(pl.col("y_val").fill_null(pl.col("y_val").mean()))
-                .over(self.over_cols + ["rgram_bin"])
-                .alias(alias)
-                for ci_calc, alias in zip(self.ci, ci_cols)
-            ]
-            data = data.with_columns(ci_exprs)
-            select_cols.extend(ci_cols)
-
-        self._bin_to_y = data.select(select_cols).unique().collect()
-
+        self._bin_to_y = (
+            data.group_by("rgram_bin", maintain_order=True).agg(expressions).collect()
+        )
+        if any(isinstance(calc, ArrayAggregation) for _, calc in reductions):
+            groups = data.collect().partition_by("rgram_bin", maintain_order=True)
+            for name, calc in reductions:
+                if isinstance(calc, ArrayAggregation):
+                    values = [
+                        calc(
+                            group["y_val"].to_numpy(),
+                            group["sample_weight"].to_numpy()
+                            if self.sample_weight_provided_
+                            else None,
+                        )
+                        for group in groups
+                    ]
+                    self._bin_to_y = self._bin_to_y.with_columns(
+                        pl.Series(name, values)
+                    )
+        for name in self._bin_to_y.columns:
+            if (
+                name.startswith("y_pred")
+                and not self._bin_to_y[name].dtype.is_numeric()
+            ):
+                raise ValueError("agg and ci must return one numeric scalar per bin")
+        for name in self._bin_to_y.columns:
+            if (
+                name.startswith("y_pred")
+                and np.isinf(self._bin_to_y[name].to_numpy()).any()
+            ):
+                raise ValueError(
+                    "Aggregation produced infinity; rescale inputs or check the aggregation"
+                )
+        self.bins_ = self._bin_to_y.clone()
+        if self.binning in ("dist", "width"):
+            limits = np.r_[self._x_min, self._bin_edges, self._x_max]
+            ids = self.bins_["rgram_bin"].to_numpy().astype(int)
+            self.bins_ = self.bins_.with_columns(
+                pl.Series("bin_left", limits[ids]),
+                pl.Series("bin_right", limits[ids + 1]),
+            )
+        self.data_summary_ = self._data_summary()
+        self.data_summary_.update(
+            {
+                "binning": self.binning,
+                "n_bins_requested": self.n_bins,
+                "n_bins_fitted": self.n_bins_,
+                "cv_used": self.n_bins == "cv",
+                "extrapolation": self.extrapolation,
+            }
+        )
+        self.bin_edges_ = np.asarray(getattr(self, "_bin_edges", []))
         self._is_fitted = True
 
         return self
 
-    def predict(
-        self, x: Union[float, Sequence[float], pl.Series], return_ci: bool = False
-    ) -> Union[np.ndarray, tuple]:
-        """
-        Predict binned regression values at new x points (univariate only).
-
-        Parameters
-        ----------
-        x : array-like or pl.Series
-            Single feature values at which to predict.
-        return_ci : bool, default=False
-            If True, return confidence intervals along with predictions.
-            Returns tuple (y_pred, y_ci_low, y_ci_high).
-            If False, returns just the predictions array.
-
-        Returns
-        -------
-        np.ndarray or tuple
-            If return_ci=False: numpy array of predicted values (same length as x)
-            If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
-                y_pred: numpy array of predictions
-                y_ci_low: numpy array of lower CI or None if ci not configured
-                y_ci_high: numpy array of upper CI or None if ci not configured
-
-        Raises
-        ------
-        RuntimeError
-            If called before fit().
-        TypeError
-            If x is not array-like or contains non-numeric values.
-        ValueError
-            If x is empty or multivariate (must be univariate).
-        """
-        if not self._is_fitted:
+    def _prediction_frame(self, values: ArrayLike) -> pl.DataFrame:
+        if not self.__sklearn_is_fitted__():
             raise RuntimeError("Call fit() before predict().")
-
-        # Validate input x is univariate
-        x = self._validate_single_array(x, "x", allow_empty=False)
-
-        lf = pl.DataFrame({"x_val": x}).lazy()
-
+        x = self._prediction_features(values)
+        self._check_order(x)
+        if self.binning in ("dist", "width"):
+            self._float_array(x, "x")
+        outside = (x < self._x_min) | (x > self._x_max)
+        if outside.any():
+            if self.extrapolation == "raise":
+                raise ValueError("Query lies outside the training range")
+            self._warn(
+                f"{outside.sum()} queries are outside the training range; extrapolation={self.extrapolation!r}. Original query values and row order are unchanged.",
+                ExtrapolationWarning,
+            )
+        lf = pl.DataFrame({"x_val": x}).with_row_index("row_index").lazy()
         lf = lf.with_columns(self._predict_bin_expr().alias("rgram_bin"))
-
-        lf = lf.join(
+        result = lf.join(
             self._bin_to_y.lazy(),
             on="rgram_bin",
             how="left",
+            validate="m:1",
+            maintain_order="left",
+        ).collect()
+        if self.extrapolation == "nan" and outside.any():
+            result = result.with_columns(
+                pl.when(pl.Series(outside))
+                .then(None)
+                .otherwise(pl.col(name))
+                .alias(name)
+                for name in result.columns
+                if name.startswith("y_pred")
+            )
+        result = result.with_columns(
+            pl.col(name).cast(pl.Float64).fill_null(float("nan"))
+            for name in result.columns
+            if name.startswith("y_pred")
+        )
+        finite = np.isfinite(result["y_pred_rgram"].to_numpy())
+        if not finite.all():
+            if self.unsupported == "raise":
+                raise ValueError("Some query bins have no finite estimate")
+            self._warn(
+                "Some query bins have no finite estimate; returning NaN without dropping rows",
+                SupportWarning,
+            )
+        return result.with_columns(
+            pl.Series("in_training_range", ~outside), pl.Series("supported", finite)
         )
 
-        result_df = lf.select("y_pred_rgram").collect()
-        y_pred = result_df["y_pred_rgram"].to_numpy()
-
+    def predict(self, x: Input, return_ci: bool = False) -> Prediction:
+        """Predict in input order. return_ci returns explicitly configured bin summaries."""
+        frame = self._prediction_frame(x)
+        prediction = frame["y_pred_rgram"].to_numpy()
         if not return_ci:
-            return y_pred
+            return prediction
+        if self.ci is None:
+            return prediction, None, None
+        return (
+            prediction,
+            frame["y_pred_rgram_lci"].to_numpy(),
+            frame["y_pred_rgram_uci"].to_numpy(),
+        )
 
-        # Retrieve pre-computed CIs from _bin_to_y (stored at fit time)
-        y_ci_low = None
-        y_ci_high = None
-
-        if self.ci:
-            ci_cols = ["y_pred_rgram_lci", "y_pred_rgram_uci"]
-            if ci_cols[0] in self._bin_to_y.columns:
-                ci_result = lf.select(
-                    [
-                        "y_pred_rgram_lci",
-                        "y_pred_rgram_uci",
-                    ]
-                ).collect()
-
-                y_ci_low = ci_result["y_pred_rgram_lci"].to_numpy()
-                y_ci_high = ci_result["y_pred_rgram_uci"].to_numpy()
-
-        return y_pred, y_ci_low, y_ci_high
+    def predict_diagnostics(self, x: Input) -> pl.DataFrame:
+        """Return one row per query with support, assigned bin and training counts."""
+        return self._prediction_frame(x).select(
+            pl.col("x_val").alias("x"),
+            pl.col("y_pred_rgram").alias("prediction"),
+            "rgram_bin",
+            "n_samples",
+            "weight_sum",
+            "n_positive_weight",
+            "supported",
+            "in_training_range",
+        )
 
     def fit_predict(
         self,
-        x: Union[str, Any],
-        y: Union[str, Any],
+        x: Input,
+        y: Input,
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
         return_ci: bool = False,
-    ) -> Union[np.ndarray, tuple]:
+        sample_weight: Optional[ArrayLike] = None,
+    ) -> Prediction:
         """
         Fit and predict on training x values in one call (univariate only).
 
@@ -457,18 +644,6 @@ class Regressogram(BaseUtils):
                     "When data is provided, y must be a single column name (str), not a list/tuple of column names."
                 )
 
-        self.fit(data=data, x=x, y=y)
+        self.fit(data=data, x=x, y=y, sample_weight=sample_weight)
 
-        # Extract actual x values for predict
-        if data is not None:
-            # When data is provided, x must be a str (column name)
-            if not isinstance(x, str):
-                raise TypeError(
-                    f"When data is provided, x must be a column name (str), "
-                    f"got {type(x).__name__}"
-                )
-            if isinstance(data, pl.LazyFrame):
-                data = data.collect()
-            x = data.get_column(x).to_numpy()
-
-        return self.predict(x=x, return_ci=return_ci)
+        return self.predict(x=self.X_, return_ci=return_ci)

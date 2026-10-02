@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-import polars as pl
+from typing import Any, Optional, Sequence, Type, Union
 
-from typing import Sequence, Optional, Union, Any, Type
+import numpy as np
+import polars as pl
+from numpy.typing import ArrayLike
+
+from rgram._typing import Array, FloatArray, Frame, Input
 
 
 class BaseUtils:
@@ -25,7 +29,7 @@ class BaseUtils:
         pass
 
     @staticmethod
-    def _to_list(item: Optional[Union[str, Sequence]]) -> Optional[list]:
+    def _to_list(item: Optional[Union[str, Sequence[Any]]]) -> Optional[list[Any]]:
         """
         Convert a string or sequence to a list, or return None.
 
@@ -117,7 +121,7 @@ class BaseUtils:
     def _process_array_input(
         input_data: Any,
         col_prefix: str,
-        df_dict: dict,
+        df_dict: dict[str, Any],
     ) -> str:
         """
         Process array-like input and add to df_dict.
@@ -167,13 +171,18 @@ class BaseUtils:
                 raise ValueError(f"Input must be {str(e).split('must be')[1].strip()}")
             raise
 
-        df_dict[col_prefix] = input_data
+        array = np.asarray(input_data)
+        if array.ndim == 2 and array.shape[1] == 1:
+            array = array[:, 0]
+        if array.ndim != 1:
+            raise ValueError(
+                f"{col_prefix} must be univariate: a 1D array or one column"
+            )
+        df_dict[col_prefix] = array if np.asarray(input_data).ndim == 2 else input_data
         return col_prefix
 
     @staticmethod
-    def _validate_input_types(
-        x: Any, y: Any, data: Optional[pl.DataFrame] = None
-    ) -> None:
+    def _validate_input_types(x: Any, y: Any, data: Optional[Frame] = None) -> None:
         """
         Validate input types for x and y before array processing.
 
@@ -356,52 +365,49 @@ class BaseUtils:
 
     def _prepare_data(
         self,
-        x: Union[str, Sequence[Any]],
-        y: Union[str, Sequence[Any]],
+        x: Input,
+        y: Input,
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-    ) -> tuple[
-        pl.LazyFrame,
-        Union[str, Sequence[str]],
-        Union[str, Sequence[str]],
-    ]:
+    ) -> tuple[pl.LazyFrame, str, str]:
         """
-        Prepare and normalize data for analysis (similar to seaborn API).
+                Prepare and normalize data for analysis (similar to seaborn API).
 
-        Supports two usage patterns:
-        1. DataFrame mode: Provide a DataFrame with x/y as column names
-        2. Array mode: Provide x/y as array-like without a DataFrame
+                Supports two usage patterns:
+                1. DataFrame mode: Provide a DataFrame with x/y as column names
+                2. Array mode: Provide x/y as array-like without a DataFrame
 
-        Parameters
-        ----------
-        x : str or array-like
-            Feature(s). Column name(s) if `data` provided, else array-like (list, ndarray, Series).
-        y : str or array-like
-            Target(s). Column name(s) if `data` provided, else array-like (list, ndarray, Series).
-        data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If None, x/y must be array-like.
-            If provided, x/y are treated as column names.
+                Parameters
+                ----------
+                x : str or array-like
+                    Feature(s). Column name(s) if `data` provided, else array-like (list, ndarray, Series).
+                y : str or array-like
+                    Target(s). Column name(s) if `data` provided, else array-like (list, ndarray, Series).
+                data : pl.DataFrame, pl.LazyFrame, or None, optional
+                    Input data. If None, x/y must be array-like.
+                    If provided, x/y are treated as column names.
 
-        Returns
-        -------
-        tuple
-            (data as LazyFrame, x_col_names, y_col_names, None)
+                Returns
+                -------
+                tuple
+                    (snapshot as LazyFrame, internal x column name, internal y column name)
 
-        Examples
-        --------
-        >>> import polars as pl
-        >>> import numpy as np
-        >>> from rgram.base import BaseUtils
-        >>>
-        >>> utils = BaseUtils()
-        >>>
-        >>> # Pattern 1: DataFrame with column names (like seaborn)
-        >>> df = pl.DataFrame({"feature": [1, 2, 3], "target": [4, 5, 6]})
-        >>> lf, x, y, k = utils._prepare_data(data=df, x="feature", y="target")
-        >>>
-        >>> # Pattern 2: Raw arrays (like seaborn without data parameter)
-        >>> x_arr = np.array([1, 2, 3])
-        >>> y_arr = np.array([4, 5, 6])
-        >>> lf, x, y, k = utils._prepare_data(x=x_arr, y=y_arr)
+                Examples
+                --------
+                >>> import polars as pl
+        import numpy as np
+                >>> import numpy as np
+                >>> from rgram.base import BaseUtils
+                >>>
+                >>> utils = BaseUtils()
+                >>>
+                >>> # Pattern 1: DataFrame with column names (like seaborn)
+                >>> df = pl.DataFrame({"feature": [1, 2, 3], "target": [4, 5, 6]})
+                >>> lf, x, y = utils._prepare_data(data=df, x="feature", y="target")
+                >>>
+                >>> # Pattern 2: Raw arrays (like seaborn without data parameter)
+                >>> x_arr = np.array([1, 2, 3])
+                >>> y_arr = np.array([4, 5, 6])
+                >>> lf, x, y = utils._prepare_data(x=x_arr, y=y_arr)
         """
         if data is None:
             df_dict = {}
@@ -418,4 +424,191 @@ class BaseUtils:
 
             data = pl.DataFrame(df_dict)
 
-        return data.lazy(), x, y
+        if not isinstance(data, (pl.DataFrame, pl.LazyFrame)):
+            raise TypeError("data must be a Polars DataFrame or LazyFrame")
+        if not isinstance(x, str) or not isinstance(y, str):
+            raise ValueError(
+                "fit only supports univariate input: x and y must be single column names"
+            )
+        # Snapshot exactly the selected columns once; never filter or impute rows.
+        frame = data.lazy().select(pl.col(x).alias("x"), pl.col(y).alias("y")).collect()
+        for name in ("x", "y"):
+            col = frame[name]
+            if not col.dtype.is_numeric():
+                raise TypeError(f"{name} must contain numeric values")
+            if frame.height == 0:
+                raise ValueError("Cannot process empty data")
+            if col.null_count() or not np.isfinite(col.to_numpy()).all():
+                raise ValueError(
+                    f"{name} contains null, NaN, or infinite values; no rows were dropped"
+                )
+        return frame.lazy(), "x", "y"
+
+    @staticmethod
+    def _prediction_array(values: Input) -> Array:
+        BaseUtils._validate_single_array(values, "x")
+        array = np.asarray(values)
+        if array.ndim == 2 and array.shape[1] == 1:
+            array = array[:, 0]
+        if array.ndim != 1:
+            raise ValueError("x must be univariate: a 1D array or one column")
+        if not np.isfinite(array).all():
+            raise ValueError("x contains NaN or infinite values; no rows were dropped")
+        return array
+
+    def __sklearn_is_fitted__(self) -> bool:
+        return getattr(self, "_is_fitted", False)
+
+    def _warn(self, message: str, category: Optional[type[Warning]] = None) -> None:
+        import warnings
+
+        from rgram.warnings import RgramWarning
+
+        # Warning presentation belongs to Python's warning filters, not model state.
+        warnings.warn(message, category or RgramWarning, stacklevel=3)
+
+    def _check_order(self, values: Input) -> None:
+        from rgram.warnings import UnsortedInputWarning
+
+        if np.any(values[1:] < values[:-1]):
+            self._warn(
+                "X is not sorted. No rows were sorted or reordered; predictions retain "
+                "input order. Sort paired values yourself if you need an ordered line plot.",
+                UnsortedInputWarning,
+            )
+
+    @staticmethod
+    def _feature_name(values: Input, data: Optional[Frame] = None) -> Optional[str]:
+        if data is not None:
+            return values if isinstance(values, str) else None
+        columns = getattr(values, "columns", None)
+        if columns is not None and len(columns) == 1 and isinstance(columns[0], str):
+            return columns[0]
+        name = getattr(values, "name", None)
+        return name if isinstance(name, str) and name else None
+
+    def _record_feature_name(self, values: Input, data: Optional[Frame] = None) -> None:
+        self.__dict__.pop("feature_names_in_", None)
+        name = self._feature_name(values, data)
+        if name is not None:
+            self.feature_names_in_ = np.asarray([name], dtype=object)
+
+    def _prediction_features(self, values: Input) -> Array:
+        name = self._feature_name(values)
+        if (
+            name is not None
+            and hasattr(self, "feature_names_in_")
+            and name != self.feature_names_in_[0]
+        ):
+            raise ValueError(
+                f"Feature name {name!r} does not match fitted feature {self.feature_names_in_[0]!r}"
+            )
+        return self._prediction_array(values)
+
+    @staticmethod
+    def _float_array(values: Input, name: str) -> FloatArray:
+        """Make an explicit float64 computation buffer; reject precision loss."""
+        array = np.asarray(values)
+        with np.errstate(over="ignore", invalid="ignore"):
+            converted = array.astype(np.float64, copy=True)
+        if not np.isfinite(converted).all():
+            raise ValueError(
+                f"{name} cannot be represented as finite float64; rescale explicitly"
+            )
+        if np.issubdtype(array.dtype, np.integer):
+            large = np.abs(converted) >= 2**53
+            if any(
+                int(original) != int(value)
+                for original, value in zip(array[large], converted[large])
+            ):
+                raise ValueError(
+                    f"{name} would lose integer precision in float64; rescale explicitly"
+                )
+        elif np.issubdtype(array.dtype, np.floating) and array.dtype.itemsize > 8:
+            if not np.array_equal(converted.astype(array.dtype), array):
+                raise ValueError(
+                    f"{name} would lose precision in float64; convert explicitly"
+                )
+        return converted
+
+    def _sample_weights(self, weights: Optional[ArrayLike], n_samples: int) -> Array:
+        if weights is None:
+            return np.ones(n_samples, dtype=float)
+        weights = self._prediction_array(weights).copy()
+        self._float_array(weights, "sample_weight")
+        if len(weights) != n_samples or (weights < 0).any() or not (weights > 0).any():
+            raise ValueError(
+                "sample_weight must match training rows, be nonnegative and have positive total mass"
+            )
+        return weights
+
+    def _data_summary(self) -> dict[str, Union[int, float, str, bool]]:
+        return {
+            "n_rows_received": self.n_samples_in_,
+            "n_rows_retained": self.n_samples_in_,
+            "rows_sorted": False,
+            "rows_dropped": 0,
+            "values_imputed": 0,
+            "x_dtype": str(self.X_.dtype),
+            "y_dtype": str(self.y_.dtype),
+            "computation_dtype": "float64",
+            "sample_weight_provided": self.sample_weight_provided_,
+            "weights_modified_in_snapshot": False,
+        }
+
+    def regression_diagnostics(self, x: Input, y: Input) -> pl.DataFrame:
+        """Observed/predicted values, residuals and support, in original row order."""
+        if not self.__sklearn_is_fitted__():
+            raise RuntimeError("Call fit() before regression_diagnostics")
+        values = self._prediction_features(x)
+        target = self._prediction_array(y)
+        self._validate_arrays(values, target)
+        prediction = self.predict(x)
+        return pl.DataFrame(
+            {
+                "x": values,
+                "observed": target,
+                "prediction": prediction,
+                "residual": target - prediction,
+                "supported": np.isfinite(prediction),
+            }
+        )
+
+    def predict_interval(
+        self,
+        x: Input,
+        *,
+        confidence_level: float = 0.95,
+        n_resamples: int = 200,
+        random_state: Optional[int] = None,
+        method: str = "percentile",
+        resampling: str = "iid",
+        groups: Optional[ArrayLike] = None,
+        block_size: Optional[int] = None,
+        min_valid_fraction: float = 1.0,
+    ) -> pl.DataFrame:
+        """Pointwise paired-bootstrap confidence intervals for the fitted curve.
+
+        These are not prediction intervals or simultaneous bands. IID resampling
+        assumes independent rows; 'groups' resamples independent whole groups and
+        'blocks' resamples contiguous moving blocks in the original training order.
+        Hyperparameter selection is held fixed; smoothing bias is not corrected.
+        Unsupported replicates are counted. By default any missing replicate
+        invalidates that query's interval, rather than silently removing draws.
+        Returns a Polars frame with predictions, bounds, valid-draw counts and
+        bootstrap support coverage. See docs/advanced.md for assumptions.
+        """
+        from rgram.uncertainty import bootstrap_interval
+
+        return bootstrap_interval(
+            self,
+            x,
+            confidence_level=confidence_level,
+            n_resamples=n_resamples,
+            random_state=random_state,
+            method=method,
+            resampling=resampling,
+            groups=groups,
+            block_size=block_size,
+            min_valid_fraction=min_valid_fraction,
+        )

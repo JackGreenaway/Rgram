@@ -306,7 +306,7 @@ class TestStressConditions:
             x = np.linspace(0, 10, 50 + i * 10)
             y = np.sin(x)
 
-            result= rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(x=x, y=y)
             assert len(result) > 0
 
 

@@ -1,409 +1,498 @@
 from __future__ import annotations
 
-import math
+from typing import Iterator, Optional
+
 import numpy as np
 import polars as pl
-import warnings
+from numpy.typing import ArrayLike, NDArray
+from sklearn.base import BaseEstimator, RegressorMixin
 
+from rgram._typing import Array, FloatArray, Frame, Input, Prediction
 from rgram.base import BaseUtils
-from typing import Sequence, Union, Optional, Any, Literal, Callable
+from rgram.warnings import (
+    DataHandlingWarning,
+    ExtrapolationWarning,
+    NumericalWarning,
+    SupportWarning,
+)
 
 
-class KernelSmoother(BaseUtils):
-    """
-    KernelSmoother
-
-    Kernel regression smoother for one-dimensional data.
-    Predicts smooth values with optional confidence intervals using various kernel functions.
+class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
+    """One-dimensional local-constant or local-linear kernel regression.
 
     Parameters
     ----------
     bandwidth : {'silverman', 'scott', 'manual'}, default='silverman'
-        Bandwidth selection method.
-        - 'silverman': Silverman's rule of thumb (0.9 * min(std, IQR/1.34) * n^(-1/5))
-        - 'scott': Scott's rule (1.06 * std * n^(-1/5))
-        - 'manual': Use bandwidth_value parameter
-    bandwidth_value : float, optional
-        Manual bandwidth value. Required if bandwidth='manual'.
+        Rule of thumb or manual bandwidth selection. Rules are based on x,
+        not regression error; use cross-validation to tune predictive accuracy.
+    bandwidth_value : float or None, default=None
+        Positive bandwidth in feature units, required for 'manual'.
     bandwidth_adjust : float, default=1.0
-        Multiplicative bandwidth adjustment factor.
+        Positive multiplier applied to the selected bandwidth.
     kernel : str or callable, default='epanechnikov'
-        Kernel function to use. Supported strings: 'epanechnikov', 'gaussian', 'uniform',
-        'triangular', 'cosine', 'logistic'. Can also be a callable that takes a Polars
-        expression (u) and returns a Polars expression (weight).
+        One of epanechnikov, gaussian, uniform, triangular, cosine, logistic,
+        biweight, tricube.
+        A callable accepts a Polars expression and returns nonnegative weights.
     n_eval_samples : int, default=100
-        Number of evaluation points for the smoother during fit_predict.
+        Number of points returned by predict_grid().
+    batch_size : int, default=128
+        Maximum query rows processed together. Blocks are also capped at
+        approximately one million query/training pairs (at least one query).
+    unsupported : {'nan', 'raise'}, default='nan'
+        Policy when a query has no positive kernel weight. 'nan' preserves
+        the row and warns; 'raise' fails explicitly. Extrapolation has a separate policy.
 
-    Methods
-    -------
-    fit(x, y, data=None)
-        Learn smoothing parameters from training data.
-    predict(x_eval, return_ci=False)
-        Predict smooth values at new x points.
-        Returns array or tuple with optional confidence intervals.
-    fit_predict(x, y, data=None, x_eval=None, return_ci=False)
-        Fit and predict at evaluation points.
+    regression : {'local_constant', 'local_linear'}, default='local_constant'
+        Local constant (Nadaraya–Watson) or weighted local linear fit. Local linear
+        reduces boundary bias but can extrapolate and use negative coefficients.
+    singular : {'constant', 'raise'}, default='constant'
+        Fall back with a warning to a local constant for singular local-linear
+        fits, or raise. Diagnostics always identify fallback rows.
+    algorithm : {'auto', 'brute', 'neighbors'}, default='auto'
+        Auto uses support windows only for already-sorted x and compact kernels;
+        otherwise bounded dense blocks. Neighbors requires eligible input and
+        raises otherwise. This estimator never sorts observations or an index.
+    extrapolation : {'allow', 'nan', 'raise'}, default='allow'
+        Outside-range queries warn and use the stated policy. Query values are
+        never clipped. Allow still requires positive kernel support.
+
+    Attributes
+    ----------
+    bandwidth_ : float
+        Effective fitted bandwidth, including bandwidth_adjust.
+    n_samples_in_ : int
+        Number of training rows retained, including zero-weight rows.
+    n_features_in_ : int
+        Always one. Both 1D inputs and (n_samples, 1) arrays are accepted.
+
+    Notes
+    -----
+    Training inputs are copied. Null, non-finite and multivariate inputs are
+    rejected, never silently dropped. Kernel inspection columns follow the
+    original training row order. Compact-kernel prediction visits only supported
+    neighbors when training x is already sorted. No sorting is performed. Infinite-support
+    and custom kernels use O(n_train * n_query) time with bounded blocks. get_weights() explicitly
+    materializes a dense matrix and should be used on small query selections.
     """
 
-    # fmt: off
     _KERNELS = {
-        'epanechnikov': lambda u: pl.when(u.abs() <= 1).then(0.75 * (1 - u ** 2)).otherwise(0.0),
-        'gaussian': lambda u: (1 / (2 * math.pi) ** 0.5) * ((-0.5 * u ** 2).exp()),
-        'uniform': lambda u: pl.when(u.abs() <= 1).then(0.5).otherwise(0.0),
-        'triangular': lambda u: pl.when(u.abs() <= 1).then(1 - u.abs()).otherwise(0.0),
-        'cosine': lambda u: pl.when(u.abs() <= 1).then((math.pi / 4) * (((math.pi / 2) * u).cos())).otherwise(0.0),
-        'logistic': lambda u: 1 / (u.exp() + 2 + (-u).exp()),
+        "epanechnikov",
+        "gaussian",
+        "uniform",
+        "triangular",
+        "cosine",
+        "logistic",
+        "biweight",
+        "tricube",
     }
-    # fmt: on
 
     def __init__(
         self,
-        bandwidth: Literal["silverman", "scott", "manual"] = "silverman",
+        bandwidth: str = "silverman",
         bandwidth_value: Optional[float] = None,
         bandwidth_adjust: float = 1.0,
-        kernel: Union[str, Callable[[pl.Expr], pl.Expr]] = "epanechnikov",
+        kernel: str = "epanechnikov",
         n_eval_samples: int = 100,
+        *,
+        batch_size: int = 128,
+        unsupported: str = "nan",
+        regression: str = "local_constant",
+        singular: str = "constant",
+        algorithm: str = "auto",
+        extrapolation: str = "allow",
     ) -> None:
-        """
-        Construct a KernelSmoother instance.
-
-        Parameters
-        ----------
-        bandwidth : {'silverman', 'scott', 'manual'}, default='silverman'
-            Bandwidth selection method.
-        bandwidth_value : float, optional
-            Manual bandwidth value. Required if bandwidth='manual'.
-        bandwidth_adjust : float, default=1.0
-            Multiplicative bandwidth adjustment factor for the calculated bandwidth.
-        kernel : str or callable, default='epanechnikov'
-            Kernel function. If str, must be one of: 'epanechnikov', 'gaussian', 'uniform',
-            'triangular', 'cosine', 'logistic'. If callable, should accept a Polars expression
-            and return a Polars expression.
-        n_eval_samples : int, default=100
-            Number of evaluation points for generating smooth predictions during fit_predict.
-        """
-        super().__init__()
         self.bandwidth = bandwidth
         self.bandwidth_value = bandwidth_value
         self.bandwidth_adjust = bandwidth_adjust
-        self.n_eval_samples = n_eval_samples
         self.kernel = kernel
+        self.n_eval_samples = n_eval_samples
+        self.batch_size = batch_size
+        self.unsupported = unsupported
+        self.regression = regression
+        self.singular = singular
+        self.algorithm = algorithm
+        self.extrapolation = extrapolation
 
-        if bandwidth == "manual" and bandwidth_value is None:
-            raise ValueError(
-                "bandwidth_value must be specified when bandwidth='manual'"
-            )
+    @staticmethod
+    def _positive(value: float, name: str) -> None:
+        if isinstance(value, (bool, str)) or not np.isscalar(value):
+            raise ValueError(f"{name} must be a finite positive number")
+        try:
+            valid = np.isfinite(value) and value > 0
+        except TypeError:
+            valid = False
+        if not valid:
+            raise ValueError(f"{name} must be a finite positive number")
 
-        # Validate kernel parameter
-        if isinstance(kernel, str):
-            if kernel not in self._KERNELS:
-                raise ValueError(
-                    f"kernel must be one of {list(self._KERNELS.keys())}, got '{kernel}'"
-                )
-        elif not callable(kernel):
-            raise TypeError(
-                f"kernel must be a string or callable, got {type(kernel).__name__}"
-            )
-
-        self._is_fitted = False
-
-    def _get_kernel_fn(self) -> pl.Expr:
-        """
-        Get the kernel function based on the kernel parameter.
-
-        Returns
-        -------
-        callable
-            A function that takes a Polars expression (u) and returns a Polars expression (weights).
-        """
-        if isinstance(self.kernel, str):
-            return self._KERNELS[self.kernel]
-
-        else:
-            return self.kernel
-
-    def _calculate_bandwidth(self, x_col: str) -> pl.Expr:
-        """
-        Calculate the kernel bandwidth based on the selected method.
-
-        Parameters
-        ----------
-        x_col : str
-            The feature column name.
-
-        Returns
-        -------
-        pl.Expr
-            The bandwidth expression.
-        """
+    def _validate_parameters(self) -> None:
+        if self.extrapolation not in ("allow", "nan", "raise"):
+            raise ValueError("extrapolation must be 'allow', 'nan', or 'raise'")
+        if self.regression not in ("local_constant", "local_linear"):
+            raise ValueError("regression must be 'local_constant' or 'local_linear'")
+        if self.singular not in ("constant", "raise"):
+            raise ValueError("singular must be 'constant' or 'raise'")
+        if self.algorithm not in ("auto", "brute", "neighbors"):
+            raise ValueError("algorithm must be 'auto', 'brute', or 'neighbors'")
+        if self.bandwidth not in ("silverman", "scott", "manual"):
+            raise ValueError("bandwidth must be one of silverman, scott, manual")
         if self.bandwidth == "manual":
-            bw = pl.lit(self.bandwidth_value)
-
-        elif self.bandwidth == "scott":
-            # Scott's rule: 1.06 * std * n^(-1/5)
-            std_expr = pl.col(x_col).std()
-            bw = self._over_function(1.06 * std_expr * (pl.len() ** (-1 / 5)))
-
-        else:  # silverman (default)
-            # Silverman's rule: 0.9 * min(std, IQR/1.34) * n^(-1/5)
-            std_expr = pl.col(x_col).std()
-            iqr_expr = (
-                pl.col(x_col).quantile(0.75) - pl.col(x_col).quantile(0.25)
-            ) / 1.34
-            bw = self._over_function(
-                0.9 * pl.min_horizontal([std_expr, iqr_expr]) * (pl.len() ** (-1 / 5))
-            )
-
-        return (bw * self.bandwidth_adjust).alias("h")
-
-    def _calculate_x_eval(self, x_col: str) -> pl.Expr:
-        """
-        Calculate the evaluation points for the kernel smoother.
-
-        Parameters
-        ----------
-        x_col : str
-            The feature column name.
-
-        Returns
-        -------
-        pl.Expr
-            The evaluation points expression.
-        """
-        x_eval = self._over_function(
-            pl.linear_spaces(
-                pl.col(x_col).min(),
-                pl.col(x_col).max(),
-                self.n_eval_samples,
-                as_array=True,
-            )
-        ).alias("x_eval")
-
-        return x_eval
+            if self.bandwidth_value is None:
+                raise ValueError(
+                    "bandwidth_value must be specified when bandwidth='manual'"
+                )
+            self._positive(self.bandwidth_value, "bandwidth_value")
+        self._positive(self.bandwidth_adjust, "bandwidth_adjust")
+        for name in ("n_eval_samples", "batch_size"):
+            value = getattr(self, name)
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, np.integer))
+                or value < 1
+            ):
+                raise ValueError(f"{name} must be a positive integer")
+        if isinstance(self.kernel, str):
+            if self.kernel not in self._KERNELS:
+                raise ValueError(f"kernel must be one of {sorted(self._KERNELS)}")
+        elif not callable(self.kernel):
+            raise TypeError("kernel must be a string or callable")
+        if self.unsupported not in ("nan", "raise"):
+            raise ValueError("unsupported must be 'nan' or 'raise'")
 
     def fit(
         self,
-        x: Union[str, Sequence[Any]],
-        y: Union[str, Sequence[Any]],
-        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-    ) -> "KernelSmoother":
+        x: Input,
+        y: Input,
+        data: Optional[Frame] = None,
+        sample_weight: Optional[ArrayLike] = None,
+    ) -> KernelSmoother:
+        """Fit using arrays or Polars column names plus data.
+
+        sample_weight must be finite, nonnegative and have positive total mass.
+        Automatic bandwidth rules use all x rows without sample weighting.
+        Constant/singleton x requires an explicit manual bandwidth.
         """
-        Fit the kernel smoother to the data.
-
-        Supports flexible input similar to seaborn (e.g., kdeplot):
-        - Provide DataFrame + column names (recommended for production)
-        - Provide raw arrays/Series (convenient for exploration)
-
-        Parameters
-        ----------
-        x : str or array-like
-            Feature column name if `data` provided, else array-like (must be univariate).
-        y : str or array-like
-            Target column name if `data` provided, else array-like (must be univariate).
-        data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y must be column names (str).
-            If None, x/y must be array-like data (list, ndarray, Series).
-
-        Returns
-        -------
-        self : object
-            Fitted estimator.
-
-        Raises
-        ------
-        ValueError
-            If x and y arrays have different lengths, are empty, or bandwidth is invalid.
-        TypeError
-            If input contains complex numbers.
-
-        Examples
-        --------
-        >>> import polars as pl
-        >>> from rgram import KernelSmoother
-        >>>
-        >>> # DataFrame mode
-        >>> df = pl.DataFrame({"x": [1.0, 2.0, 3.0], "y": [1.0, 4.0, 9.0]})
-        >>> smoother = KernelSmoother().fit(data=df, x="x", y="y")
-        >>>
-        >>> # Array mode
-        >>> smoother = KernelSmoother().fit(x=[1.0, 2.0, 3.0], y=[1.0, 4.0, 9.0])
-        """
-        # Validate bandwidth parameter
-        valid_bandwidths = ("silverman", "scott", "manual")
-        if self.bandwidth not in valid_bandwidths:
+        self._is_fitted = False
+        self._validate_parameters()
+        frame, _, _ = self._prepare_data(x, y, data)
+        frame = frame.collect()
+        self._record_feature_name(x, data)
+        self.X_ = frame["x"].to_numpy().copy()
+        self.y_ = frame["y"].to_numpy().copy()
+        x_train = self._float_array(self.X_, "x")
+        y_train = self._float_array(self.y_, "y")
+        self.sample_weight_provided_ = sample_weight is not None
+        weights = self._sample_weights(sample_weight, len(x_train))
+        if self.bandwidth == "manual":
+            bandwidth = self.bandwidth_value
+        else:
+            std = x_train.std(ddof=1) if len(x_train) > 1 else 0.0
+            scale = std
+            if self.bandwidth == "silverman":
+                # Match Polars' historical nearest-quantile rule, with a
+                # standard-deviation fallback for tied distributions.
+                q = frame["x"].quantile(0.75) - frame["x"].quantile(0.25)
+                scale = min(std, q / 1.34) if q > 0 else std
+                if q == 0 and std > 0:
+                    self._warn(
+                        "Silverman IQR is zero; using standard deviation for bandwidth. No observations were removed.",
+                        DataHandlingWarning,
+                    )
+            bandwidth = (
+                (0.9 if self.bandwidth == "silverman" else 1.06)
+                * scale
+                * len(x_train) ** (-0.2)
+            )
+        bandwidth = bandwidth * self.bandwidth_adjust
+        if not np.isfinite(bandwidth) or bandwidth <= 0:
             raise ValueError(
-                f"bandwidth must be one of {valid_bandwidths}, got '{self.bandwidth}'"
+                "Cannot determine a positive bandwidth; specify bandwidth='manual' and bandwidth_value"
+            )
+        self._check_order(x_train)
+        self.training_sorted_ = not np.any(x_train[1:] < x_train[:-1])
+        self._X_numeric = x_train
+        self._y_numeric = y_train
+        self.sample_weight_ = weights.copy()
+        # Computational normalization is exposed, and never changes the snapshot.
+        self.weight_scale_ = float(weights.max())
+        self._normalized_sample_weight = (
+            self._float_array(weights, "sample_weight") / self.weight_scale_
+        )
+        if ((weights > 0) & (self._normalized_sample_weight == 0)).any():
+            raise ValueError(
+                "sample_weight dynamic range underflows float64; revise weights explicitly"
+            )
+        self.algorithm_ = self._resolve_algorithm()
+        self.bandwidth_ = float(bandwidth)
+        self.n_features_in_ = 1
+        self.n_samples_in_ = len(x_train)
+        self._bw_value = self.bandwidth_  # compatibility with previous releases
+        self.data_summary_ = self._data_summary()
+        self.data_summary_.update(
+            {
+                "algorithm": self.algorithm_,
+                "weight_scale": self.weight_scale_,
+                "bandwidth": self.bandwidth_,
+                "extrapolation": self.extrapolation,
+            }
+        )
+        self._is_fitted = True
+        return self
+
+    def _check_fitted(self) -> None:
+        if not self.__sklearn_is_fitted__():
+            raise RuntimeError("You must call fit() before predict")
+
+    _COMPACT_KERNELS = {
+        "epanechnikov",
+        "uniform",
+        "triangular",
+        "cosine",
+        "biweight",
+        "tricube",
+    }
+
+    def _normalized_kernel(
+        self, u: FloatArray, observation_weights: FloatArray
+    ) -> FloatArray:
+        """Normalize positive kernel weights, preserving zeros exactly."""
+        with np.errstate(over="ignore", invalid="ignore"):
+            a = np.abs(u)
+            if callable(self.kernel):
+                raw = (
+                    pl.DataFrame({"u": u.ravel()})
+                    .select(self.kernel(pl.col("u")).alias("weight"))["weight"]
+                    .to_numpy()
+                )
+                if raw.size != u.size:
+                    raise ValueError(
+                        "Custom kernel must return one weight per input value"
+                    )
+                w = raw.reshape(u.shape)
+            elif self.kernel in ("gaussian", "logistic"):
+                log_w = (
+                    -0.5 * u**2
+                    if self.kernel == "gaussian"
+                    else -a - 2 * np.log1p(np.exp(-a))
+                )
+                log_w[:, observation_weights == 0] = -np.inf
+                maximum = log_w.max(axis=1, keepdims=True)
+                w = np.exp(log_w - np.where(np.isfinite(maximum), maximum, 0))
+            elif self.kernel == "uniform":
+                w = (a <= 1).astype(float)
+            elif self.kernel == "triangular":
+                w = np.maximum(1 - a, 0)
+            elif self.kernel == "cosine":
+                w = np.where(a < 1, np.cos(np.pi / 2 * np.minimum(a, 1)), 0)
+            elif self.kernel == "tricube":
+                w = (1 - np.minimum(a, 1) ** 3) ** 3
+            elif self.kernel == "biweight":
+                w = (1 - np.minimum(a, 1) ** 2) ** 2
+            else:
+                w = np.maximum(1 - np.minimum(a, 1) ** 2, 0)
+        if not np.isfinite(w).all() or (w < 0).any():
+            raise ValueError("Kernel must produce finite nonnegative weights")
+        maximum = w.max(axis=1, keepdims=True)
+        w = np.divide(w, maximum, out=np.zeros_like(w, dtype=float), where=maximum > 0)
+        w *= observation_weights
+        totals = w.sum(axis=1, keepdims=True)
+        return np.divide(w, totals, out=np.zeros_like(w), where=totals > 0)
+
+    def _resolve_algorithm(self) -> str:
+        compact = isinstance(self.kernel, str) and self.kernel in self._COMPACT_KERNELS
+        eligible = compact and self.training_sorted_
+        if self.algorithm == "neighbors" and not eligible:
+            raise ValueError(
+                "algorithm='neighbors' requires already-sorted training x and a compact kernel; rgram never sorts input"
+            )
+        return "neighbors" if self.algorithm != "brute" and eligible else "brute"
+
+    def _kernel_rows(self, x: Input) -> Iterator[tuple[int, Array, FloatArray]]:
+        """Visit existing ordered support windows, or use bounded dense blocks."""
+        if self._resolve_algorithm() == "neighbors":
+            with np.errstate(over="ignore"):
+                lower = np.searchsorted(
+                    self._X_numeric,
+                    np.nextafter(x - self.bandwidth_, -np.inf),
+                    side="left",
+                )
+                upper = np.searchsorted(
+                    self._X_numeric,
+                    np.nextafter(x + self.bandwidth_, np.inf),
+                    side="right",
+                )
+            for row, (left, right) in enumerate(zip(lower, upper)):
+                indices = np.arange(left, right)
+                if not len(indices):
+                    yield row, indices, np.array([], dtype=float)
+                    continue
+                u = (self._X_numeric[indices] - x[row]) / self.bandwidth_
+                weights = self._normalized_kernel(
+                    u[None, :], self._normalized_sample_weight[indices]
+                )[0]
+                yield row, indices, weights
+        else:
+            size = min(self.batch_size, max(1, 1_000_000 // self.n_samples_in_))
+            indices = np.arange(self.n_samples_in_)
+            for start in range(0, len(x), size):
+                with np.errstate(over="ignore", invalid="ignore"):
+                    u = (
+                        self._X_numeric[None, :] - x[start : start + size, None]
+                    ) / self.bandwidth_
+                weights = self._normalized_kernel(u, self._normalized_sample_weight)
+                for offset, row_weights in enumerate(weights):
+                    yield start + offset, indices, row_weights
+
+    def _prediction_weights(
+        self, query: float, indices: Array, weights: FloatArray
+    ) -> tuple[FloatArray, bool]:
+        if self.regression == "local_constant" or not weights.any():
+            return weights, False
+        with np.errstate(over="ignore", invalid="ignore"):
+            d = (self._X_numeric[indices] - query) / self.bandwidth_
+        d = np.where(weights > 0, d, 0)
+        scale = np.max(np.abs(d))
+        if np.isfinite(scale) and scale > 0:
+            d = d / scale
+            mean = weights @ d
+            centered = d - mean
+            variance = weights @ (centered**2)
+            if variance > 100 * np.finfo(float).eps * max(
+                weights @ (d**2), np.finfo(float).tiny
+            ):
+                return weights * (1 - mean * centered / variance), False
+        if self.singular == "raise":
+            raise ValueError(
+                "Singular local-linear fit; increase bandwidth or use singular='constant'"
+            )
+        return weights, True
+
+    def _handle_unsupported(self, supported: NDArray[np.bool_]) -> None:
+        count = np.count_nonzero(~supported)
+        if count:
+            message = f"{count} evaluation point(s) have no positive kernel support"
+            if self.unsupported == "raise":
+                raise ValueError(message)
+            self._warn(
+                message + "; returning NaN without dropping rows", SupportWarning
             )
 
-        # Prepare data: convert arrays to DataFrame if needed
-        data_lf, x_cols, y_cols = self._prepare_data(data=data, x=x, y=y)
+    def _evaluate(
+        self, x_eval: Input, weight_kind: Optional[str] = None
+    ) -> tuple[pl.DataFrame, Optional[FloatArray]]:
+        self._check_fitted()
+        self._validate_parameters()
+        original_x = self._prediction_features(x_eval)
+        x = self._float_array(original_x, "x")
+        self._check_order(x)
+        outside = (x < self._X_numeric.min()) | (x > self._X_numeric.max())
+        if outside.any():
+            if self.extrapolation == "raise":
+                raise ValueError("Query lies outside the training range")
+            self._warn(
+                f"{outside.sum()} queries are outside the training range; extrapolation={self.extrapolation!r}. Query values are unchanged.",
+                ExtrapolationWarning,
+            )
+        prediction = np.full(len(x), np.nan)
+        effective = np.zeros(len(x))
+        neighbors = np.zeros(len(x), dtype=int)
+        supported = np.zeros(len(x), dtype=bool)
+        fallback = np.zeros(len(x), dtype=bool)
+        result = np.zeros((len(x), self.n_samples_in_)) if weight_kind else None
+        for row, indices, weights in self._kernel_rows(x):
+            if not weights.any() or (self.extrapolation == "nan" and outside[row]):
+                continue
+            coefficients, fallback[row] = self._prediction_weights(
+                x[row], indices, weights
+            )
+            prediction[row] = coefficients @ self._y_numeric[indices]
+            supported[row] = True
+            neighbors[row] = np.count_nonzero(weights)
+            effective[row] = 1 / (weights @ weights)
+            if result is not None:
+                result[row, indices] = (
+                    weights if weight_kind == "kernel" else coefficients
+                )
+        self._handle_unsupported(supported)
+        if fallback.any():
+            self._warn(
+                f"{fallback.sum()} singular local-linear fit(s) used local-constant fallback",
+                NumericalWarning,
+            )
+        return pl.DataFrame(
+            {
+                "x": original_x,
+                "in_training_range": ~outside,
+                "prediction": prediction,
+                "supported": supported,
+                "n_neighbors": neighbors,
+                "effective_n": effective,
+                "local_linear_fallback": fallback,
+            }
+        ), result
 
-        # Extract first column name from x/y (single feature/target for KernelSmoother)
-        x_col = x_cols if isinstance(x_cols, str) else x_cols[0]
-        y_col = y_cols if isinstance(y_cols, str) else y_cols[0]
+    def get_weights(self, x_eval: Input, *, kind: str = "prediction") -> FloatArray:
+        """Dense (n_query, n_train) weights in original training-row order.
 
-        bw = self._calculate_bandwidth(x_col)
+        kind='prediction' returns equivalent prediction coefficients: local-linear
+        coefficients can be negative. kind='kernel' returns nonnegative normalized
+        kernel/observation weights. Unsupported rows contain zeros. The full result
+        is allocated intentionally; use small query selections for inspection.
+        """
+        if kind not in ("prediction", "kernel"):
+            raise ValueError("kind must be 'prediction' or 'kernel'")
+        return self._evaluate(x_eval, weight_kind=kind)[1]
 
-        # Store fitted data for prediction and calculate/store bandwidth value
-        self._x_col = x_col
-        self._y_col = y_col
-        self._is_fitted_data_lf = data_lf
+    def predict_diagnostics(self, x_eval: Input) -> pl.DataFrame:
+        """Predictions, support, neighbor counts, effective n and fallback flags.
 
-        # Compute and store the bandwidth value for use in predict()
-        bw_value_df = data_lf.select(bw).collect()
-        self._bw_value = bw_value_df["h"][0]
+        effective_n = 1 / sum(positive normalized kernel weights ** 2), including
+        observation weights. It describes local weight concentration, not confidence
+        or the variance of signed local-linear coefficients.
+        """
+        return self._evaluate(x_eval)[0]
 
-        self._is_fitted = True
+    def predict(
+        self,
+        x_eval: Input,
+        return_ci: bool = False,
+        *,
+        confidence_level: float = 0.95,
+        n_resamples: int = 200,
+        random_state: Optional[int] = None,
+    ) -> Prediction:
+        """Predict in input order; optionally return pointwise IID-bootstrap CIs.
 
-        return self
+        For group/block resampling and draw-support diagnostics use predict_interval.
+        """
+        if return_ci:
+            interval = self.predict_interval(
+                x_eval,
+                confidence_level=confidence_level,
+                n_resamples=n_resamples,
+                random_state=random_state,
+            )
+            return tuple(
+                interval[name].to_numpy() for name in ("prediction", "lower", "upper")
+            )
+        return self.predict_diagnostics(x_eval)["prediction"].to_numpy()
+
+    def predict_grid(self) -> pl.DataFrame:
+        """Diagnostics on n_eval_samples evenly spaced training-range points."""
+        self._check_fitted()
+        self._validate_parameters()
+        return self.predict_diagnostics(
+            np.linspace(self.X_.min(), self.X_.max(), self.n_eval_samples)
+        )
 
     def fit_predict(
         self,
-        x: Union[str, Any],
-        y: Union[str, Any],
-        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-        x_eval: Optional[Sequence[Any]] = None,
+        x: Input,
+        y: Input,
+        data: Optional[Frame] = None,
+        x_eval: Input = None,
         return_ci: bool = False,
-    ) -> Union[np.ndarray, tuple]:
-        """
-        Fit and predict at evaluation points in one call (univariate only).
-
-        Parameters
-        ----------
-        x : str or array-like
-            Single feature column name if `data` provided, else single array-like data.
-        y : str or array-like
-            Single target column name if `data` provided, else single array-like data.
-        data : pl.DataFrame or pl.LazyFrame, optional
-            Input data. If provided, x/y must be column names (str).
-            If None, x/y must be array-like data.
-        x_eval : array-like, optional
-            Evaluation points for prediction. If None, uses training x values.
-        return_ci : bool, default=False
-            If True, return confidence intervals along with predictions.
-            Note: Currently returns (y_pred, None, None) as CIs not yet implemented.
-
-        Returns
-        -------
-        np.ndarray or tuple
-            If return_ci=False: array of predictions at evaluation points
-            If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
-
-        Raises
-        ------
-        TypeError
-            If x_eval is not array-like or contains non-numeric values (when provided).
-        ValueError
-            If x_eval is empty or if x/y are sequences (multivariate not supported).
-        """
-        # Validate univariate constraint when data is provided
-        if data is not None:
-            if isinstance(x, (list, tuple)):
-                raise ValueError(
-                    "fit_predict only supports univariate (single feature) input. "
-                    "When data is provided, x must be a single column name (str), not a list/tuple of column names."
-                )
-            if isinstance(y, (list, tuple)):
-                raise ValueError(
-                    "fit_predict only supports univariate (single target) input. "
-                    "When data is provided, y must be a single column name (str), not a list/tuple of column names."
-                )
-
-        self.fit(data=data, x=x, y=y)
-
-        if x_eval is None:
-            x_eval = self._is_fitted_data_lf.collect().get_column(self._x_col)
-        else:
-            # Validate user-provided x_eval
-            x_eval = self._validate_single_array(x_eval, "x_eval", allow_empty=False)
-
-        return self.predict(x_eval, return_ci=return_ci)
-
-    def predict(
-        self, x_eval: Union[Sequence[float], pl.Series], return_ci: bool = False
-    ) -> Union[np.ndarray, tuple]:
-        """
-        Predict smooth values at new x points.
-
-        Parameters
-        ----------
-        x_eval : array-like or pl.Series
-            New x values at which to predict.
-        return_ci : bool, default=False
-            If True, return confidence intervals along with predictions.
-            Note: Currently, KernelSmoother returns None for CIs.
-
-        Returns
-        -------
-        np.ndarray or tuple
-            If return_ci=False: numpy array of predictions (same length as x_eval)
-            If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
-                y_ci_low and y_ci_high are None (not yet implemented for kernel smoother)
-
-        Raises
-        ------
-        RuntimeError
-            If called before fit().
-        TypeError
-            If x_eval is not array-like or contains non-numeric values.
-        ValueError
-            If x_eval is empty.
-        """
-        if not self._is_fitted:
-            raise RuntimeError("You must call fit() before predict")
-
-        # Validate input x_eval using BaseUtils validation
-        x_eval = self._validate_single_array(x_eval, "x_eval", allow_empty=False)
-
-        x_eval_col = "x_eval"
-        x_train_col = "x_train"
-        y_train_col = "y_train"
-
-        pred_df = pl.DataFrame({x_eval_col: x_eval}).with_row_index("row_index").lazy()
-
-        train_df = self._is_fitted_data_lf.select(
-            [
-                pl.col(self._x_col).alias(x_train_col),
-                pl.col(self._y_col).alias(y_train_col),
-            ]
-        )
-
-        bw = pl.lit(self._bw_value).alias("h")
-
-        predictions = (
-            pred_df.with_columns(bw)
-            .join(train_df, how="cross")
-            .with_columns(
-                ((pl.col(x_train_col) - pl.col(x_eval_col)) / pl.col("h")).alias("u")
-            )
-            .with_columns(self._get_kernel_fn()(pl.col("u")).alias("weight"))
-            .group_by([x_eval_col, "row_index"], maintain_order=True)
-            .agg(
-                pl.when(pl.col("weight").sum() > 0)
-                .then(
-                    (pl.col(y_train_col) * pl.col("weight")).sum()
-                    / pl.col("weight").sum()
-                )
-                .otherwise(None)
-                .alias("y_kernel")
-            )
-            .sort("row_index")
-            .collect()
-        )
-
-        y_pred = predictions.get_column("y_kernel").to_numpy()
-
-        if not return_ci:
-            return y_pred
-
-        # For kernel smoother, confidence intervals would require bootstrap or analytically computed
-        # Currently not implemented, return None
-
-        warnings.warn(
-            "Confidence intervals are not implemented for KernelSmoother yet. "
-            "Returning (y_pred, None, None).",
-            UserWarning,
-            stacklevel=2,
-        )
-
-        return y_pred, None, None
+        sample_weight: Optional[ArrayLike] = None,
+    ) -> Prediction:
+        """Fit and predict at the original training rows or supplied x_eval."""
+        self.fit(x, y, data=data, sample_weight=sample_weight)
+        return self.predict(self.X_ if x_eval is None else x_eval, return_ci=return_ci)

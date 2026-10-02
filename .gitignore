@@ -12,3 +12,5 @@ wheels/
 
 # Jupyter Notebook checkpoints
 *.ipynb
+.pytest_cache
+.hypothesis/
