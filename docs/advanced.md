@@ -1,6 +1,6 @@
 # Advanced estimator contracts
 
-The [README](../README.md) contains complete starter examples, aggregation choices, warning filters and an explanation of optional cross-validation. This guide describes the numerical and statistical details. All ordinary fits preserve observation order. Neither estimator sorts a dataset or builds a sorted training index.
+The [README](../README.md) contains complete starter examples, aggregation choices, warning filters and an explanation of optional cross-validation. The [statistical parameter reference](statistical_parameters.md) explains each setting, its default and its effect on estimates. This guide describes the numerical and statistical details. All ordinary fits preserve observation order. Neither estimator sorts a dataset or builds a sorted training index.
 
 ## Aggregation execution and weights
 

@@ -51,6 +51,14 @@ print(model.predict(pl.DataFrame({"temperature": [1.5, 2.5]})))
 
 Named prediction inputs must match the fitted feature name. An unnamed array is also accepted because the estimator has exactly one feature. A refit with unnamed data clears the previous feature name.
 
+## Understanding the statistical parameters
+
+The [statistical parameter reference](docs/statistical_parameters.md) documents every estimator, aggregation, cross-validation and interval parameter, including defaults, units, allowed choices and effects on the result. It also explains bin-count formulas, kernel shapes and diagnostic statistics.
+
+More bins or a smaller bandwidth generally produce more detailed, noisier curves; fewer bins or a larger bandwidth pool more observations. With `bandwidth="manual", bandwidth_value=0.8`, setting `bandwidth_adjust=2.0` produces a fitted bandwidth of `1.6` after refitting. Increasing `n_eval_samples` only adds plotting locations and does not change smoothing. Switching `agg` from a mean to a quantile changes the statistical target.
+
+Three proportions have different meanings: `confidence_level` controls the nominal bootstrap interval level, CV's `min_coverage` requires a fraction of finite validation predictions, and `min_valid_fraction` requires a fraction of valid bootstrap draws. Regressogram `ci` endpoints describe configured within-bin statistics; use `predict_interval` for bootstrap confidence intervals. CV is optional and never runs merely because a `cv` default exists.
+
 ## What happens to the data
 
 Rgram does not sort training rows, query rows or a training index. It does not silently remove duplicate observations, drop missing rows, impute values, shuffle a normal fit, trim outliers, or change caller-owned arrays. Null, NaN, infinite, complex and multivariate inputs are rejected rather than cleaned automatically. Predictions retain query order and duplicates, including unsupported rows represented by NaN when that policy is selected.
