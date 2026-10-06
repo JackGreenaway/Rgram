@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Optional, Union
 
 import numpy as np
@@ -14,6 +15,72 @@ from rgram._typing import Array, FloatArray, Frame, Input
 
 class BaseUtils:
     """Shared validation and inspection methods for univariate regressors."""
+
+    @staticmethod
+    def _is_pandas(values: Any) -> bool:
+        """Recognize pandas objects without importing an optional dependency.
+
+        Constructing a pandas object already loads pandas into sys.modules.
+        Actual isinstance checks also support DataFrame/Series subclasses.
+        """
+        pandas = sys.modules.get("pandas")
+        return pandas is not None and isinstance(
+            values, (pandas.DataFrame, pandas.Series)
+        )
+
+    @staticmethod
+    def _as_array(values: Any, name: str) -> Array:
+        """Convert numeric pandas inputs to NumPy without Arrow or index alignment.
+
+        Nullable numeric dtypes are accepted when complete. Missing values are
+        rejected before conversion, preserving integer precision and every row.
+        Pandas indices are labels, not model features or alignment instructions.
+        Other inputs retain the standard NumPy conversion path.
+        """
+        if not BaseUtils._is_pandas(values):
+            return np.asarray(values)
+        pandas = sys.modules["pandas"]
+        is_frame = isinstance(values, pandas.DataFrame)
+        if is_frame and values.shape[1] != 1:
+            raise ValueError(f"{name} must be univariate: a 1D array or one column")
+        series = values.iloc[:, 0] if is_frame else values
+        if series.isna().any():
+            raise ValueError(
+                f"{name} contains null, NaN, or infinite values; no rows were dropped"
+            )
+        if not pandas.api.types.is_numeric_dtype(series.dtype):
+            raise TypeError(
+                f"{name} contains non-numeric values; only numeric arrays are supported"
+            )
+        array = series.to_numpy(
+            dtype=getattr(series.dtype, "numpy_dtype", None), copy=True
+        )
+        return array.reshape(-1, 1) if is_frame else array
+
+    @staticmethod
+    def _pandas_frame(data: Any, x: str, y: str) -> pl.DataFrame:
+        """Snapshot only selected pandas columns into the internal Polars frame.
+
+        Selected labels must identify one column. Unselected columns and the
+        index are not converted; duplicated row labels remain in input order.
+        Conversion uses NumPy so pandas support does not require PyArrow.
+        """
+        pandas = sys.modules["pandas"]
+        if not isinstance(data, pandas.DataFrame):
+            raise TypeError(
+                "data must be a pandas or Polars DataFrame, or a Polars LazyFrame"
+            )
+        columns = {}
+        for name in dict.fromkeys((x, y)):
+            column = data[name]
+            if not isinstance(column, pandas.Series):
+                raise ValueError(
+                    f"Selected column {name!r} is ambiguous because its label is duplicated"
+                )
+            array = BaseUtils._as_array(column, name)
+            BaseUtils._validate_single_array(array, name)
+            columns[name] = array
+        return pl.DataFrame(columns)
 
     @staticmethod
     def _is_array_like(obj: Any) -> bool:
@@ -90,14 +157,14 @@ class BaseUtils:
                 raise ValueError(f"Input must be {str(e).split('must be')[1].strip()}")
             raise
 
-        array = np.asarray(input_data)
+        array = BaseUtils._as_array(input_data, col_prefix)
         if array.ndim == 2 and array.shape[1] == 1:
             array = array[:, 0]
         if array.ndim != 1:
             raise ValueError(
                 f"{col_prefix} must be univariate: a 1D array or one column"
             )
-        df_dict[col_prefix] = array if np.asarray(input_data).ndim == 2 else input_data
+        df_dict[col_prefix] = array
         return col_prefix
 
     @staticmethod
@@ -257,7 +324,7 @@ class BaseUtils:
             try:
                 import numpy as np
 
-                np_arr = np.asarray(arr)
+                np_arr = BaseUtils._as_array(arr, array_name)
 
                 # Check for complex numbers
                 if np.iscomplexobj(np_arr):
@@ -271,7 +338,7 @@ class BaseUtils:
                         f"{array_name} contains non-numeric values (dtype: {np_arr.dtype}). "
                         "Only numeric arrays are supported."
                     )
-            except TypeError:
+            except (TypeError, ValueError):
                 raise
             except ImportError:
                 # If numpy not available, skip numeric validation
@@ -286,7 +353,7 @@ class BaseUtils:
         self,
         x: Input,
         y: Input,
-        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
+        data: Optional[Frame] = None,
     ) -> tuple[pl.LazyFrame, str, str]:
         """
         Prepare and normalize data for analysis (similar to seaborn API).
@@ -301,7 +368,7 @@ class BaseUtils:
             Feature(s). Column name(s) if `data` provided, else array-like (list, ndarray, Series).
         y : str or array-like
             Target(s). Column name(s) if `data` provided, else array-like (list, ndarray, Series).
-        data : pl.DataFrame, pl.LazyFrame, or None, optional
+        data : pandas.DataFrame, polars.DataFrame, polars.LazyFrame, or None, optional
             Input data. If None, x/y must be array-like.
             If provided, x/y are treated as column names.
 
@@ -342,11 +409,15 @@ class BaseUtils:
 
             data = pl.DataFrame(df_dict)
 
-        if not isinstance(data, (pl.DataFrame, pl.LazyFrame)):
-            raise TypeError("data must be a Polars DataFrame or LazyFrame")
         if not isinstance(x, str) or not isinstance(y, str):
             raise ValueError(
                 "fit only supports univariate input: x and y must be single column names"
+            )
+        if self._is_pandas(data):
+            data = self._pandas_frame(data, x, y)
+        if not isinstance(data, (pl.DataFrame, pl.LazyFrame)):
+            raise TypeError(
+                "data must be a pandas or Polars DataFrame, or a Polars LazyFrame"
             )
         # Snapshot exactly the selected columns once; never filter or impute rows.
         frame = data.lazy().select(pl.col(x).alias("x"), pl.col(y).alias("y")).collect()
@@ -366,7 +437,7 @@ class BaseUtils:
     def _prediction_array(values: Input) -> Array:
         """Validate and flatten one finite numeric query/weight vector without reordering."""
         BaseUtils._validate_single_array(values, "x")
-        array = np.asarray(values)
+        array = BaseUtils._as_array(values, "x")
         if array.ndim == 2 and array.shape[1] == 1:
             array = array[:, 0]
         if array.ndim != 1:

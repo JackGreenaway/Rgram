@@ -63,7 +63,7 @@ so `cv_results_` alone does not make a failed search fitted.
 ## Shared utilities
 
 The private `BaseUtils` class supplies implementation helpers, not a standalone
-user estimator. Validation accepts arrays or selected Polars columns, materializes
+user estimator. Validation accepts arrays or selected pandas/Polars columns, materializes
 a single snapshot, rejects invalid rows, and preserves dtype/order. Public
 methods inherited by estimators are documented on their API pages. The complete
 utility reference below includes private helpers for contributors.
@@ -103,7 +103,7 @@ stays explicit. Bin boundaries still refit. Draw storage is dense in
 |---|---|
 | `Array`, `FloatArray` | General NumPy array and float64 computation/result array. |
 | `Input` | Column-name string, array-like, Polars Series or DataFrame. |
-| `Frame` | Polars DataFrame or LazyFrame for named selection. |
+| `Frame` | Pandas/Polars DataFrame or Polars LazyFrame for named selection. |
 | `Prediction` | One-dimensional float64 prediction array. |
 | `NumericReducer` | One- or two-array callback returning a scalar. |
 | `ExpressionReducer` | Polars expression-to-expression callback. |
@@ -132,3 +132,13 @@ links; `scripts/check_examples.py` executes guide snippets and public doctests; 
 a CLI to show them one at a time or save separate large figures. Shared helpers
 provide consistent axes, observations, legends, and smoother configuration.
 The documentation example check draws every gallery figure headlessly.
+
+### Pandas conversion
+
+`BaseUtils._is_pandas` recognizes actual DataFrame/Series objects and subclasses
+through the already loaded optional pandas module. Rgram's conversion helpers
+do not import pandas; the dependency remains optional. `_as_array` converts complete numeric pandas columns to
+NumPy, including nullable numeric dtypes, without index alignment or integer
+rounding. `_pandas_frame` converts only selected, uniquely labeled columns into
+the internal Polars snapshot. It does not call `pl.from_pandas` or require Arrow.
+The same array normalization serves fitting, queries, targets, and weights.

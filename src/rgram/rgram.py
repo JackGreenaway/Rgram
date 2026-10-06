@@ -10,7 +10,7 @@ from numpy.typing import ArrayLike
 from sklearn.base import BaseEstimator, RegressorMixin, clone
 from sklearn.utils.validation import check_is_fitted
 
-from rgram._typing import CV, Input, Prediction
+from rgram._typing import CV, Frame, Input, Prediction
 from rgram.aggregation import (
     AGGREGATIONS,
     Aggregation,
@@ -361,7 +361,7 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
         X: Input,
         y: Input,
         *,
-        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
+        data: Optional[Frame] = None,
         sample_weight: Optional[ArrayLike] = None,
     ) -> "Regressogram":
         """Fit one numeric feature and one numeric response.
@@ -372,8 +372,9 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
             Numeric feature, or its column name when data is supplied.
         y : array-like of shape (n_samples,) or (n_samples, 1), or str
             Numeric response, or its column name when data is supplied.
-        data : polars.DataFrame or polars.LazyFrame, default=None
-            Source for named columns. Selected columns are materialized once.
+        data : pandas.DataFrame, polars.DataFrame or polars.LazyFrame, default=None
+            Source for named columns. Pandas columns are converted internally to
+            Polars. Selected columns are snapshotted once; indices are ignored.
         sample_weight : array-like of shape (n_samples,), default=None
             Finite nonnegative influence weights with positive total mass.
 
@@ -638,7 +639,7 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
         X: Input,
         y: Input,
         *,
-        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
+        data: Optional[Frame] = None,
         sample_weight: Optional[ArrayLike] = None,
     ) -> Prediction:
         """Fit and evaluate at the original training feature values.
@@ -649,7 +650,7 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
             One training feature, or its column name when data is supplied.
         y : array-like or str
             Aligned numeric response, or its column name when data is supplied.
-        data : polars.DataFrame or polars.LazyFrame, default=None
+        data : pandas.DataFrame, polars.DataFrame or polars.LazyFrame, default=None
             Source for named columns.
         sample_weight : array-like of shape (n_samples,), default=None
             Observation influence weights; see fit.

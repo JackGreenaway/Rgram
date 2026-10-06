@@ -29,7 +29,7 @@ theme. Scikit-learn also uses [PyData in its documentation configuration](https:
 The documentation dependencies are separate from runtime dependencies.
 
 ```bash
-python -m pip install -e '.[plot]' -r docs/requirements.txt
+python -m pip install -e '.[plot,pandas]' -r docs/requirements.txt
 python scripts/check_docs.py
 python scripts/check_examples.py
 python -m sphinx -b html -W --keep-going docs docs/_build/html

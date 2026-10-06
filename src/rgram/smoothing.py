@@ -198,8 +198,9 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
             Numeric feature, or its column name when data is supplied.
         y : array-like of shape (n_samples,) or (n_samples, 1), or str
             Numeric response, or its column name when data is supplied.
-        data : polars.DataFrame or polars.LazyFrame, default=None
-            Source for named columns. Selected columns are materialized once.
+        data : pandas.DataFrame, polars.DataFrame or polars.LazyFrame, default=None
+            Source for named columns. Pandas columns are converted internally to
+            Polars. Selected columns are snapshotted once; indices are ignored.
         sample_weight : array-like of shape (n_samples,), default=None
             Finite nonnegative influence weights with positive total mass.
 
@@ -608,7 +609,7 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
             One training feature, or its column name when data is supplied.
         y : array-like or str
             Aligned numeric response, or its column name when data is supplied.
-        data : polars.DataFrame or polars.LazyFrame, default=None
+        data : pandas.DataFrame, polars.DataFrame or polars.LazyFrame, default=None
             Source for named columns.
         sample_weight : array-like of shape (n_samples,), default=None
             Observation influence weights; see fit.

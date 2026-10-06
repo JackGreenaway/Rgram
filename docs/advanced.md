@@ -22,7 +22,7 @@ The default aggregation is `agg="mean"`. `ci=None` is the default: no descriptiv
 
 ## Observation preservation and numerical buffers
 
-Selected Polars columns are materialized once. Array and frame inputs are validated and copied into fitted snapshots, preserving their values, inferred numeric dtypes and original order. The computational representation uses float64 where regression arithmetic requires it. Conversions that would lose integer precision or wider-floating precision raise rather than silently round values. A prediction always corresponds to the query at the same position.
+Selected pandas/Polars columns are snapshotted once. Array and frame inputs are validated and copied into fitted snapshots, preserving their values, inferred numeric dtypes and original order. The computational representation uses float64 where regression arithmetic requires it. Conversions that would lose integer precision or wider-floating precision raise rather than silently round values. A prediction always corresponds to the query at the same position.
 
 The smoother keeps original observation weights in `sample_weight_` and exposes `weight_scale_` for the common normalization used during numerical calculations. That scaling cancels in normalized kernel weights; it is not a change to the stored data. A positive observation weight that would underflow to zero during this scaling is rejected. Kernel tails can still become numerically zero when distances are extremely large; `n_neighbors` and `get_weights` describe the numerical weights actually used.
 

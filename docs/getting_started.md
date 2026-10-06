@@ -63,6 +63,39 @@ model = Regressogram(n_bins=6).fit(
 print(model.predict(pl.DataFrame({"temperature": [1.0, 2.0, 3.0]})))
 ```
 
+## Using pandas
+
+Pandas is optional. If it is not already installed, use
+`python -m pip install 'rgram[pandas]'`. Conversion does not require PyArrow.
+
+```python
+import pandas as pd
+from rgram import Regressogram
+
+frame = pd.DataFrame({
+    "temperature": [0.0, 1.0, 2.0, 3.0],
+    "demand": [1.0, 2.0, 2.5, 4.0],
+})
+model = Regressogram(n_bins=2).fit(
+    X="temperature", y="demand", data=frame,
+)
+print(model.predict(frame[["temperature"]]))
+
+# Standard scikit-learn form is also supported:
+model.fit(frame[["temperature"]], frame["demand"])
+print(model.predict_diagnostics(frame[["temperature"]]))
+```
+
+Only selected numeric columns are converted internally to Polars. Unselected
+columns and the pandas index are ignored. Rows, duplicates, feature names, and
+caller-owned data are preserved. Separate feature, response, and weight inputs
+are paired **by row position**, never aligned by index labels. Predictions remain
+NumPy arrays and diagnostic tables remain Polars DataFrames.
+
+Nullable numeric pandas dtypes such as `Int64`, `Float64`, and `Float32` are
+accepted when complete. Missing, non-finite, complex, and nonnumeric selected
+values are rejected. A duplicated selected column label is ambiguous and raises.
+
 ## Next steps
 
 - [Choose a workflow](user_guide.md) for exploration, summaries, or prediction.

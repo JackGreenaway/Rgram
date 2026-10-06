@@ -1,6 +1,6 @@
 # Rgram
 
-Rgram is designed for exploring relationships between one numeric feature and one numeric response at a time. Its regressograms and kernel smoothers help reveal nonlinear patterns, summarize how a response changes across a feature, and compare relationships across subgroups. A scikit-learn-style estimator API makes these exploratory models familiar to fit, inspect, and use in pipelines. It accepts numeric arrays or selected Polars columns, preserves observation and prediction order, and makes data handling, aggregation, support and uncertainty explicit.
+Rgram is designed for exploring relationships between one numeric feature and one numeric response at a time. Its regressograms and kernel smoothers help reveal nonlinear patterns, summarize how a response changes across a feature, and compare relationships across subgroups. A scikit-learn-style estimator API makes these exploratory models familiar to fit, inspect, and use in pipelines. It accepts numeric arrays or selected pandas/Polars columns, preserves observation and prediction order, and makes data handling, aggregation, support and uncertainty explicit.
 
 The complete documentation site is built from [docs/index.md](docs/index.md), with a user guide, theory, examples, and a searchable API reference. [Build and GitHub Pages publishing instructions](docs/development.md) are included.
 
@@ -54,7 +54,7 @@ print(binned.data_summary_)
 
 Use `fit(X, y)` and `predict(X)` with one numeric feature; `X=` is the feature keyword throughout the public API. Predictions always return a one-dimensional array. Use `predict_interval(X)` for bootstrap bounds. Unfitted prediction raises `sklearn.exceptions.NotFittedError`. Both estimators return `self` from `fit`, support `get_params`, `set_params`, cloning, pipelines and R² `score`, and expose fitted attributes with a trailing underscore. Refit after changing parameters that determine the fitted model. They support one feature and one target; arrays may have shape `(n_samples,)` or `(n_samples, 1)`.
 
-For Polars data, select the columns explicitly. A LazyFrame is materialized once for the selected feature and target so later changes to its source cannot change a fitted model.
+For pandas or Polars data, select the columns explicitly. A LazyFrame is materialized once for the selected feature and target so later changes to its source cannot change a fitted model.
 
 ```python
 import polars as pl
@@ -66,6 +66,8 @@ print(model.predict(pl.DataFrame({"temperature": [1.5, 2.5]})))
 ```
 
 Named prediction inputs must match the fitted feature name. An unnamed array is also accepted, with a scikit-learn-style feature-name warning. A refit with unnamed data clears the previous feature name.
+
+Pandas column selection works through the same API: `model.fit(X="temperature", y="demand", data=pandas_frame)`, or use `model.fit(pandas_frame[["temperature"]], pandas_frame["demand"])`. Selected numeric columns are converted internally; index labels do not align or reorder rows. Nullable numeric dtypes are supported when complete. Pandas is optional (`pip install 'rgram[pandas]'`), and conversion does not require PyArrow. See the [pandas quick start](docs/getting_started.md#using-pandas).
 
 ## Theory and suitability
 

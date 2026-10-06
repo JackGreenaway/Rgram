@@ -2352,6 +2352,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+pandas = [
+    { name = "pandas" },
+]
 plot = [
     { name = "matplotlib", version = "3.9.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "matplotlib", version = "3.10.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
@@ -2381,10 +2384,11 @@ dev = [
 requires-dist = [
     { name = "matplotlib", marker = "extra == 'plot'", specifier = ">=3.9.4" },
     { name = "numpy", specifier = ">=2.0.2" },
+    { name = "pandas", marker = "extra == 'pandas'", specifier = ">=2.2.3" },
     { name = "polars", specifier = ">=1.28.1" },
     { name = "scikit-learn", specifier = ">=1.6" },
 ]
-provides-extras = ["plot"]
+provides-extras = ["pandas", "plot"]
 
 [package.metadata.requires-dev]
 dev = [

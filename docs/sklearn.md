@@ -45,7 +45,7 @@ successful fit, including after a failed refit.
 Use `X=` consistently for fitting, prediction, and diagnostics.
 `predict(X)` always returns a one-dimensional array.
 For column-name exploration, use `fit(X="temperature", y="demand", data=frame)`
-with a Polars DataFrame or LazyFrame. Pass `data` and `sample_weight` by keyword.
+with a pandas DataFrame, Polars DataFrame, or Polars LazyFrame. Pass `data` and `sample_weight` by keyword.
 
 ## Prediction pipelines and tuning
 
@@ -109,7 +109,10 @@ print(weather_model.predict(frame.select(["temperature", "humidity"])))
 
 The selection must retain a two-dimensional, one-column feature matrix. A pandas
 DataFrame, Polars DataFrame, NumPy array, list, or Series containing numeric
-values can be used directly. Named one-column inputs record `feature_names_in_`;
+values can be used directly. Pandas also supports named `data=` selection; see
+[the pandas quick start](getting_started.md#using-pandas). Index labels are ignored,
+so separately supplied features, targets, and weights must already have matching
+row order. Named one-column inputs record `feature_names_in_`;
 a different prediction column name raises. Switching between named and unnamed
 inputs emits a standard `UserWarning`, as with scikit-learn.
 

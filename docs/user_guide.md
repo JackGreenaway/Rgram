@@ -45,7 +45,7 @@ and overlapping feature ranges to support a meaningful comparison.
 ## Input, ordering, and missing data
 
 Use a numeric one-column feature array/DataFrame and a numeric single response.
-One-dimensional feature inputs remain convenient for exploration. With Polars,
+One-dimensional feature inputs remain convenient for exploration. With pandas or Polars,
 column-name selection through `data=` is also available. NaN, null, infinity,
 complex values, and multivariate inputs are rejected. Impute missing features
 explicitly in a pipeline if that is appropriate; decide how to handle missing

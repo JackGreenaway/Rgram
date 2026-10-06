@@ -46,7 +46,7 @@ class TestBaseUtilsArrayInput:
         df_dict = {}
         col_name = utils._process_array_input([1, 2, 3], "test", df_dict)
         assert col_name == "test"
-        assert df_dict["test"] == [1, 2, 3]
+        np.testing.assert_array_equal(df_dict["test"], [1, 2, 3])
 
     def test_process_array_input_with_numpy_array(self):
         """Test _process_array_input with numpy array."""
@@ -220,7 +220,7 @@ class TestRegressogramDataValidation:
         df_dict = {}
         col_name = utils._process_array_input([1, 2, 3], "test", df_dict)
         assert col_name == "test"
-        assert df_dict["test"] == [1, 2, 3]
+        np.testing.assert_array_equal(df_dict["test"], [1, 2, 3])
 
     def test_process_array_input_with_numpy(self):
         """Test process_array_input with numpy array."""

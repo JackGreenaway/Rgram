@@ -111,7 +111,7 @@ class CoverageSearchCV(RegressorMixin, BaseEstimator):
             Single feature or its column name when data is supplied.
         y : array-like or str
             Aligned numeric response or its column name. Required.
-        data : polars.DataFrame or polars.LazyFrame, default=None
+        data : pandas.DataFrame, polars.DataFrame or polars.LazyFrame, default=None
             Source for named feature and response columns.
         groups : array-like of shape (n_samples,) or None, default=None
             Labels passed to an explicit group-aware splitter. Rejected with integer cv.
