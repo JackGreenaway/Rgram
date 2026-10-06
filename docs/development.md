@@ -45,7 +45,8 @@ use relative paths so a GitHub Pages repository subpath works.
 The coverage check enumerates top-level exports, public estimator methods,
 constructor/method arguments, and package modules. The HTML check verifies API
 anchors and all local page, fragment, and asset links. The example check executes
-all guide snippets and public docstring examples headlessly. The strict Sphinx
+all guide snippets, public docstring examples, and single-panel gallery plots
+headlessly. The strict Sphinx
 build treats warnings as errors. External source availability can be checked separately
 with `python -m sphinx -b linkcheck docs docs/_build/linkcheck`; transient external
 network failures do not block the normal HTML build.

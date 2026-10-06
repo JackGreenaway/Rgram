@@ -127,3 +127,8 @@ agreement. Neither module runs its main routine on import. The
 checks. `scripts/check_docs.py` checks documentation coverage and rendered local
 links; `scripts/check_examples.py` executes guide snippets and public doctests; it is a development tool, not an installed library API. See
 [development instructions](development.md) for build/test commands and publishing.
+
+`examples/plot_relationships.py` supplies nine independent gallery functions and
+a CLI to show them one at a time or save separate large figures. Shared helpers
+provide consistent axes, observations, legends, and smoother configuration.
+The documentation example check draws every gallery figure headlessly.
