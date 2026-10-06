@@ -14,13 +14,13 @@ the same data, Gaussian kernel, bandwidth 0.22, and evaluation locations.
 
 ## Choices and their impact
 
-| Item | What is being reviewed | Impact and interpretation |
-|---|---|---|
-| Gray observations | Noisy samples around a linear mean | Supply the same local information to both estimators. |
-| Dashed generating line | The reference relationship | Allows visible edge deviations to be interpreted in this simulation. |
-| Local-constant curve | A distance-weighted average of nearby responses | Near an edge, observations mostly lie on one side, pulling the average toward that side's responses. |
-| Local-linear curve | A local weighted intercept and slope | Uses a slope to describe the one-sided neighborhood and can reduce the local constant's boundary bias. |
-| Shaded edge regions | Locations where neighborhoods are asymmetric | Guide attention to boundary behavior. These are neither confidence bounds nor unsupported regions. |
+| Item                   | What is being reviewed                          | Impact and interpretation                                                                              |
+| ---------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Gray observations      | Noisy samples around a linear mean              | Supply the same local information to both estimators.                                                  |
+| Dashed generating line | The reference relationship                      | Allows visible edge deviations to be interpreted in this simulation.                                   |
+| Local-constant curve   | A distance-weighted average of nearby responses | Near an edge, observations mostly lie on one side, pulling the average toward that side's responses.   |
+| Local-linear curve     | A local weighted intercept and slope            | Uses a slope to describe the one-sided neighborhood and can reduce the local constant's boundary bias. |
+| Shaded edge regions    | Locations where neighborhoods are asymmetric    | Guide attention to boundary behavior. These are neither confidence bounds nor unsupported regions.     |
 
 ## Interpreting the plot
 
@@ -37,7 +37,7 @@ controls whether the estimator falls back or raises.
 
 ## When this is useful
 
-Use this comparison when edge behavior matters in a feature–response description
+Use this comparison when edge behavior matters in a feature-response description
 or when a local-constant curve seems to flatten toward the training boundaries.
 It separates the choice of local fitting order from the choice of bandwidth.
 

@@ -46,7 +46,7 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
         the row and warns; 'raise' fails explicitly. Extrapolation has a separate policy.
 
     regression : {'local_constant', 'local_linear'}, default='local_constant'
-        Local constant (Nadaraya–Watson) or weighted local linear fit. Local linear
+        Local constant (Nadaraya-Watson) or weighted local linear fit. Local linear
         reduces boundary bias but can extrapolate and use negative coefficients.
     singular : {'constant', 'raise'}, default='constant'
         Fall back with a warning to a local constant for singular local-linear

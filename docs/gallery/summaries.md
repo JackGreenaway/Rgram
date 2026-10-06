@@ -15,13 +15,13 @@ and 90th response percentiles within each bin.
 
 ## Choices and their impact
 
-| Item | What is being reviewed | Impact and interpretation |
-|---|---|---|
-| Gray observations, including high responses | The full response distribution supplied to both fits | The extreme responses remain visible and participate in aggregation. |
-| Blue mean curve | Arithmetic average within each bin | Every response value contributes to the total; unusually large responses can raise the average. |
-| Orange median curve | Middle response within each bin | Responds differently to the deliberately added high values because it describes the center by rank, not the arithmetic average. |
-| Shaded percentile envelope | Within-bin 10th–90th response percentiles | Describes response spread among observed rows in a cell, not uncertainty about the fitted mean or median. |
-| Shared binning | A controlled comparison of summary statistics | Differences between these curves come from aggregation rather than different cell boundaries. |
+| Item                                        | What is being reviewed                               | Impact and interpretation                                                                                                       |
+| ------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Gray observations, including high responses | The full response distribution supplied to both fits | The extreme responses remain visible and participate in aggregation.                                                            |
+| Blue mean curve                             | Arithmetic average within each bin                   | Every response value contributes to the total; unusually large responses can raise the average.                                 |
+| Orange median curve                         | Middle response within each bin                      | Responds differently to the deliberately added high values because it describes the center by rank, not the arithmetic average. |
+| Shaded percentile envelope                  | Within-bin 10th-90th response percentiles            | Describes response spread among observed rows in a cell, not uncertainty about the fitted mean or median.                       |
+| Shared binning                              | A controlled comparison of summary statistics        | Differences between these curves come from aggregation rather than different cell boundaries.                                   |
 
 ## Interpreting the plot
 

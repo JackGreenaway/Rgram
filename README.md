@@ -12,7 +12,7 @@ See the [scikit-learn guide](docs/sklearn.md) for runnable `Pipeline` and `GridS
 
 ## Exploring feature relationships
 
-Each fit describes a pairwise feature–response relationship. For example, explore how demand varies with temperature, whether a response levels off at high feature values, or whether the same relationship differs between groups. With mean aggregation, the curve summarizes the average response near each feature value; other regressogram aggregations can describe medians or quantiles.
+Each fit describes a pairwise feature-response relationship. For example, explore how demand varies with temperature, whether a response levels off at high feature values, or whether the same relationship differs between groups. With mean aggregation, the curve summarizes the average response near each feature value; other regressogram aggregations can describe medians or quantiles.
 
 The one-feature scope is intentional. To explore several features in a wider dataset, fit a separate model for each feature against the response. These curves describe associations individually; they do not adjust for the other features, estimate interactions, or establish causality. Comparing subgroup curves means explicitly selecting each subgroup and fitting its own model.
 
@@ -71,7 +71,7 @@ Pandas column selection works through the same API: `model.fit(X="temperature", 
 
 ## Theory and suitability
 
-The [theory guide](docs/theory.md) explains regressograms, Nadaraya–Watson and local-linear regression, smoothing choices, and bootstrap assumptions with primary-source references. It describes useful exploratory questions and limits: pairwise curves do not establish causality, adjust for other features, test all forms of dependence, or validate extrapolation.
+The [theory guide](docs/theory.md) explains regressograms, Nadaraya-Watson and local-linear regression, smoothing choices, and bootstrap assumptions with primary-source references. It describes useful exploratory questions and limits: pairwise curves do not establish causality, adjust for other features, test all forms of dependence, or validate extrapolation.
 
 ## Understanding the statistical parameters
 
@@ -87,17 +87,17 @@ Rgram does not sort training rows, query rows or a training index. It does not s
 
 The following computations are part of the estimator, and are exposed rather than hidden:
 
-| Operation | Behavior and inspection |
-|---|---|
-| Input snapshot | `X_`, `y_` and `sample_weight_` are independent copies in original row order. Sample weights retain their supplied values. |
-| Numeric calculations | Regression calculations use float64 buffers. Integer or wider-float values that would lose precision are rejected with an instruction to convert or rescale explicitly. |
-| Binning | The chosen strategy assigns observations to cells without modifying them. `bins_` contains occupied cells in first-observed order, their counts, weight totals and observed ranges. |
-| Quantile calculations | Computing a median or quantile may order temporary values as part of that requested statistic. It never reorders the observation dataset or a prediction index. |
-| Bin adjustments | Automatic caps, reductions caused by insufficient distinct boundaries, and explicit-count reductions emit `BinningWarning`. Inspect `requested_n_bins_`, `n_bins_` and `bin_edges_`. |
-| Kernel weighting | Kernel weights are calculated from distances. The smoother exposes `weight_scale_` for numerical normalization and `get_weights()` for the resulting influences; its weight snapshot is unchanged. |
-| Unsupported queries | The row remains present. `unsupported="nan"` warns and returns NaN; `unsupported="raise"` fails explicitly. |
-| Outside-range queries | An explicit `extrapolation` policy applies and emits a warning. Original query coordinates are never clipped or overwritten. |
-| CV or bootstrap | These operations only run when explicitly requested. They create subsets or resamples, leave the original arrays unchanged, and preserve paired feature, target and weight alignment. |
+| Operation             | Behavior and inspection                                                                                                                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Input snapshot        | `X_`, `y_` and `sample_weight_` are independent copies in original row order. Sample weights retain their supplied values.                                                                         |
+| Numeric calculations  | Regression calculations use float64 buffers. Integer or wider-float values that would lose precision are rejected with an instruction to convert or rescale explicitly.                            |
+| Binning               | The chosen strategy assigns observations to cells without modifying them. `bins_` contains occupied cells in first-observed order, their counts, weight totals and observed ranges.                |
+| Quantile calculations | Computing a median or quantile may order temporary values as part of that requested statistic. It never reorders the observation dataset or a prediction index.                                    |
+| Bin adjustments       | Automatic caps, reductions caused by insufficient distinct boundaries, and explicit-count reductions emit `BinningWarning`. Inspect `requested_n_bins_`, `n_bins_` and `bin_edges_`.               |
+| Kernel weighting      | Kernel weights are calculated from distances. The smoother exposes `weight_scale_` for numerical normalization and `get_weights()` for the resulting influences; its weight snapshot is unchanged. |
+| Unsupported queries   | The row remains present. `unsupported="nan"` warns and returns NaN; `unsupported="raise"` fails explicitly.                                                                                        |
+| Outside-range queries | An explicit `extrapolation` policy applies and emits a warning. Original query coordinates are never clipped or overwritten.                                                                       |
+| CV or bootstrap       | These operations only run when explicitly requested. They create subsets or resamples, leave the original arrays unchanged, and preserve paired feature, target and weight alignment.              |
 
 `data_summary_` records received and retained row counts, original dtypes, whether sample weights were supplied, the selected prediction policy and whether CV was used. Kernel summaries also record the fitted computation path and numerical weight scale. An invalid refit disables prediction access rather than continuing to use an earlier fitted model.
 
@@ -165,13 +165,13 @@ A weighted adapter used without `sample_weight` receives unit weights. An all-ze
 
 `binning="dist"` uses equal-frequency quantile cells. `binning="width"` uses equal-width cells. `binning="int"` groups by truncating the feature toward zero, and `binning="none"` groups identical feature values. Those are explicit grouping choices; none modifies the stored feature values.
 
-| Setting | Meaning |
-|---|---|
-| `n_bins=None` or `"auto"` | A fast rule, with no CV. Quantile binning uses a bounded cube-root count; width binning combines FD and Sturges. |
-| `n_bins=12` | An explicit count for either `dist` or `width`. |
-| `n_bins="fd"`, `"scott"`, `"sturges"`, `"rice"` or `"sqrt"` | A named distributional count rule, with no CV. |
-| `binning="width", bin_width=0.5` | A width in feature units; requires `n_bins=None`. The final cell can be shorter. |
-| `n_bins="cv"` | Explicitly request regression-error-based bin-count selection. |
+| Setting                                                     | Meaning                                                                                                          |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `n_bins=None` or `"auto"`                                   | A fast rule, with no CV. Quantile binning uses a bounded cube-root count; width binning combines FD and Sturges. |
+| `n_bins=12`                                                 | An explicit count for either `dist` or `width`.                                                                  |
+| `n_bins="fd"`, `"scott"`, `"sturges"`, `"rice"` or `"sqrt"` | A named distributional count rule, with no CV.                                                                   |
+| `binning="width", bin_width=0.5`                            | A width in feature units; requires `n_bins=None`. The final cell can be shorter.                                 |
+| `n_bins="cv"`                                               | Explicitly request regression-error-based bin-count selection.                                                   |
 
 `max_bins=512` bounds automatic allocation and rejects larger explicit counts unless the limit is increased. `min_samples_bin=5` bounds the automatic quantile count and generated CV candidate grid; it is a target occupancy, not a guarantee for every cell. Duplicate boundaries can collapse cells, and constant features use one cell; such changes are reported. No observations are removed to force a desired number of cells.
 

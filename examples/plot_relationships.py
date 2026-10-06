@@ -188,7 +188,7 @@ def summaries() -> Figure:
         step="mid",
         color=COLORS[1],
         alpha=0.15,
-        label="10th–90th response percentiles",
+        label="10th-90th response percentiles",
     )
     ax.step(
         query,

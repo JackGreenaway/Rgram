@@ -3,7 +3,7 @@
 ## What this example reviews
 
 This example reviews whether a query has enough local information to produce
-any estimate. Training features occupy 0–2 and 4–6, leaving a deliberate gap.
+any estimate. Training features occupy 0-2 and 4-6, leaving a deliberate gap.
 An Epanechnikov kernel with bandwidth 0.35 has compact support, so it cannot reach
 training observations from the middle of that gap.
 
@@ -14,14 +14,14 @@ training observations from the middle of that gap.
 
 ## Choices and their impact
 
-| Item | What is being reviewed | Impact and interpretation |
-|---|---|---|
-| Gray observations | Where feature/response pairs are actually available | The empty middle is a lack of observations, not merely a visual omission. |
-| Blue curve segments | Queries with positive numerical kernel support | Predictions are drawn where observations contribute to the local fit. |
-| Broken line | Unsupported predictions retained as NaN | No interpolation is added to hide missing estimates. Query rows remain in the diagnostic table. |
-| Orange region | Locations flagged as unsupported | Distinguishes absence of an estimate from an estimate with high error. |
-| Bandwidth 0.35 and compact kernel | The distance within which rows may contribute | Changing either setting changes the support geometry as well as the fitted curve. |
-| Overall training range | Minimum and maximum observed feature values | All displayed queries are inside this range, but some are still unsupported. Range membership and local support are different checks. |
+| Item                              | What is being reviewed                              | Impact and interpretation                                                                                                             |
+| --------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Gray observations                 | Where feature/response pairs are actually available | The empty middle is a lack of observations, not merely a visual omission.                                                             |
+| Blue curve segments               | Queries with positive numerical kernel support      | Predictions are drawn where observations contribute to the local fit.                                                                 |
+| Broken line                       | Unsupported predictions retained as NaN             | No interpolation is added to hide missing estimates. Query rows remain in the diagnostic table.                                       |
+| Orange region                     | Locations flagged as unsupported                    | Distinguishes absence of an estimate from an estimate with high error.                                                                |
+| Bandwidth 0.35 and compact kernel | The distance within which rows may contribute       | Changing either setting changes the support geometry as well as the fitted curve.                                                     |
+| Overall training range            | Minimum and maximum observed feature values         | All displayed queries are inside this range, but some are still unsupported. Range membership and local support are different checks. |
 
 ## Interpreting the plot
 

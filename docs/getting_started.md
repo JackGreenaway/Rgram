@@ -6,7 +6,6 @@ Rgram has an **unstable API**. Parameters, methods, and result schemas may chang
 between releases without backward compatibility or a deprecation period.
 Pin the package version for reproducible analyses.
 
-
 ## Installation
 
 Install the library and optional plotting support:
@@ -25,7 +24,7 @@ For the current checkout:
 python -m pip install -e '.[plot]'
 ```
 
-## Your first feature–response curve
+## Your first feature-response curve
 
 ```python
 import numpy as np

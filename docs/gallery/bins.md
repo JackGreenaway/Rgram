@@ -2,7 +2,7 @@
 
 ## What this example reviews
 
-A regressogram turns a feature–response relationship into a table of local
+A regressogram turns a feature-response relationship into a table of local
 summaries. This example asks how much detail that table should retain. Both fits
 receive the same 150 observations and use the same mean aggregation; only the
 number of quantile bins changes. The feature coordinates are evenly spaced here,
@@ -15,13 +15,13 @@ so quantile cells are approximately equal in width as well as occupancy.
 
 ## Choices and their impact
 
-| Item | What is being reviewed | Impact and interpretation |
-|---|---|---|
-| Gray observations | The responses supplied to both fits | Their scatter shows individual variation that a bin average hides. All rows are retained. |
-| Dashed generating mean | The sine function used in the simulation | Provides a reference for evaluating smoothing here; it would be unknown in ordinary data. |
-| Six-bin curve | A coarse mean summary | Roughly 25 observations contribute per cell in this dataset. Broad patterns are easier to describe, but changes inside a cell are unresolved. |
-| Eighteen-bin curve | A finer mean summary | Roughly 8–9 observations contribute per cell here. More local detail appears, with less averaging of response noise. |
-| Dense query grid | Evaluation at 350 feature locations | Makes the display clear; it does not add observations, change boundaries, or improve statistical resolution. |
+| Item                   | What is being reviewed                   | Impact and interpretation                                                                                                                     |
+| ---------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gray observations      | The responses supplied to both fits      | Their scatter shows individual variation that a bin average hides. All rows are retained.                                                     |
+| Dashed generating mean | The sine function used in the simulation | Provides a reference for evaluating smoothing here; it would be unknown in ordinary data.                                                     |
+| Six-bin curve          | A coarse mean summary                    | Roughly 25 observations contribute per cell in this dataset. Broad patterns are easier to describe, but changes inside a cell are unresolved. |
+| Eighteen-bin curve     | A finer mean summary                     | Roughly 8-9 observations contribute per cell here. More local detail appears, with less averaging of response noise.                          |
+| Dense query grid       | Evaluation at 350 feature locations      | Makes the display clear; it does not add observations, change boundaries, or improve statistical resolution.                                  |
 
 ## Interpreting the plot
 
@@ -40,7 +40,7 @@ with ties, their counts need not be equal.
 ## When this is useful
 
 Use this comparison to choose an understandable summary table, inspect broad
-nonlinearity, or check whether an apparent feature–response pattern persists
+nonlinearity, or check whether an apparent feature-response pattern persists
 across several bin counts. It is especially useful when counts and ranges must
 be reported alongside response summaries.
 

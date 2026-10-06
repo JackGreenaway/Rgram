@@ -4,7 +4,7 @@ The [quick start](getting_started.md) contains complete starter examples, aggreg
 
 ## Scope and interpretation
 
-Rgram's primary purpose is exploratory analysis of a numeric feature–response relationship. Both estimators intentionally fit one feature and one response at a time, keeping the curve and its support easy to inspect. For several candidate features, fit separate curves against the response; for subgroup comparisons, fit separate models on explicitly selected groups.
+Rgram's primary purpose is exploratory analysis of a numeric feature-response relationship. Both estimators intentionally fit one feature and one response at a time, keeping the curve and its support easy to inspect. For several candidate features, fit separate curves against the response; for subgroup comparisons, fit separate models on explicitly selected groups.
 
 These are pairwise associations. They do not adjust for other variables, estimate feature interactions, or identify causal effects. Multivariate prediction is outside the current scope. The scikit-learn interface supports familiar fitting, preprocessing pipelines, and optional evaluation; it does not change this exploratory focus. A descriptive fit can use all observations, while claims about predictive performance require held-out evaluation.
 

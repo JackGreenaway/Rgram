@@ -1,4 +1,4 @@
-"""Binned summaries for one numeric feature–response relationship."""
+"""Binned summaries for one numeric feature-response relationship."""
 
 from __future__ import annotations
 

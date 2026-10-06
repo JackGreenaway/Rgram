@@ -68,7 +68,7 @@ $$
 
 Local-constant regression evaluates $\widehat m(x)=\sum_i p_i(x)Y_i$ when there
 is positive support. Unlike a regressogram, its neighborhood is centered on each
-query. This is the Nadaraya–Watson estimator; multiplicative kernel normalization
+query. This is the Nadaraya-Watson estimator; multiplicative kernel normalization
 constants cancel in the ratio. See the [kernel regression derivation](https://egarpor.github.io/NP-UC3M/kre-i.html#nadarayawatson-estimator).
 
 A compact kernel assigns zero weight beyond its radius; it can leave gaps with
@@ -121,14 +121,14 @@ Use explicit cross-validation if held-out prediction error is your criterion.
 
 ## Where Rgram is useful
 
-| Question | Useful workflow | What to inspect |
-|---|---|---|
-| Does the average response bend, level off, or change direction? | Fit a mean regressogram or kernel curve over the observed feature range. | Several smoothing settings, raw observations, local support. |
-| What are typical responses in understandable feature ranges? | Inspect `Regressogram.bins_`; use mean, median, or explicit quantiles. | Counts, weight totals, boundaries, and the meaning of the aggregation. |
-| Do observed relationships differ between subgroups? | Explicitly select each subgroup and fit separate curves. | Overlapping feature ranges, group sizes, and common smoothing choices. |
-| Is a global linear description missing structure? | Compare the exploratory curve and residuals with that description. | Remaining patterns; this is a diagnostic, not a formal lack-of-fit test. |
-| How does a single feature predict a response? | Use a pipeline and held-out evaluation. | Validation error, coverage, and behavior outside the training range. |
-| Which rows influence a particular fitted value? | Inspect `KernelSmoother.get_weights` on a small query set. | Concentration, zero support, and signed local-linear coefficients. |
+| Question                                                        | Useful workflow                                                          | What to inspect                                                          |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Does the average response bend, level off, or change direction? | Fit a mean regressogram or kernel curve over the observed feature range. | Several smoothing settings, raw observations, local support.             |
+| What are typical responses in understandable feature ranges?    | Inspect `Regressogram.bins_`; use mean, median, or explicit quantiles.   | Counts, weight totals, boundaries, and the meaning of the aggregation.   |
+| Do observed relationships differ between subgroups?             | Explicitly select each subgroup and fit separate curves.                 | Overlapping feature ranges, group sizes, and common smoothing choices.   |
+| Is a global linear description missing structure?               | Compare the exploratory curve and residuals with that description.       | Remaining patterns; this is a diagnostic, not a formal lack-of-fit test. |
+| How does a single feature predict a response?                   | Use a pipeline and held-out evaluation.                                  | Validation error, coverage, and behavior outside the training range.     |
+| Which rows influence a particular fitted value?                 | Inspect `KernelSmoother.get_weights` on a small query set.               | Concentration, zero support, and signed local-linear coefficients.       |
 
 Local regression is useful when a global functional form is unknown, but relies
 on enough data around each location. NIST discusses both the flexibility and
@@ -136,17 +136,17 @@ local data demands of such methods in its [LOESS guide](https://itl.nist.gov/div
 
 ## Where it is insufficient or inappropriate
 
-| Intended conclusion or task | Why a Rgram curve is insufficient |
-|---|---|
-| A causal effect of changing a feature | Conditioning on one observed feature does not remove confounding or create an intervention. |
-| An effect adjusted for other predictors, or an interaction | Separate pairwise fits do not condition jointly on several features. Multivariate estimation is intentionally outside scope. |
-| A complete test of dependence | A flat mean can coexist with changing variance or other distributional changes. The curve does not provide a dependence-test p-value. |
-| A definitive ranking of feature importance | Visual strength and in-sample fit depend on sample distribution and smoothing; they do not establish each feature's incremental value in a joint model. |
-| Reliable prediction beyond observed feature support | Edge clipping or a numerical kernel estimate supplies a value without evidence for the relationship in that region. |
-| Robust regression in the presence of extreme responses | Means and weighted least squares can be sensitive to outliers. A bin median changes the summary, but the smoother has no robust iterative fitting. |
-| A classification, survival, or density-estimation API | Rgram supplies numeric response summaries; it has no classifier probabilities/calibration contract, censoring model, or density estimator. |
-| A guaranteed monotone or bounded curve | The estimators impose neither monotonicity nor response bounds; local-linear values can overshoot. |
-| Formal identification of a sharp threshold | Smoothing can blur a real jump, and bins can create apparent jumps. Dedicated change-point inference is a different task. |
+| Intended conclusion or task                                | Why a Rgram curve is insufficient                                                                                                                       |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A causal effect of changing a feature                      | Conditioning on one observed feature does not remove confounding or create an intervention.                                                             |
+| An effect adjusted for other predictors, or an interaction | Separate pairwise fits do not condition jointly on several features. Multivariate estimation is intentionally outside scope.                            |
+| A complete test of dependence                              | A flat mean can coexist with changing variance or other distributional changes. The curve does not provide a dependence-test p-value.                   |
+| A definitive ranking of feature importance                 | Visual strength and in-sample fit depend on sample distribution and smoothing; they do not establish each feature's incremental value in a joint model. |
+| Reliable prediction beyond observed feature support        | Edge clipping or a numerical kernel estimate supplies a value without evidence for the relationship in that region.                                     |
+| Robust regression in the presence of extreme responses     | Means and weighted least squares can be sensitive to outliers. A bin median changes the summary, but the smoother has no robust iterative fitting.      |
+| A classification, survival, or density-estimation API      | Rgram supplies numeric response summaries; it has no classifier probabilities/calibration contract, censoring model, or density estimator.              |
+| A guaranteed monotone or bounded curve                     | The estimators impose neither monotonicity nor response bounds; local-linear values can overshoot.                                                      |
+| Formal identification of a sharp threshold                 | Smoothing can blur a real jump, and bins can create apparent jumps. Dedicated change-point inference is a different task.                               |
 
 These limits follow from the estimators and their implemented interfaces.
 For example, with $Y=X\varepsilon$ and an independent zero-mean noise term,

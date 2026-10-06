@@ -2,7 +2,7 @@
 
 ## What this example reviews
 
-This example reviews whether an observed feature–response relationship differs
+This example reviews whether an observed feature-response relationship differs
 between two explicitly defined subgroups. Both groups cover the same feature
 range and are fitted with identical smoothing settings. Group B's generating
 mean has a known 0.8 response-unit offset; that construction makes a comparison
@@ -15,13 +15,13 @@ easy to interpret without claiming a real-world group effect.
 
 ## Choices and their impact
 
-| Item | What is being reviewed | Impact and interpretation |
-|---|---|---|
-| Blue and orange points | Responses within each subgroup | Show within-group variation and which feature locations have observations. |
-| Separate fitted curves | Local averages conditional on feature within each selected group | Each curve uses only its own group's rows; the groups are not pooled into a single fit. |
-| Shared bandwidth 0.4 | A consistent smoothing scale | Makes differences in this display easier to compare without confounding the visual comparison with different bandwidth rules. |
-| Common feature range and grid | Comparable evaluation coordinates | Curves can be compared at the same locations here. Real groups may have little or no overlapping support. |
-| Vertical separation | Difference between fitted local summaries | Describes an observed association between subgroup and response at a feature location; it is not a causal or adjusted effect. |
+| Item                          | What is being reviewed                                           | Impact and interpretation                                                                                                     |
+| ----------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Blue and orange points        | Responses within each subgroup                                   | Show within-group variation and which feature locations have observations.                                                    |
+| Separate fitted curves        | Local averages conditional on feature within each selected group | Each curve uses only its own group's rows; the groups are not pooled into a single fit.                                       |
+| Shared bandwidth 0.4          | A consistent smoothing scale                                     | Makes differences in this display easier to compare without confounding the visual comparison with different bandwidth rules. |
+| Common feature range and grid | Comparable evaluation coordinates                                | Curves can be compared at the same locations here. Real groups may have little or no overlapping support.                     |
+| Vertical separation           | Difference between fitted local summaries                        | Describes an observed association between subgroup and response at a feature location; it is not a causal or adjusted effect. |
 
 ## Interpreting the plot
 
