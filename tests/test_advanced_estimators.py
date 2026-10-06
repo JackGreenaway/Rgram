@@ -287,9 +287,10 @@ def test_dependent_resampling_matches_reference(resampling):
     np.testing.assert_allclose([result["lower"][0], result["upper"][0]], expected)
 
 
-def test_kernel_return_ci_and_validation():
+def test_kernel_interval_and_validation():
     model = smoother(kernel="gaussian").fit([0.0, 1.0, 2.0], [1.0, 3.0, 2.0])
-    pred, lo, hi = model.predict([1.0], return_ci=True, n_resamples=20, random_state=1)
+    interval = model.predict_interval([1.0], n_resamples=20, random_state=1)
+    pred, lo, hi = interval.select("prediction", "lower", "upper").to_numpy().T
     np.testing.assert_allclose(pred, model.predict([1.0]))
     assert np.isfinite(lo).all() and (hi >= lo).all()
     for options in (

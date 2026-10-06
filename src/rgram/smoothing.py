@@ -184,27 +184,24 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
 
     def fit(
         self,
-        X: Input = None,
-        y: Input = None,
+        X: Input,
+        y: Input,
+        *,
         data: Optional[Frame] = None,
         sample_weight: Optional[ArrayLike] = None,
-        *,
-        x: Input = None,
     ) -> KernelSmoother:
         """Fit one numeric feature and one numeric response.
 
         Parameters
         ----------
-        X : array-like of shape (n_samples,) or (n_samples, 1), or str, default=None
+        X : array-like of shape (n_samples,) or (n_samples, 1), or str
             Numeric feature, or its column name when data is supplied.
-        y : array-like of shape (n_samples,) or (n_samples, 1), or str, default=None
-            Numeric response, or its column name when data is supplied. Required.
+        y : array-like of shape (n_samples,) or (n_samples, 1), or str
+            Numeric response, or its column name when data is supplied.
         data : polars.DataFrame or polars.LazyFrame, default=None
             Source for named columns. Selected columns are materialized once.
         sample_weight : array-like of shape (n_samples,), default=None
             Finite nonnegative influence weights with positive total mass.
-        x : array-like or str, default=None
-            Legacy alias for X. Supply exactly one of X and x.
 
         Returns
         -------
@@ -235,7 +232,7 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
         >>> model.predict(X).shape
         (10,)
         """
-        x = self._resolve_X(X, x)
+        x = X
         self._is_fitted = False
         self._validate_parameters()
         frame, _, _ = self._prepare_data(x, y, data)
@@ -290,7 +287,6 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
         self.bandwidth_ = float(bandwidth)
         self.n_features_in_ = 1
         self.n_samples_in_ = len(x_train)
-        self._bw_value = self.bandwidth_  # compatibility with previous releases
         self.data_summary_ = self._data_summary()
         self.data_summary_.update(
             {
@@ -499,12 +495,12 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
             }
         ), result
 
-    def get_weights(self, x_eval: Input, *, kind: str = "prediction") -> FloatArray:
+    def get_weights(self, X: Input, *, kind: str = "prediction") -> FloatArray:
         """Inspect the dense matrix of local influences in training-row order.
 
         Parameters
         ----------
-        x_eval : array-like of shape (n_queries,) or (n_queries, 1)
+        X : array-like of shape (n_queries,) or (n_queries, 1)
             Query feature values.
         kind : {'prediction', 'kernel'}, default='prediction'
             Prediction coefficients or normalized nonnegative kernel/observation
@@ -524,14 +520,14 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
         """
         if kind not in ("prediction", "kernel"):
             raise ValueError("kind must be 'prediction' or 'kernel'")
-        return self._evaluate(x_eval, weight_kind=kind)[1]
+        return self._evaluate(X, weight_kind=kind)[1]
 
-    def predict_diagnostics(self, x_eval: Input) -> pl.DataFrame:
+    def predict_diagnostics(self, X: Input) -> pl.DataFrame:
         """Return local support and numerical information for each query.
 
         Parameters
         ----------
-        x_eval : array-like of shape (n_queries,) or (n_queries, 1)
+        X : array-like of shape (n_queries,) or (n_queries, 1)
             One query feature, with fitted feature name if named.
 
         Returns
@@ -547,65 +543,34 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
         effective_n = 1 / sum(normalized kernel/observation weights ** 2). This
         measures weight concentration, not confidence or signed-coefficient variance.
         """
-        return self._evaluate(x_eval)[0]
+        return self._evaluate(X)[0]
 
-    def predict(
-        self,
-        X: Input = None,
-        return_ci: bool = False,
-        *,
-        x_eval: Input = None,
-        confidence_level: float = 0.95,
-        n_resamples: int = 200,
-        random_state: Optional[int] = None,
-    ) -> Prediction:
+    def predict(self, X: Input) -> Prediction:
         """Evaluate the local-constant or local-linear response curve.
 
         Parameters
         ----------
-        X : array-like of shape (n_queries,) or (n_queries, 1), default=None
+        X : array-like of shape (n_queries,) or (n_queries, 1)
             Query feature values. Named inputs must match the fitted feature.
-        return_ci : bool, default=False
-            Request pointwise IID paired-bootstrap confidence intervals.
-        x_eval : array-like, default=None
-            Legacy alias for X; supply exactly one alias.
-        confidence_level : float, default=0.95
-            Nominal interval level strictly between zero and one. Used for return_ci.
-        n_resamples : int, default=200
-            Number of bootstrap refits, at least two. Used for return_ci.
-        random_state : int or None, default=None
-            Seed for interval resampling. Does not affect ordinary predictions.
 
         Returns
         -------
-        prediction : ndarray of shape (n_queries,) or tuple of ndarrays
-            One value per query in input order; with return_ci=True, returns
-            (prediction, lower, upper). Bounds concern the curve, not new observations.
+        prediction : ndarray of shape (n_queries,)
+            One value per query in input order. Unsupported estimates are
+            NaN unless the configured support policy raises.
 
         Raises
         ------
         sklearn.exceptions.NotFittedError
             If no successful fit is available.
         ValueError
-            For invalid queries, feature-name mismatch, strict support/range policies,
-            or invalid interval settings.
+            For invalid queries, feature-name mismatch, or strict policies.
 
         See Also
         --------
-        predict_interval : Group/block resampling and draw-support diagnostics.
+        predict_interval : Pointwise bootstrap bounds and draw-support diagnostics.
         """
-        x_eval = self._resolve_X(X, x_eval, alias="x_eval")
-        if return_ci:
-            interval = self.predict_interval(
-                x_eval,
-                confidence_level=confidence_level,
-                n_resamples=n_resamples,
-                random_state=random_state,
-            )
-            return tuple(
-                interval[name].to_numpy() for name in ("prediction", "lower", "upper")
-            )
-        return self.predict_diagnostics(x_eval)["prediction"].to_numpy()
+        return self.predict_diagnostics(X)["prediction"].to_numpy()
 
     def predict_grid(self) -> pl.DataFrame:
         """Evaluate diagnostics on an evenly spaced training-range grid.
@@ -629,44 +594,35 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
 
     def fit_predict(
         self,
-        X: Input = None,
-        y: Input = None,
-        data: Optional[Frame] = None,
-        x_eval: Input = None,
-        return_ci: bool = False,
-        sample_weight: Optional[ArrayLike] = None,
+        X: Input,
+        y: Input,
         *,
-        x: Input = None,
+        data: Optional[Frame] = None,
+        sample_weight: Optional[ArrayLike] = None,
     ) -> Prediction:
-        """Fit and evaluate at training rows or explicitly supplied queries.
+        """Fit and evaluate at the original training feature values.
 
         Parameters
         ----------
-        X : array-like or str, default=None
+        X : array-like or str
             One training feature, or its column name when data is supplied.
-        y : array-like or str, default=None
-            One training response, or its column name when data is supplied. Required.
+        y : array-like or str
+            Aligned numeric response, or its column name when data is supplied.
         data : polars.DataFrame or polars.LazyFrame, default=None
             Source for named columns.
-        x_eval : array-like or None, default=None
-            Queries to evaluate; None uses original training feature values.
-        return_ci : bool, default=False
-            Return IID bootstrap curve bounds with predict's default settings.
         sample_weight : array-like of shape (n_samples,), default=None
             Observation influence weights; see fit.
-        x : array-like or str, default=None
-            Legacy alias for X; supply exactly one alias.
 
         Returns
         -------
-        prediction : ndarray or tuple of ndarrays
-            Predictions in query order; with return_ci=True, (prediction, lower, upper).
+        prediction : ndarray of shape (n_samples,)
+            Predictions at original training rows, preserving their order.
 
         Notes
         -----
-        For seeded or customized intervals use fit followed by predict_interval.
-        Training predictions are descriptive, not held-out performance estimates.
+        Training predictions describe the fit, not held-out performance.
+        Fit followed by predict evaluates new queries; use predict_interval
+        for bootstrap confidence bounds.
         """
-        x = self._resolve_X(X, x)
-        self.fit(x, y, data=data, sample_weight=sample_weight)
-        return self.predict(self.X_ if x_eval is None else x_eval, return_ci=return_ci)
+        self.fit(X, y, data=data, sample_weight=sample_weight)
+        return self.predict(self.X_)

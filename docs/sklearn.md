@@ -42,10 +42,9 @@ Refit after changing any parameter that determines the learned model.
 `predict` and diagnostics raise `sklearn.exceptions.NotFittedError` before a
 successful fit, including after a failed refit.
 
-The conventional `X=` keyword works for `fit`, `fit_predict`, and `predict`.
-Legacy `x=` remains available for fitting and regressogram prediction;
-`x_eval=` remains available for smoother prediction. Pass only one alias.
-For column-name exploration, use `fit(x="temperature", y="demand", data=frame)`
+Use `X=` consistently for fitting, prediction, and diagnostics.
+`predict(X)` always returns a one-dimensional array.
+For column-name exploration, use `fit(X="temperature", y="demand", data=frame)`
 with a Polars DataFrame or LazyFrame. Pass `data` and `sample_weight` by keyword.
 
 ## Prediction pipelines and tuning
@@ -165,7 +164,7 @@ response curve; it does not reveal an effect adjusted for other variables.
 | Unsupported locations | Compact kernels and empty regressogram bins can return NaN with `SupportWarning`. Ordinary sklearn scorers reject non-finite predictions. Use `unsupported="raise"` to fail promptly, increase bandwidth/reduce bins, or inspect coverage with `CoverageSearchCV`. Never silently discard validation rows. |
 | Extrapolation | Regressograms default to edge-cell clipping; smoothers evaluate the actual query. Both warn outside the training range and offer `extrapolation="raise"` or `"nan"`. Gaussian kernels usually avoid gaps in support, but do not guarantee useful extrapolation. |
 | Automatic tuning | Default bin/bandwidth rules use training features, not held-out prediction error. CV runs only when requested; `n_bins="cv"` explicitly enables internal CV. |
-| Uncertainty | `predict` returns a 1D array by default. `predict_interval` returns pointwise bootstrap confidence intervals for the curve, not future-observation prediction intervals. Regressogram `return_ci=True` returns configured descriptive endpoints; smoother `return_ci=True` bootstraps. |
+| Uncertainty | `predict` returns a 1D array by default. `predict_interval` returns pointwise bootstrap confidence intervals for the curve, not future-observation prediction intervals. Configured regressogram descriptive endpoints are available in `predict_diagnostics(X)` as `summary_lower` and `summary_upper`. |
 | Score | Inherited `score` is R² and accepts scoring weights. `CoverageSearchCV.best_score_` is negative pooled validation MSE; its `score` is R². |
 
 `CoverageSearchCV` is an optional Rgram helper, not a drop-in `GridSearchCV`:

@@ -57,6 +57,7 @@ Regressogram `predict_diagnostics` returns:
 |---|---|
 | `x` | Original query coordinate. |
 | `prediction` | Bin aggregation at the query. |
+| `summary_lower`, `summary_upper` | Present only with configured `ci`: descriptive bin endpoints, distinct from bootstrap confidence bounds. |
 | `rgram_bin` | Assigned group/cell, including edge assignment where applicable. |
 | `n_samples`, `weight_sum`, `n_positive_weight` | Information from the assigned occupied bin, or null if absent. |
 | `supported` | Whether the prediction is finite. |
@@ -73,7 +74,7 @@ Kernel `predict_diagnostics` and `predict_grid` return:
 
 ## Residual diagnostics
 
-`regression_diagnostics(x, y)` returns `x`, `observed`, `prediction`, `residual`,
+`regression_diagnostics(X, y)` returns `x`, `observed`, `prediction`, `residual`,
 and `supported`. Residual is observed minus predicted, with NaN when unsupported.
 It accepts training or held-out aligned pairs. No row is removed because its
 prediction is unsupported.
@@ -115,10 +116,3 @@ indices, and `n_splits_` stores the fold count. `best_index_`, `best_params_`,
 winner. An all-ineligible fit keeps results for inspection but does not produce
 a fitted predictor. Internal `Regressogram(n_bins="cv")` exposes the same results
 dictionary and its selected bin count, but not a complete search object.
-
-## Compatibility state
-
-`Regressogram.over_cols` and `KernelSmoother._bw_value` are legacy implementation
-state. They are not additional tuning parameters or supported result schemas;
-use the fitted attributes above. Private computational buffers and helper methods
-are covered by [implementation responsibilities](../internals.md).

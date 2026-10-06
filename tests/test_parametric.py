@@ -20,7 +20,7 @@ class TestRegressogramParameterCombinations:
         y = np.sin(x)
 
         rgram = Regressogram(binning=binning)
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert len(result) == 30
 
@@ -34,7 +34,7 @@ class TestRegressogramParameterCombinations:
         y = np.sin(x)
 
         rgram = Regressogram(binning=binning, ci=ci)
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert len(result) == 30
 
@@ -45,7 +45,7 @@ class TestRegressogramParameterCombinations:
         y = x**2
 
         rgram = Regressogram(binning="dist", n_bins=n_bins)
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert len(result) == 50
 
@@ -54,8 +54,8 @@ class TestRegressogramParameterCombinations:
         x = np.linspace(0, 10, 30)
         y = x
 
-        result1 = Regressogram(binning="width").fit_predict(x=x, y=y)
-        result2 = Regressogram(binning="width", n_bins=100).fit_predict(x=x, y=y)
+        result1 = Regressogram(binning="width").fit_predict(X=x, y=y)
+        result2 = Regressogram(binning="width", n_bins=100).fit_predict(X=x, y=y)
 
         assert len(result1) == len(result2)
 
@@ -72,7 +72,7 @@ class TestKernelSmootherParameterCombinations:
         )
 
         smoother = KernelSmoother(bandwidth=bandwidth)
-        result = smoother.fit_predict(data=df, x="x", y="y")
+        result = smoother.fit_predict(data=df, X="x", y="y")
 
         assert len(result) == len(df.get_column("x"))
 
@@ -84,7 +84,7 @@ class TestKernelSmootherParameterCombinations:
         )
 
         smoother = KernelSmoother(bandwidth="manual", bandwidth_value=bw_value)
-        result = smoother.fit_predict(data=df, x="x", y="y")
+        result = smoother.fit_predict(data=df, X="x", y="y")
 
         assert len(result) == 50
 
@@ -103,7 +103,7 @@ class TestDataFrameInputVariations:
             df = df.lazy()
 
         rgram = Regressogram()
-        result = rgram.fit_predict(data=df, x="x", y="y")
+        result = rgram.fit_predict(data=df, X="x", y="y")
 
         assert len(result) == 20
 
@@ -113,7 +113,7 @@ class TestDataFrameInputVariations:
 
         rgram = Regressogram()
         with pytest.raises(Exception):
-            rgram.fit(data=df, x=0, y=1)
+            rgram.fit(data=df, X=0, y=1)
 
     def test_case_sensitive_column_names(self):
         """Test that column names are case-sensitive."""
@@ -122,10 +122,10 @@ class TestDataFrameInputVariations:
         )
 
         rgram = Regressogram()
-        result1 = rgram.fit_predict(data=df, x="X", y="Y")
+        result1 = rgram.fit_predict(data=df, X="X", y="Y")
 
         rgram2 = Regressogram()
-        result2 = rgram2.fit_predict(data=df, x="x", y="y")
+        result2 = rgram2.fit_predict(data=df, X="x", y="y")
 
         # Results should be different due to different data
         assert result1[0] != result2[0]
@@ -199,7 +199,7 @@ class TestPredictWithVaryingInput:
         y = x**2
 
         rgram = Regressogram()
-        rgram.fit(x=x, y=y)
+        rgram.fit(X=x, y=y)
         pred = rgram.predict([5.0])
 
         assert len(pred) == 1
@@ -211,7 +211,7 @@ class TestPredictWithVaryingInput:
         y = x
 
         rgram = Regressogram()
-        rgram.fit(x=x, y=y)
+        rgram.fit(X=x, y=y)
 
         # Predict outside range
         pred = rgram.predict([-5.0, 15.0])
@@ -225,7 +225,7 @@ class TestPredictWithVaryingInput:
         y = np.sin(x)
 
         rgram = Regressogram()
-        rgram.fit(x=x, y=y)
+        rgram.fit(X=x, y=y)
 
         # Predict at extremes
         pred = rgram.predict([x.min(), x.max()])
@@ -238,7 +238,7 @@ class TestPredictWithVaryingInput:
         y_train = x_train
 
         rgram = Regressogram()
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         x_test = np.linspace(0, 10, 1000)
         pred = rgram.predict(x_test)
@@ -258,7 +258,13 @@ class TestCIComputation:
         ci = (lambda col: col.quantile(0.1), lambda col: col.quantile(0.9))
 
         rgram = Regressogram(ci=ci)
-        pred, lci, uci = rgram.fit_predict(x=x, y=y, return_ci=True)
+        pred, lci, uci = (
+            rgram.fit(X=x, y=y)
+            .predict_diagnostics(rgram.X_)
+            .select("prediction", "summary_lower", "summary_upper")
+            .to_numpy()
+            .T
+        )
 
         # Remove NaN values for comparison
         valid_idx = ~(np.isnan(lci) | np.isnan(uci))
@@ -272,7 +278,13 @@ class TestCIComputation:
         ci = (lambda col: col.mean() - 0.01, lambda col: col.mean() + 0.01)
 
         rgram = Regressogram(ci=ci)
-        result = rgram.fit_predict(x=x, y=y, return_ci=True)
+        result = (
+            rgram.fit(X=x, y=y)
+            .predict_diagnostics(rgram.X_)
+            .select("prediction", "summary_lower", "summary_upper")
+            .to_numpy()
+            .T
+        )
 
         assert len(result) == 3
 
@@ -284,7 +296,13 @@ class TestCIComputation:
         ci = (lambda col: col.mean() - 100, lambda col: col.mean() + 100)
 
         rgram = Regressogram(ci=ci)
-        pred, lci, uci = rgram.fit_predict(x=x, y=y, return_ci=True)
+        pred, lci, uci = (
+            rgram.fit(X=x, y=y)
+            .predict_diagnostics(rgram.X_)
+            .select("prediction", "summary_lower", "summary_upper")
+            .to_numpy()
+            .T
+        )
 
         assert (lci <= pred).all()
         assert (pred <= uci).all()

@@ -68,12 +68,18 @@ def test_quantile_and_explicit_summary_endpoints():
         n_bins=1, agg=quantile(0.75), ci=(quantile(0.1), quantile(0.9))
     )
     model.fit([0.0, 1.0, 2.0, 3.0], [0.0, 2.0, 8.0, 10.0])
-    pred, lo, hi = model.predict([1.0], return_ci=True)
+    assert model.predict([1.0]).shape == (1,)
+    pred, lo, hi = (
+        model.predict_diagnostics([1.0])
+        .select("prediction", "summary_lower", "summary_upper")
+        .to_numpy()
+        .T
+    )
     np.testing.assert_allclose(
         [pred[0], lo[0], hi[0]], np.quantile([0, 2, 8, 10], [0.75, 0.1, 0.9])
     )
     empty = Regressogram(n_bins=1).fit([0, 1], [0, 1])
-    assert empty.predict([0], return_ci=True)[1:] == (None, None)
+    assert "summary_lower" not in empty.predict_diagnostics([0]).columns
 
 
 @pytest.mark.parametrize(

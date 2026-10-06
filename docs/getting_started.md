@@ -1,5 +1,12 @@
 # Getting started
 
+## API stability
+
+Rgram has an **unstable API**. Parameters, methods, and result schemas may change
+between releases without backward compatibility or a deprecation period.
+Pin the package version for reproducible analyses.
+
+
 ## Installation
 
 Install the library and optional plotting support:
@@ -51,7 +58,7 @@ import polars as pl
 
 frame = pl.DataFrame({"temperature": X[:, 0], "demand": y})
 model = Regressogram(n_bins=6).fit(
-    x="temperature", y="demand", data=frame,
+    X="temperature", y="demand", data=frame,
 )
 print(model.predict(pl.DataFrame({"temperature": [1.0, 2.0, 3.0]})))
 ```

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence, Type, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import polars as pl
@@ -13,95 +13,7 @@ from rgram._typing import Array, FloatArray, Frame, Input
 
 
 class BaseUtils:
-    """
-    BaseUtils
-
-    Utility base class for DataFrame-related utilities, such as list conversion and group-over operations.
-
-    """
-
-    def __init__(
-        self,
-    ) -> None:
-        pass
-
-    @staticmethod
-    def _resolve_X(X: Input, legacy: Input, *, alias: str = "x") -> Input:
-        """Accept sklearn's X keyword while retaining the exploration API."""
-        if X is not None and legacy is not None:
-            raise TypeError(f"Pass either X or {alias}, not both")
-        values = X if X is not None else legacy
-        if values is None:
-            raise TypeError("Missing required input X")
-        return values
-
-    @staticmethod
-    def _to_list(item: Optional[Union[str, Sequence[Any]]]) -> Optional[list[Any]]:
-        """
-        Convert a string or sequence to a list, or return None.
-
-        Parameters
-        ----------
-        item : str, sequence, or None
-            The item to convert.
-
-        Returns
-        -------
-        list or None
-            The converted list or None if input is None.
-        """
-        if item is None:
-            return None
-
-        elif isinstance(item, str):
-            return [item]
-
-        return list(item)
-
-    @staticmethod
-    def _init_kws(var_input: Any, dataclass: Type) -> Any:
-        """
-        Initialise keyword arguments for dataclass instantiation.
-
-        Parameters
-        ----------
-        var_input : any
-            The input data, can be a dataclass instance or a dictionary-like object.
-        dataclass : type
-            The dataclass type to instantiate.
-
-        Returns
-        -------
-        any
-            An instance of the dataclass or an empty dataclass if input is None.
-        """
-
-        if var_input is True:
-            return dataclass()
-
-        elif isinstance(var_input, dict):
-            return dataclass(**var_input)
-
-        elif isinstance(var_input, dataclass):
-            return var_input
-
-        else:
-            return None
-
-    def _over_function(self, x: pl.Expr) -> pl.Expr:
-        """
-        Apply a Polars expression over grouping columns if present.
-
-        Parameters
-        ----------
-        x : pl.Expr
-            The Polars expression to apply.
-        Returns
-        -------
-        pl.Expr
-            The expression.
-        """
-        return x
+    """Shared validation and inspection methods for univariate regressors."""
 
     @staticmethod
     def _is_array_like(obj: Any) -> bool:
@@ -582,12 +494,12 @@ class BaseUtils:
             "weights_modified_in_snapshot": False,
         }
 
-    def regression_diagnostics(self, x: Input, y: Input) -> pl.DataFrame:
+    def regression_diagnostics(self, X: Input, y: Input) -> pl.DataFrame:
         """Inspect observed values, fitted values, and residuals in input order.
 
         Parameters
         ----------
-        x : array-like of shape (n_samples,) or (n_samples, 1)
+        X : array-like of shape (n_samples,) or (n_samples, 1)
             One evaluation feature. Named inputs must match the fitted feature.
         y : array-like of shape (n_samples,) or (n_samples, 1)
             Observed response, aligned with x. May be training or held-out data.
@@ -606,10 +518,10 @@ class BaseUtils:
             For invalid, misaligned inputs or strict prediction policies.
         """
         check_is_fitted(self)
-        values = self._prediction_features(x)
+        values = self._prediction_features(X)
         target = self._prediction_array(y)
         self._validate_arrays(values, target)
-        prediction = self.predict(x)
+        prediction = self.predict(X)
         return pl.DataFrame(
             {
                 "x": values,
@@ -622,7 +534,7 @@ class BaseUtils:
 
     def predict_interval(
         self,
-        x: Input,
+        X: Input,
         *,
         confidence_level: float = 0.95,
         n_resamples: int = 200,
@@ -637,7 +549,7 @@ class BaseUtils:
 
         Parameters
         ----------
-        x : array-like of shape (n_queries,) or (n_queries, 1)
+        X : array-like of shape (n_queries,) or (n_queries, 1)
             Query locations; order and duplicates are preserved.
         confidence_level : float, default=0.95
             Nominal interval level strictly between zero and one.
@@ -687,7 +599,7 @@ class BaseUtils:
 
         return bootstrap_interval(
             self,
-            x,
+            X,
             confidence_level=confidence_level,
             n_resamples=n_resamples,
             random_state=random_state,

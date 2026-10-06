@@ -24,8 +24,8 @@ class TestSortingPreservation:
         rgram1 = Regressogram(binning="int", agg=lambda s: s.mean())
         rgram2 = Regressogram(binning="int", agg=lambda s: s.mean())
 
-        result_sorted = rgram1.fit_predict(x=x_sorted, y=y_sorted)
-        result_unsorted = rgram2.fit_predict(x=x_unsorted, y=y_unsorted)
+        result_sorted = rgram1.fit_predict(X=x_sorted, y=y_sorted)
+        result_unsorted = rgram2.fit_predict(X=x_unsorted, y=y_unsorted)
 
         # Both should produce predictions for x=1,2,3,4,5
         # The predictions at each x value should match
@@ -37,11 +37,11 @@ class TestSortingPreservation:
         y_train = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
         rgram = Regressogram(binning="int")
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         # Predict at specific points in different order
         x_test = np.array([5.0, 3.0, 1.0, 4.0, 2.0])
-        pred = rgram.predict(x=x_test)
+        pred = rgram.predict(X=x_test)
 
         assert len(pred) == len(x_test)
         assert isinstance(pred, np.ndarray)
@@ -57,13 +57,13 @@ class TestSortingPreservation:
         rgram1 = Regressogram(binning="width", agg=lambda s: s.mean())
         rgram2 = Regressogram(binning="width", agg=lambda s: s.mean())
 
-        rgram1.fit(x=x1, y=y1)
-        rgram2.fit(x=x2, y=y2)
+        rgram1.fit(X=x1, y=y1)
+        rgram2.fit(X=x2, y=y2)
 
         # Predict at same points
         test_points = np.array([2.0, 3.0, 4.0])
-        pred1 = rgram1.predict(x=test_points)
-        pred2 = rgram2.predict(x=test_points)
+        pred1 = rgram1.predict(X=test_points)
+        pred2 = rgram2.predict(X=test_points)
 
         # Should be close (might have minor differences due to binning)
         assert isinstance(pred1, np.ndarray)
@@ -80,8 +80,8 @@ class TestSortingPreservation:
         rgram1 = Regressogram(binning="dist", agg=lambda s: s.mean(), n_bins=3)
         rgram2 = Regressogram(binning="dist", agg=lambda s: s.mean(), n_bins=3)
 
-        rgram1.fit(x=x1, y=y1)
-        rgram2.fit(x=x2, y=y2)
+        rgram1.fit(X=x1, y=y1)
+        rgram2.fit(X=x2, y=y2)
 
         # Both should complete without error
         assert rgram1._is_fitted
@@ -98,12 +98,12 @@ class TestSortingPreservation:
         rgram1 = Regressogram(binning="none", agg=lambda s: s.mean())
         rgram2 = Regressogram(binning="none", agg=lambda s: s.mean())
 
-        rgram1.fit(x=x1, y=y1)
-        rgram2.fit(x=x2, y=y2)
+        rgram1.fit(X=x1, y=y1)
+        rgram2.fit(X=x2, y=y2)
 
         # Predict at same point - should map to same y value
-        pred1_at_3 = rgram1.predict(x=np.array([3.0]))
-        pred2_at_3 = rgram2.predict(x=np.array([3.0]))
+        pred1_at_3 = rgram1.predict(X=np.array([3.0]))
+        pred2_at_3 = rgram2.predict(X=np.array([3.0]))
 
         assert np.isclose(pred1_at_3[0], pred2_at_3[0])
 
@@ -113,7 +113,7 @@ class TestSortingPreservation:
         y = np.array([50.0, 20.0, 80.0, 10.0, 90.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.mean())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Result should have same length as x
         assert len(result) == len(x)
@@ -129,11 +129,11 @@ class TestSortingPreservation:
         rgram1 = Regressogram(binning="int", agg=lambda s: s.mean())
         rgram2 = Regressogram(binning="int", agg=lambda s: s.mean())
 
-        rgram1.fit(x=x1, y=y1)
-        rgram2.fit(x=x2, y=y2)
+        rgram1.fit(X=x1, y=y1)
+        rgram2.fit(X=x2, y=y2)
 
-        pred1_at_1 = rgram1.predict(x=np.array([1.0]))
-        pred2_at_1 = rgram2.predict(x=np.array([1.0]))
+        pred1_at_1 = rgram1.predict(X=np.array([1.0]))
+        pred2_at_1 = rgram2.predict(X=np.array([1.0]))
 
         # Both should aggregate to same mean (20.0)
         assert np.isclose(pred1_at_1[0], pred2_at_1[0])
@@ -153,7 +153,7 @@ class TestDataFrameSorting:
         )
 
         rgram = Regressogram(binning="width", agg=lambda s: s.mean())
-        result = rgram.fit_predict(data=df, x="x", y="y")
+        result = rgram.fit_predict(data=df, X="x", y="y")
 
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
@@ -165,7 +165,7 @@ class TestDataFrameSorting:
         )
 
         rgram = Regressogram(binning="int", agg=lambda s: s.mean())
-        result = rgram.fit_predict(data=df, x="x", y="y")
+        result = rgram.fit_predict(data=df, X="x", y="y")
 
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
@@ -180,7 +180,7 @@ class TestDataFrameSorting:
         )
 
         rgram = Regressogram(binning="int", agg=lambda s: s.mean())
-        result = rgram.fit_predict(data=df, x="x", y="y")
+        result = rgram.fit_predict(data=df, X="x", y="y")
 
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
@@ -195,15 +195,15 @@ class TestPredictSorting:
         y_train = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.mean())
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         # Predict with reverse order
         x_test_reversed = np.array([5.0, 4.0, 3.0, 2.0, 1.0])
-        pred_reversed = rgram.predict(x=x_test_reversed)
+        pred_reversed = rgram.predict(X=x_test_reversed)
 
         # Predict with original order
         x_test_original = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
-        pred_original = rgram.predict(x=x_test_original)
+        pred_original = rgram.predict(X=x_test_original)
 
         # Arrays should have correct length
         assert len(pred_reversed) == 5
@@ -215,15 +215,15 @@ class TestPredictSorting:
         y_train = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
         rgram = Regressogram(binning="int")
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         # Get predictions
         x_test = np.array([2.5, 3.5])
-        pred1 = rgram.predict(x=x_test)
+        pred1 = rgram.predict(X=x_test)
 
         # Same points, different order
         x_test_reordered = np.array([3.5, 2.5])
-        pred2 = rgram.predict(x=x_test_reordered)
+        pred2 = rgram.predict(X=x_test_reordered)
 
         # Verify both are arrays
         assert isinstance(pred1, np.ndarray)
@@ -235,13 +235,13 @@ class TestPredictSorting:
         y_train = np.sin(x_train)
 
         rgram = Regressogram(binning="dist", agg=lambda s: s.mean())
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         # Create large unordered prediction set
         np.random.seed(42)
         x_test = np.random.uniform(0, 10, 500)
 
-        pred = rgram.predict(x=x_test)
+        pred = rgram.predict(X=x_test)
 
         assert len(pred) == 500
         assert isinstance(pred, np.ndarray)
@@ -261,8 +261,8 @@ class TestBinningConsistency:
         rgram1 = Regressogram(binning="int", agg=lambda s: s.sum())
         rgram2 = Regressogram(binning="int", agg=lambda s: s.sum())
 
-        rgram1.fit(x=x1, y=y1)
-        rgram2.fit(x=x2, y=y2)
+        rgram1.fit(X=x1, y=y1)
+        rgram2.fit(X=x2, y=y2)
 
         # Both should have same bin structure
         assert rgram1._is_fitted
@@ -283,8 +283,8 @@ class TestBinningConsistency:
             rgram_unsorted = Regressogram(binning=strategy, agg=lambda s: s.mean())
 
             try:
-                rgram_sorted.fit(x=x_sorted, y=y_sorted)
-                rgram_unsorted.fit(x=x_unsorted, y=y_unsorted)
+                rgram_sorted.fit(X=x_sorted, y=y_sorted)
+                rgram_unsorted.fit(X=x_unsorted, y=y_unsorted)
 
                 assert rgram_sorted._is_fitted
                 assert rgram_unsorted._is_fitted

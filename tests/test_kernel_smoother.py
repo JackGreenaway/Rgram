@@ -24,7 +24,7 @@ class TestKernelSmootherBandwidthSelection:
     def test_silverman_bandwidth(self, sample_data):
         """Test Silverman's rule bandwidth selection."""
         smoother = KernelSmoother(bandwidth="silverman")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
 
         result = smoother.predict(sample_data.get_column("x"))
 
@@ -33,7 +33,7 @@ class TestKernelSmootherBandwidthSelection:
     def test_scott_bandwidth(self, sample_data):
         """Test Scott's rule bandwidth selection."""
         smoother = KernelSmoother(bandwidth="scott")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
 
         result = smoother.predict(sample_data.get_column("x"))
 
@@ -42,7 +42,7 @@ class TestKernelSmootherBandwidthSelection:
     def test_manual_bandwidth(self, sample_data):
         """Test manual bandwidth specification."""
         smoother = KernelSmoother(bandwidth="manual", bandwidth_value=0.5)
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
 
         result = smoother.predict(sample_data.get_column("x"))
 
@@ -57,11 +57,11 @@ class TestKernelSmootherBandwidthSelection:
         """Test that different bandwidth methods produce different results."""
         smoother_silverman = KernelSmoother(bandwidth="silverman")
         result_silverman = smoother_silverman.fit_predict(
-            data=sample_data, x="x", y="y"
+            data=sample_data, X="x", y="y"
         )
 
         smoother_scott = KernelSmoother(bandwidth="scott")
-        result_scott = smoother_scott.fit_predict(data=sample_data, x="x", y="y")
+        result_scott = smoother_scott.fit_predict(data=sample_data, X="x", y="y")
 
         # Results should be different
         diff = result_silverman.max() - result_scott.max()
@@ -71,10 +71,10 @@ class TestKernelSmootherBandwidthSelection:
         """Test that wider bandwidth produces smoother results."""
         # Wider bandwidth = smoother curve
         smoother_wide = KernelSmoother(bandwidth="manual", bandwidth_value=2.0)
-        result_wide = smoother_wide.fit_predict(data=sample_data, x="x", y="y")
+        result_wide = smoother_wide.fit_predict(data=sample_data, X="x", y="y")
 
         smoother_narrow = KernelSmoother(bandwidth="manual", bandwidth_value=0.1)
-        result_narrow = smoother_narrow.fit_predict(data=sample_data, x="x", y="y")
+        result_narrow = smoother_narrow.fit_predict(data=sample_data, X="x", y="y")
 
         # Wider should have lower variance (smoother)
         assert result_wide.std() < result_narrow.std()
@@ -93,7 +93,7 @@ class TestKernelSmootherPredict:
         df = pl.DataFrame({"x": x, "y": y})
 
         smoother = KernelSmoother(bandwidth="silverman")
-        smoother.fit(data=df, x="x", y="y")
+        smoother.fit(data=df, X="x", y="y")
         return smoother
 
     def test_predict_with_array(self, fitted_smoother):
@@ -169,7 +169,7 @@ class TestKernelSmootherIntegration:
 
         # Method 1: fit_predict
         smoother1 = KernelSmoother(bandwidth="silverman")
-        result1 = smoother1.fit_predict(data=df, x="x", y="y")
+        result1 = smoother1.fit_predict(data=df, X="x", y="y")
 
         # Both should return predictions
         assert isinstance(result1, np.ndarray)
@@ -186,11 +186,11 @@ class TestKernelSmootherIntegration:
 
         # Very small bandwidth - follows data closely
         smoother_tight = KernelSmoother(bandwidth="manual", bandwidth_value=0.05)
-        result_tight = smoother_tight.fit_predict(data=df, x="x", y="y")
+        result_tight = smoother_tight.fit_predict(data=df, X="x", y="y")
 
         # Large bandwidth - very smooth
         smoother_loose = KernelSmoother(bandwidth="manual", bandwidth_value=1.5)
-        result_loose = smoother_loose.fit_predict(data=df, x="x", y="y")
+        result_loose = smoother_loose.fit_predict(data=df, X="x", y="y")
 
         # Variance in tight should be > variance in loose (more wiggly)
         tight_var = np.std(result_tight)
@@ -219,7 +219,7 @@ class TestKernelTypes:
     def test_epanechnikov_kernel(self, sample_data, x_eval):
         """Test Epanechnikov kernel (default)."""
         smoother = KernelSmoother(kernel="epanechnikov", bandwidth="silverman")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
         result = smoother.predict(x_eval)
 
         assert isinstance(result, np.ndarray)
@@ -229,7 +229,7 @@ class TestKernelTypes:
     def test_gaussian_kernel(self, sample_data, x_eval):
         """Test Gaussian (RBF) kernel."""
         smoother = KernelSmoother(kernel="gaussian", bandwidth="silverman")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
         result = smoother.predict(x_eval)
 
         assert isinstance(result, np.ndarray)
@@ -239,7 +239,7 @@ class TestKernelTypes:
     def test_uniform_kernel(self, sample_data, x_eval):
         """Test uniform (rectangular) kernel."""
         smoother = KernelSmoother(kernel="uniform", bandwidth="silverman")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
         result = smoother.predict(x_eval)
 
         assert isinstance(result, np.ndarray)
@@ -249,7 +249,7 @@ class TestKernelTypes:
     def test_triangular_kernel(self, sample_data, x_eval):
         """Test triangular kernel."""
         smoother = KernelSmoother(kernel="triangular", bandwidth="silverman")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
         result = smoother.predict(x_eval)
 
         assert isinstance(result, np.ndarray)
@@ -259,7 +259,7 @@ class TestKernelTypes:
     def test_cosine_kernel(self, sample_data, x_eval):
         """Test cosine kernel."""
         smoother = KernelSmoother(kernel="cosine", bandwidth="silverman")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
         result = smoother.predict(x_eval)
 
         assert isinstance(result, np.ndarray)
@@ -269,7 +269,7 @@ class TestKernelTypes:
     def test_logistic_kernel(self, sample_data, x_eval):
         """Test logistic kernel."""
         smoother = KernelSmoother(kernel="logistic", bandwidth="silverman")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
         result = smoother.predict(x_eval)
 
         assert isinstance(result, np.ndarray)
@@ -291,7 +291,7 @@ class TestKernelTypes:
         results = {}
         for kernel_name in kernels:
             smoother = KernelSmoother(kernel=kernel_name, bandwidth="silverman")
-            smoother.fit(data=sample_data, x="x", y="y")
+            smoother.fit(data=sample_data, X="x", y="y")
             results[kernel_name] = smoother.predict(x_eval)
 
         # Check that all results are valid
@@ -335,7 +335,7 @@ class TestCustomKernel:
             return pl.when(u.abs() <= 1).then(1.0).otherwise(0.0)
 
         smoother = KernelSmoother(kernel=custom_kernel, bandwidth="silverman")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
         result = smoother.predict([2.0, 5.0, 8.0])
 
         assert isinstance(result, np.ndarray)
@@ -350,7 +350,7 @@ class TestCustomKernel:
             return pl.when(u.abs() <= 1).then(1 - u.abs()).otherwise(0.0)
 
         smoother = KernelSmoother(kernel=custom_kernel, bandwidth="silverman")
-        smoother.fit(data=sample_data, x="x", y="y")
+        smoother.fit(data=sample_data, X="x", y="y")
         result = smoother.predict([2.0, 5.0, 8.0])
 
         assert isinstance(result, np.ndarray)
@@ -378,12 +378,12 @@ class TestCustomKernel:
 
         # Using sharp custom kernel
         smoother_custom = KernelSmoother(kernel=sharp_kernel, bandwidth="silverman")
-        smoother_custom.fit(data=sample_data, x="x", y="y")
+        smoother_custom.fit(data=sample_data, X="x", y="y")
         result_custom = smoother_custom.predict(x_eval)
 
         # Using wide built-in kernel
         smoother_builtin = KernelSmoother(kernel="gaussian", bandwidth="silverman")
-        smoother_builtin.fit(data=sample_data, x="x", y="y")
+        smoother_builtin.fit(data=sample_data, X="x", y="y")
         result_builtin = smoother_builtin.predict(x_eval)
 
         # Results should be different (custom kernel will follow data more closely)
@@ -444,14 +444,14 @@ class TestKernelWithDifferentBandwidths:
     def test_gaussian_kernel_with_silverman(self, sample_data):
         """Test Gaussian kernel with Silverman bandwidth."""
         smoother = KernelSmoother(kernel="gaussian", bandwidth="silverman")
-        result = smoother.fit_predict(data=sample_data, x="x", y="y")
+        result = smoother.fit_predict(data=sample_data, X="x", y="y")
         assert len(result) == 100
         assert np.all(np.isfinite(result))
 
     def test_gaussian_kernel_with_scott(self, sample_data):
         """Test Gaussian kernel with Scott bandwidth."""
         smoother = KernelSmoother(kernel="gaussian", bandwidth="scott")
-        result = smoother.fit_predict(data=sample_data, x="x", y="y")
+        result = smoother.fit_predict(data=sample_data, X="x", y="y")
         assert len(result) == 100
         assert np.all(np.isfinite(result))
 
@@ -460,7 +460,7 @@ class TestKernelWithDifferentBandwidths:
         smoother = KernelSmoother(
             kernel="gaussian", bandwidth="manual", bandwidth_value=0.5
         )
-        result = smoother.fit_predict(data=sample_data, x="x", y="y")
+        result = smoother.fit_predict(data=sample_data, X="x", y="y")
         assert len(result) == 100
         assert np.all(np.isfinite(result))
 
@@ -469,6 +469,6 @@ class TestKernelWithDifferentBandwidths:
         smoother = KernelSmoother(
             kernel="uniform", bandwidth="manual", bandwidth_value=1.0
         )
-        result = smoother.fit_predict(data=sample_data, x="x", y="y")
+        result = smoother.fit_predict(data=sample_data, X="x", y="y")
         assert len(result) == 100
         assert np.all(np.isfinite(result))

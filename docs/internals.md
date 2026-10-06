@@ -2,7 +2,7 @@
 
 This guide covers every package module and the responsibilities of its helpers.
 The supported user interface is the [API reference](api/index.md). Private names,
-legacy state, and internal module functions can change without being additional
+internal state and module functions can change without being additional
 public estimator features. Source links on API pages expose the implementation.
 
 ## Package map
@@ -34,9 +34,7 @@ joins group summaries without reordering, and applies range/support policies.
 `fit` snapshots the selected columns and computes native aggregations in Polars.
 Numeric adapters run directly on group arrays in Python, so their exceptions
 remain normal Python exceptions rather than crossing a Rust callback boundary.
-`_mean`, `_lower_spread`, and `_upper_spread` are retained legacy expression
-helpers for mean and mean ± sample standard deviation; the latter are descriptive
-spread, not confidence limits. `over_cols` is legacy grouping state.
+
 
 ### KernelSmoother
 
@@ -52,8 +50,8 @@ it never sorts a dataset or index.
 singular policy when needed. `_handle_unsupported` applies NaN/error policy.
 `_evaluate` coordinates range policy, coefficients, predictions, support counts,
 and optional dense inspection weights. `_KERNELS` and `_COMPACT_KERNELS` declare
-supported names and the kernels eligible for windows. `_bw_value` mirrors the
-fitted bandwidth for compatibility; public inspection uses `bandwidth_`.
+supported names and the kernels eligible for windows. Public inspection uses
+`bandwidth_`.
 
 ### CoverageSearchCV
 
@@ -106,7 +104,7 @@ stays explicit. Bin boundaries still refit. Draw storage is dense in
 | `Array`, `FloatArray` | General NumPy array and float64 computation/result array. |
 | `Input` | Column-name string, array-like, Polars Series or DataFrame. |
 | `Frame` | Polars DataFrame or LazyFrame for named selection. |
-| `Prediction` | Array or `(prediction, optional lower, optional upper)` tuple. |
+| `Prediction` | One-dimensional float64 prediction array. |
 | `NumericReducer` | One- or two-array callback returning a scalar. |
 | `ExpressionReducer` | Polars expression-to-expression callback. |
 | `WeightedReducer` | Two-expression callback returning a reduction expression. |

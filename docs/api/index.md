@@ -1,5 +1,12 @@
 # API reference
 
+## API stability
+
+Rgram has an **unstable API**. Parameters, methods, and result schemas may change
+between releases without backward compatibility or a deprecation period.
+Pin the package version for reproducible analyses.
+
+
 All top-level exports are documented below. The estimators also inherit
 scikit-learn parameter, scoring, and metadata-request methods. Metadata-request
 methods are included for completeness; their presence does not mean Rgram

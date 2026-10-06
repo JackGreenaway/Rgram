@@ -10,9 +10,7 @@ Array = NDArray[Any]
 FloatArray = NDArray[np.float64]
 Input = Union[str, ArrayLike, pl.Series, pl.DataFrame]
 Frame = Union[pl.DataFrame, pl.LazyFrame]
-Prediction = Union[
-    FloatArray, tuple[FloatArray, Optional[FloatArray], Optional[FloatArray]]
-]
+Prediction = FloatArray
 NumericReducer = Union[
     Callable[[Array], Union[float, int, np.number]],
     Callable[[Array, Array], Union[float, int, np.number]],

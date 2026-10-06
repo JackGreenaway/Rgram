@@ -18,7 +18,7 @@ class TestRegressogramNumericalAccuracy:
         y = 2 * x + 3
 
         rgram = Regressogram(binning="none")  # No binning aggregation
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # For linear data with no binning, predictions should be close to the actuals
         assert isinstance(result, np.ndarray)
@@ -31,7 +31,7 @@ class TestRegressogramNumericalAccuracy:
         y = np.full_like(x, 42.0)
 
         rgram = Regressogram(binning="width")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # All predictions should be close to 42.0
         assert isinstance(result, np.ndarray)
@@ -43,7 +43,7 @@ class TestRegressogramNumericalAccuracy:
         y = np.array([2.0, 4.0, 6.0, 8.0, 10.0, 12.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.mean())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Check that means are computed
         # x=1 -> y mean = (2+4)/2 = 3
@@ -59,7 +59,7 @@ class TestRegressogramNumericalAccuracy:
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.median())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # x=1 -> y median = 2.0
         # x=2 -> y median = 5.0
@@ -75,7 +75,13 @@ class TestRegressogramNumericalAccuracy:
         rgram = Regressogram(
             ci=(lambda v: v.mean() - v.std(), lambda v: v.mean() + v.std())
         )
-        pred, lci, uci = rgram.fit_predict(x=x, y=y, return_ci=True)
+        pred, lci, uci = (
+            rgram.fit(X=x, y=y)
+            .predict_diagnostics(rgram.X_)
+            .select("prediction", "summary_lower", "summary_upper")
+            .to_numpy()
+            .T
+        )
 
         # Remove NaN values for comparison
         valid_idx = ~(np.isnan(lci) | np.isnan(uci))
@@ -90,7 +96,13 @@ class TestRegressogramNumericalAccuracy:
         rgram = Regressogram(
             ci=(lambda v: v.mean() - v.std(), lambda v: v.mean() + v.std())
         )
-        pred, lci, uci = rgram.fit_predict(x=x, y=y, return_ci=True)
+        pred, lci, uci = (
+            rgram.fit(X=x, y=y)
+            .predict_diagnostics(rgram.X_)
+            .select("prediction", "summary_lower", "summary_upper")
+            .to_numpy()
+            .T
+        )
 
         # Predictions should be between bounds (allow for NaN)
         valid_idx = ~(np.isnan(pred) | np.isnan(lci) | np.isnan(uci))
@@ -103,7 +115,7 @@ class TestRegressogramNumericalAccuracy:
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.max())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Max predictions should not exceed max of y
         assert np.all(result <= np.max(y))
@@ -114,7 +126,7 @@ class TestRegressogramNumericalAccuracy:
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.min())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Min predictions should not go below min of y
         assert np.all(result >= np.min(y))
@@ -125,7 +137,7 @@ class TestRegressogramNumericalAccuracy:
         y = x * 2 + np.random.randn(50) * 1e4
 
         rgram = Regressogram()
-        predictions = rgram.fit_predict(x=x, y=y)
+        predictions = rgram.fit_predict(X=x, y=y)
 
         assert np.all(np.isfinite(predictions))
 
@@ -135,7 +147,7 @@ class TestRegressogramNumericalAccuracy:
         y = x * 2 + np.random.randn(50) * 1e-7
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Predictions should be finite
         assert np.all(np.isfinite(result))
@@ -146,7 +158,7 @@ class TestRegressogramNumericalAccuracy:
         y = np.exp(x)  # Monotonically increasing
 
         rgram = Regressogram(binning="width")
-        rgram.fit(x=x, y=y)
+        rgram.fit(X=x, y=y)
         pred = rgram.predict(x)
 
         # Check if predictions are monotonic (allowing for ties in binning)
@@ -165,7 +177,7 @@ class TestKernelSmootherNumericalAccuracy:
         y = np.full_like(x, 5.0)
 
         smoother = KernelSmoother()
-        result = smoother.fit_predict(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
+        result = smoother.fit_predict(data=pl.DataFrame({"x": x, "y": y}), X="x", y="y")
 
         # All smoothed values should be approximately 5.0
         assert np.allclose(result, 5.0, rtol=0.01)
@@ -176,7 +188,7 @@ class TestKernelSmootherNumericalAccuracy:
         y = 2 * x + 3
 
         smoother = KernelSmoother()
-        result = smoother.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
+        result = smoother.fit(data=pl.DataFrame({"x": x, "y": y}), X="x", y="y")
         pred = result.predict(np.array([5.0]))
 
         # At x=5, should be close to y=13
@@ -190,7 +202,7 @@ class TestKernelSmootherNumericalAccuracy:
         y_noisy = y_true + np.random.randn(100) * 0.5
 
         smoother = KernelSmoother()
-        result = smoother.fit(data=pl.DataFrame({"x": x, "y": y_noisy}), x="x", y="y")
+        result = smoother.fit(data=pl.DataFrame({"x": x, "y": y_noisy}), X="x", y="y")
         pred = result.predict(x)
 
         # Predictions should be smoother than noisy data
@@ -212,7 +224,7 @@ class TestKernelSmootherNumericalAccuracy:
             bandwidth_value=0.2,
         )
         result_small = smoother_small.fit_predict(
-            data=pl.DataFrame({"x": x, "y": y}), x="x", y="y"
+            data=pl.DataFrame({"x": x, "y": y}), X="x", y="y"
         )
 
         # Large bandwidth (smoother)
@@ -221,7 +233,7 @@ class TestKernelSmootherNumericalAccuracy:
             bandwidth_value=2.0,
         )
         result_large = smoother_large.fit_predict(
-            data=pl.DataFrame({"x": x, "y": y}), x="x", y="y"
+            data=pl.DataFrame({"x": x, "y": y}), X="x", y="y"
         )
 
         # Larger bandwidth should have lower variance in predictions
@@ -242,14 +254,14 @@ class TestKernelSmootherNumericalAccuracy:
             bandwidth="silverman",
         )
         result_silverman = smoother_silverman.fit_predict(
-            data=pl.DataFrame({"x": x, "y": y}), x="x", y="y"
+            data=pl.DataFrame({"x": x, "y": y}), X="x", y="y"
         )
 
         smoother_scott = KernelSmoother(
             bandwidth="scott",
         )
         result_scott = smoother_scott.fit_predict(
-            data=pl.DataFrame({"x": x, "y": y}), x="x", y="y"
+            data=pl.DataFrame({"x": x, "y": y}), X="x", y="y"
         )
 
         # Results should be different
@@ -262,7 +274,7 @@ class TestKernelSmootherNumericalAccuracy:
         y = np.sin(x)
 
         smoother = KernelSmoother()
-        smoother.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
+        smoother.fit(data=pl.DataFrame({"x": x, "y": y}), X="x", y="y")
         pred = smoother.predict(x)
 
         # Predictions should be within (or very close to) data range
@@ -275,7 +287,7 @@ class TestKernelSmootherNumericalAccuracy:
         y = np.sin(x)
 
         smoother = KernelSmoother()
-        smoother.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
+        smoother.fit(data=pl.DataFrame({"x": x, "y": y}), X="x", y="y")
 
         pred1 = smoother.predict([5.0])
         pred2 = smoother.predict([5.0])
@@ -293,7 +305,7 @@ class TestBinningNumericalAccuracy:
         y = np.random.uniform(0, 100, 1000)
 
         rgram = Regressogram(binning="dist", n_bins=10)
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Should have predictions for all data points
         assert len(result) == 1000
@@ -305,7 +317,7 @@ class TestBinningNumericalAccuracy:
         y = x + np.random.randn(100) * 5
 
         rgram = Regressogram(binning="width")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Collect unique bins and check they're roughly equally spaced
         assert len(result) == 100
@@ -316,7 +328,7 @@ class TestBinningNumericalAccuracy:
         y = np.array([1, 2, 3, 4, 5, 6, 7], dtype=float)
 
         rgram = Regressogram(binning="int")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Should have bins for integers 0, 1, 2, 3
         assert len(result) == 7  # One per input point
@@ -327,7 +339,7 @@ class TestBinningNumericalAccuracy:
         y = np.array([1, 1.5, 2, 2.5, 3, 3.5])
 
         rgram = Regressogram(binning="none")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Should have 6 output rows (one per input)
         assert len(result) == 6
@@ -342,7 +354,7 @@ class TestNumericalEdgeCases:
         y = np.array([0.0, 0.0, 0.0])
 
         rgram = Regressogram(agg=lambda s: s.sum() / s.count())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Should not crash and predictions should be 0
         assert np.all(result == 0.0)
@@ -353,7 +365,7 @@ class TestNumericalEdgeCases:
         y = np.array([1, 2, 3, 4, 5, 6], dtype=float)
 
         rgram = Regressogram(binning="width", n_bins=10)
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Should handle bins with no data
         assert len(result) == 6
@@ -365,7 +377,7 @@ class TestNumericalEdgeCases:
 
         rgram = Regressogram(binning="dist")
         try:
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             assert len(result) > 0
         except Exception:
             # Floating point limits might cause issues

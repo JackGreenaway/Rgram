@@ -21,18 +21,6 @@ from rgram.base import BaseUtils
 from rgram.warnings import BinningWarning, ExtrapolationWarning, SupportWarning
 
 
-def _mean(x: pl.Expr) -> pl.Expr:
-    return x.mean()
-
-
-def _lower_spread(x: pl.Expr) -> pl.Expr:
-    return x.mean() - x.std()
-
-
-def _upper_spread(x: pl.Expr) -> pl.Expr:
-    return x.mean() + x.std()
-
-
 class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
     """
     Regressogram
@@ -329,13 +317,11 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
         self._min_bin = 0
         self._max_bin = len(self._bin_edges)
         self.n_bins_ = self._max_bin + 1
-        self._n_bins = self.n_bins_
         self.bin_width_ = (
             (self.bin_width if self.bin_width is not None else span / count)
             if self.binning == "width"
             else None
         )
-        self._bin_width = self.bin_width_
 
     def _predict_bin_expr(self) -> pl.Expr:
         """
@@ -372,27 +358,24 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
 
     def fit(
         self,
-        X: Input = None,
-        y: Input = None,
+        X: Input,
+        y: Input,
+        *,
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
         sample_weight: Optional[ArrayLike] = None,
-        *,
-        x: Input = None,
     ) -> "Regressogram":
         """Fit one numeric feature and one numeric response.
 
         Parameters
         ----------
-        X : array-like of shape (n_samples,) or (n_samples, 1), or str, default=None
+        X : array-like of shape (n_samples,) or (n_samples, 1), or str
             Numeric feature, or its column name when data is supplied.
-        y : array-like of shape (n_samples,) or (n_samples, 1), or str, default=None
-            Numeric response, or its column name when data is supplied. Required.
+        y : array-like of shape (n_samples,) or (n_samples, 1), or str
+            Numeric response, or its column name when data is supplied.
         data : polars.DataFrame or polars.LazyFrame, default=None
             Source for named columns. Selected columns are materialized once.
         sample_weight : array-like of shape (n_samples,), default=None
             Finite nonnegative influence weights with positive total mass.
-        x : array-like or str, default=None
-            Legacy alias for X. Supply exactly one of X and x.
 
         Returns
         -------
@@ -423,7 +406,7 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
         >>> model.predict(X).shape
         (10,)
         """
-        x = self._resolve_X(X, x)
+        x = X
         self._is_fitted = False
         self._validate_parameters()
         self._bin_edges = []
@@ -450,19 +433,14 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
         data = data_lf.select(
             pl.col("x").alias("x_val"),
             pl.col("y").cast(float).alias("y_val"),
-            pl.lit("x").alias("x_var"),
-            pl.lit("y").alias("y_var"),
         )
         data = data.with_columns(pl.Series("sample_weight", self.sample_weight_))
-        self.over_cols = ["x_var", "y_var"]
         self.n_features_in_ = 1
         self.n_samples_in_ = data.select(pl.len()).collect().item()
 
         # learn bin parameters and assign bins
         self._learn_bin_params(data)
-        data = data.with_columns(
-            [self._predict_bin_expr().over(self.over_cols).alias("rgram_bin")]
-        )
+        data = data.with_columns([self._predict_bin_expr().alias("rgram_bin")])
 
         # Native reductions stay in Polars; numeric callbacks run in Python so
         # their exceptions cannot cross a Rust UDF boundary as engine panics.
@@ -591,69 +569,59 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
             pl.Series("in_training_range", ~outside), pl.Series("supported", finite)
         )
 
-    def predict(
-        self, X: Input = None, return_ci: bool = False, *, x: Input = None
-    ) -> Prediction:
+    def predict(self, X: Input) -> Prediction:
         """Evaluate the fitted bin summary at each query.
 
         Parameters
         ----------
-        X : array-like of shape (n_queries,) or (n_queries, 1), default=None
+        X : array-like of shape (n_queries,) or (n_queries, 1)
             Query feature values. Named inputs must match the fitted feature.
-        return_ci : bool, default=False
-            Return configured descriptive ci endpoints alongside predictions.
-        x : array-like, default=None
-            Legacy alias for X; supply exactly one alias.
 
         Returns
         -------
-        prediction : ndarray of shape (n_queries,) or tuple
-            Default: one estimate per query, in input order. With return_ci=True,
-            return (prediction, lower, upper); endpoints are None if ci=None.
-            Configured endpoints are descriptive summaries, not bootstrap intervals.
+        prediction : ndarray of shape (n_queries,)
+            One estimate per query, in input order. Unsupported estimates are
+            NaN unless the configured support policy raises.
 
         Raises
         ------
         sklearn.exceptions.NotFittedError
             If no successful fit is available.
         ValueError
-            For invalid queries, feature-name mismatch, or a strict support/range policy.
+            For invalid queries, feature-name mismatch, or strict policies.
 
         See Also
         --------
-        predict_interval : Bootstrap confidence intervals for the curve.
-        predict_diagnostics : Bin assignment, counts, support and range flags.
+        predict_interval : Pointwise bootstrap confidence intervals.
+        predict_diagnostics : Bin summaries, support and descriptive endpoints.
         """
-        x = self._resolve_X(X, x)
-        frame = self._prediction_frame(x)
-        prediction = frame["y_pred_rgram"].to_numpy()
-        if not return_ci:
-            return prediction
-        if self.ci is None:
-            return prediction, None, None
-        return (
-            prediction,
-            frame["y_pred_rgram_lci"].to_numpy(),
-            frame["y_pred_rgram_uci"].to_numpy(),
-        )
+        return self._prediction_frame(X)["y_pred_rgram"].to_numpy()
 
-    def predict_diagnostics(self, x: Input) -> pl.DataFrame:
+    def predict_diagnostics(self, X: Input) -> pl.DataFrame:
         """Return bin assignment and support information for each query.
 
         Parameters
         ----------
-        x : array-like of shape (n_queries,) or (n_queries, 1)
+        X : array-like of shape (n_queries,) or (n_queries, 1)
             One query feature, with fitted feature name if named.
 
         Returns
         -------
         diagnostics : polars.DataFrame
             Columns: x, prediction, rgram_bin, n_samples, weight_sum,
-            n_positive_weight, supported, in_training_range. Each row corresponds
+            n_positive_weight, supported, in_training_range. With ci configured,
+            summary_lower and summary_upper expose descriptive bin endpoints,
+            not bootstrap confidence bounds. Each row corresponds
             to the query at the same position. Missing bin information is null;
             unsupported predictions are NaN unless a strict policy raises.
         """
-        return self._prediction_frame(x).select(
+        summaries = []
+        if self.ci is not None:
+            summaries = [
+                pl.col("y_pred_rgram_lci").alias("summary_lower"),
+                pl.col("y_pred_rgram_uci").alias("summary_upper"),
+            ]
+        return self._prediction_frame(X).select(
             pl.col("x_val").alias("x"),
             pl.col("y_pred_rgram").alias("prediction"),
             "rgram_bin",
@@ -662,60 +630,40 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
             "n_positive_weight",
             "supported",
             "in_training_range",
+            *summaries,
         )
 
     def fit_predict(
         self,
-        X: Input = None,
-        y: Input = None,
-        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
-        return_ci: bool = False,
-        sample_weight: Optional[ArrayLike] = None,
+        X: Input,
+        y: Input,
         *,
-        x: Input = None,
+        data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
+        sample_weight: Optional[ArrayLike] = None,
     ) -> Prediction:
         """Fit and evaluate at the original training feature values.
 
         Parameters
         ----------
-        X : array-like or str, default=None
+        X : array-like or str
             One training feature, or its column name when data is supplied.
-        y : array-like or str, default=None
-            One training response, or its column name when data is supplied. Required.
+        y : array-like or str
+            Aligned numeric response, or its column name when data is supplied.
         data : polars.DataFrame or polars.LazyFrame, default=None
             Source for named columns.
-        return_ci : bool, default=False
-            Return configured descriptive ci endpoints, not bootstrap intervals.
         sample_weight : array-like of shape (n_samples,), default=None
             Observation influence weights; see fit.
-        x : array-like or str, default=None
-            Legacy alias for X; supply exactly one alias.
 
         Returns
         -------
-        prediction : ndarray or tuple
-            Training predictions in original row order. With return_ci=True, return
-            (prediction, lower, upper), with None endpoints if ci=None.
+        prediction : ndarray of shape (n_samples,)
+            Predictions at original training rows, preserving their order.
 
         Notes
         -----
-        Uses fit followed by predict on the stored training features. In-sample
-        accuracy does not measure generalization to new observations.
+        Training predictions describe the fit, not held-out performance.
+        Fit followed by predict evaluates new queries; predict_interval returns
+        bootstrap bounds, and predict_diagnostics exposes descriptive endpoints.
         """
-        x = self._resolve_X(X, x)
-        # Validate univariate constraint when data is provided
-        if data is not None:
-            if isinstance(x, (list, tuple)):
-                raise ValueError(
-                    "fit_predict only supports univariate (single feature) input. "
-                    "When data is provided, x must be a single column name (str), not a list/tuple of column names."
-                )
-            if isinstance(y, (list, tuple)):
-                raise ValueError(
-                    "fit_predict only supports univariate (single target) input. "
-                    "When data is provided, y must be a single column name (str), not a list/tuple of column names."
-                )
-
-        self.fit(data=data, x=x, y=y, sample_weight=sample_weight)
-
-        return self.predict(x=self.X_, return_ci=return_ci)
+        self.fit(X, y, data=data, sample_weight=sample_weight)
+        return self.predict(self.X_)

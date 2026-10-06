@@ -24,11 +24,16 @@ class TestRegressogramWorkflows:
         )
 
         # Fit
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         # Predict on new data
         x_test = np.array([1.5, 3.5, 5.5, 7.5, 9.5])
-        pred, ci_low, ci_high = rgram.predict(x_test, return_ci=True)
+        pred, ci_low, ci_high = (
+            rgram.predict_diagnostics(x_test)
+            .select("prediction", "summary_lower", "summary_upper")
+            .to_numpy()
+            .T
+        )
 
         assert len(pred) == len(x_test)
         assert ci_low is not None
@@ -42,7 +47,7 @@ class TestRegressogramWorkflows:
         y = np.exp(x / 5)
 
         rgram = Regressogram()
-        pred = rgram.fit_predict(x=x, y=y)
+        pred = rgram.fit_predict(X=x, y=y)
 
         assert isinstance(pred, np.ndarray)
         assert len(pred) > 0
@@ -55,7 +60,13 @@ class TestRegressogramWorkflows:
         rgram = Regressogram(
             ci=(lambda v: v.mean() - v.std(), lambda v: v.mean() + v.std())
         )
-        pred, ci_low, ci_high = rgram.fit_predict(x=x, y=y, return_ci=True)
+        pred, ci_low, ci_high = (
+            rgram.fit(X=x, y=y)
+            .predict_diagnostics(rgram.X_)
+            .select("prediction", "summary_lower", "summary_upper")
+            .to_numpy()
+            .T
+        )
 
         assert isinstance(pred, np.ndarray)
         assert isinstance(ci_low, np.ndarray)
@@ -67,7 +78,7 @@ class TestRegressogramWorkflows:
         y_train = x_train**2
 
         rgram = Regressogram()
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         # Make predictions at different points
         x_test1 = np.array([2.5, 3.5, 4.5])
@@ -86,7 +97,7 @@ class TestRegressogramWorkflows:
         )
 
         rgram = Regressogram()
-        rgram.fit(data=df, x="x", y="y")
+        rgram.fit(data=df, X="x", y="y")
 
         # Predict with new array
         x_new = np.array([1.5, 5.0, 8.5])
@@ -100,7 +111,7 @@ class TestRegressogramWorkflows:
         y = x + np.random.randn(20) * 0.5
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert isinstance(result, np.ndarray)
         assert len(result) == len(x)
@@ -116,7 +127,7 @@ class TestRegressogramWorkflows:
         for strategy in strategies:
             rgram = Regressogram(binning=strategy)
             try:
-                pred = rgram.fit_predict(x=x, y=y)
+                pred = rgram.fit_predict(X=x, y=y)
                 results[strategy] = pred
                 assert len(pred) > 0
             except Exception:
@@ -141,7 +152,7 @@ class TestRegressogramWorkflows:
         results = {}
         for name, agg_func in agg_funcs.items():
             rgram = Regressogram(binning="int", agg=agg_func)
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             results[name] = result
 
         # Results should be different
@@ -161,7 +172,7 @@ class TestKernelSmootherWorkflows:
         smoother = KernelSmoother()
 
         # Fit
-        smoother.fit(data=pl.DataFrame({"x": x_train, "y": y_train}), x="x", y="y")
+        smoother.fit(data=pl.DataFrame({"x": x_train, "y": y_train}), X="x", y="y")
 
         # Predict
         x_test = np.linspace(0, 10, 20)
@@ -177,7 +188,7 @@ class TestKernelSmootherWorkflows:
         )
 
         smoother = KernelSmoother()
-        pred = smoother.fit_predict(data=df, x="x", y="y")
+        pred = smoother.fit_predict(data=df, X="x", y="y")
 
         assert isinstance(pred, np.ndarray)
         assert len(pred) == 50
@@ -196,7 +207,7 @@ class TestKernelSmootherWorkflows:
 
         for method in methods:
             smoother = KernelSmoother(bandwidth=method)
-            result = smoother.fit_predict(data=df, x="x", y="y")
+            result = smoother.fit_predict(data=df, X="x", y="y")
             results[method] = result
 
         # Both should work and produce different results
@@ -209,7 +220,7 @@ class TestKernelSmootherWorkflows:
         )
 
         smoother = KernelSmoother(bandwidth="manual", bandwidth_value=1.5)
-        smoother.fit(data=df, x="x", y="y")
+        smoother.fit(data=df, X="x", y="y")
         pred = smoother.predict(np.linspace(0, 10, 20))
 
         assert len(pred) == 20
@@ -231,7 +242,7 @@ class TestCrossValidationWorkflows:
 
         # Fit on training data
         rgram = Regressogram()
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         # Predict on test data
         pred_test = rgram.predict(x_test)
@@ -248,12 +259,12 @@ class TestCrossValidationWorkflows:
 
         # Fit with first dataset
         rgram1 = Regressogram()
-        rgram1.fit(x=x1, y=y1)
+        rgram1.fit(X=x1, y=y1)
         pred1 = rgram1.predict(x1)
 
         # Fit with combined dataset
         rgram2 = Regressogram()
-        rgram2.fit(x=np.concatenate([x1, x2]), y=np.concatenate([y1, y2]))
+        rgram2.fit(X=np.concatenate([x1, x2]), y=np.concatenate([y1, y2]))
         pred2 = rgram2.predict(x1)
 
         # Predictions should be different (more data should refine estimate)
@@ -272,7 +283,7 @@ class TestCrossValidationWorkflows:
             x_test = x[i : i + 1]
 
             rgram = Regressogram()
-            rgram.fit(x=x_train, y=y_train)
+            rgram.fit(X=x_train, y=y_train)
             pred = rgram.predict(x_test)
             predictions.append(pred[0])
 
@@ -289,7 +300,7 @@ class TestMixedInputWorkflows:
         )
 
         rgram = Regressogram()
-        rgram.fit(data=df, x="x", y="y")
+        rgram.fit(data=df, X="x", y="y")
 
         # Predict with array
         pred = rgram.predict(np.array([1.5, 2.5, 3.5]))
@@ -301,7 +312,7 @@ class TestMixedInputWorkflows:
         y = np.sin(x)
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert isinstance(result, np.ndarray)
         assert len(result) == len(x)
@@ -323,11 +334,11 @@ class TestModelComparison:
 
         # Regressogram
         rgram = Regressogram(binning="width")
-        pred_rgram = rgram.fit_predict(x=x, y=y)
+        pred_rgram = rgram.fit_predict(X=x, y=y)
 
         # KernelSmoother
         smoother = KernelSmoother()
-        pred_ks = smoother.fit_predict(data=df, x="x", y="y")
+        pred_ks = smoother.fit_predict(data=df, X="x", y="y")
 
         # Both should produce predictions
         assert len(pred_rgram) > 0
@@ -344,7 +355,7 @@ class TestModelComparison:
 
         for n_bins in n_bins_values:
             rgram = Regressogram(binning="dist", n_bins=n_bins)
-            pred = rgram.fit_predict(x=x, y=y)
+            pred = rgram.fit_predict(X=x, y=y)
             predictions[n_bins] = pred
 
         # Predictions should vary with parameter
@@ -361,12 +372,12 @@ class TestErrorRecoveryWorkflows:
 
         # Try with invalid data
         with pytest.raises(Exception):
-            rgram.fit(x=[], y=[])
+            rgram.fit(X=[], y=[])
 
         # Should be able to fit with valid data
         x = np.array([1.0, 2.0, 3.0])
         y = np.array([1.0, 2.0, 3.0])
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert len(result) > 0
 
@@ -380,12 +391,12 @@ class TestErrorRecoveryWorkflows:
 
         # First fit
         rgram1 = Regressogram()
-        rgram1.fit(x=x1, y=y1)
+        rgram1.fit(X=x1, y=y1)
         pred1 = rgram1.predict([2.5])
 
         # Different fit with new instance
         rgram2 = Regressogram()
-        rgram2.fit(x=x2, y=y2)
+        rgram2.fit(X=x2, y=y2)
         pred2 = rgram2.predict([12.5])
 
         assert pred1[0] != pred2[0]
@@ -400,11 +411,11 @@ class TestDuplicateAggregationConsistency:
         y = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0])
 
         rgram1 = Regressogram(binning="int", agg=lambda s: s.mean())
-        result_fit_predict = rgram1.fit_predict(x=x, y=y)
+        result_fit_predict = rgram1.fit_predict(X=x, y=y)
 
         rgram2 = Regressogram(binning="int", agg=lambda s: s.mean())
-        rgram2.fit(x=x, y=y)
-        result_fit_then_predict = rgram2.predict(x=x)
+        rgram2.fit(X=x, y=y)
+        result_fit_then_predict = rgram2.predict(X=x)
 
         assert np.allclose(result_fit_predict, result_fit_then_predict)
 
@@ -415,7 +426,7 @@ class TestDuplicateAggregationConsistency:
         expected_mean = 20.0
 
         rgram = Regressogram(binning="int", agg=lambda s: s.mean())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert np.isclose(result[0], expected_mean)
 
@@ -426,7 +437,7 @@ class TestDuplicateAggregationConsistency:
         expected_sum = 60.0
 
         rgram = Regressogram(binning="int", agg=lambda s: s.sum())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert np.isclose(result[0], expected_sum)
 
@@ -436,7 +447,7 @@ class TestDuplicateAggregationConsistency:
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.count())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert np.isclose(result[0], 5.0)
 
@@ -447,7 +458,7 @@ class TestDuplicateAggregationConsistency:
         expected_median = 3.0
 
         rgram = Regressogram(binning="int", agg=lambda s: s.median())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert np.isclose(result[0], expected_median)
 
@@ -461,7 +472,7 @@ class TestDuplicatePreservation:
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.mean())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
@@ -472,7 +483,7 @@ class TestDuplicatePreservation:
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.median())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert isinstance(result, np.ndarray)
         assert np.isclose(result[0], 3.0)
@@ -483,7 +494,7 @@ class TestDuplicatePreservation:
         y = np.array([5.0, 15.0, 10.0, 8.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.max())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert isinstance(result, np.ndarray)
         assert np.isclose(result[0], 15.0)
@@ -494,7 +505,7 @@ class TestDuplicatePreservation:
         y = np.array([100.0, 20.0, 50.0, 75.0])
 
         rgram = Regressogram(binning="int", agg=lambda s: s.min())
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert isinstance(result, np.ndarray)
         assert np.isclose(result[0], 20.0)

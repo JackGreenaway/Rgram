@@ -183,21 +183,23 @@ def test_gaussian_far_query_does_not_underflow():
 
 
 @pytest.mark.parametrize("cls", [Regressogram, KernelSmoother])
-def test_standard_keywords_and_legacy_aliases(cls):
+def test_standard_keywords_and_removed_aliases(cls):
     X = np.arange(12.0).reshape(-1, 1)
     y = np.sin(X[:, 0])
     model = cls().fit(X=X, y=y)
     np.testing.assert_allclose(model.predict(X=X), model.predict(X))
     np.testing.assert_allclose(cls().fit_predict(X=X, y=y), model.predict(X))
-    legacy = cls().fit(x=X, y=y)
-    query_kw = {"x": X} if cls is Regressogram else {"x_eval": X}
-    np.testing.assert_allclose(legacy.predict(**query_kw), model.predict(X))
-    with pytest.raises(TypeError, match="either X or"):
-        model.fit(X=X, x=X, y=y)
-    with pytest.raises(TypeError, match="either X or"):
-        model.predict(X=X, **query_kw)
+    for keyword in ("x", "x_eval", "return_ci"):
+        with pytest.raises(TypeError, match="unexpected keyword"):
+            model.predict(X=X, **{keyword: X})
+    with pytest.raises(TypeError, match="unexpected keyword"):
+        cls().fit(x=X, y=y)
+    with pytest.raises(TypeError, match="unexpected keyword"):
+        cls().fit_predict(X, y, x_eval=X)
     with pytest.raises(NotFittedError):
         cls().predict(X=X)
+    assert not hasattr(model, "_bw_value")
+    assert not hasattr(model, "over_cols")
 
 
 @pytest.mark.parametrize("cls", [Regressogram, KernelSmoother])

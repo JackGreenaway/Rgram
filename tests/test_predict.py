@@ -8,8 +8,8 @@ from rgram.rgram import Regressogram
 def test_predict_returns_correct_length(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram(binning="width")
-    rgram.fit(data=df, x="x", y="y_noise")
-    pred = rgram.predict(x=x)
+    rgram.fit(data=df, X="x", y="y_noise")
+    pred = rgram.predict(X=x)
 
     assert isinstance(pred, np.ndarray)
     assert len(pred) == len(x)
@@ -25,7 +25,7 @@ def test_predict_before_fit_raises():
 def test_predict_with_series(sample_data):
     df, x, y, y_noise = sample_data
     rgram = Regressogram()
-    rgram.fit(data=df, x="x", y="y_noise")
+    rgram.fit(data=df, X="x", y="y_noise")
 
     # Use Polars Series as input
     pred = rgram.predict(pl.Series(x))
@@ -39,7 +39,7 @@ def test_fit_with_numpy_arrays(sample_data):
     rgram = Regressogram()
 
     # Fit using raw numpy arrays
-    pred = rgram.fit_predict(x=x, y=y_noise)
+    pred = rgram.fit_predict(X=x, y=y_noise)
 
     assert len(pred) > 0
 
@@ -48,10 +48,10 @@ def test_predict_with_numpy_array(sample_data):
     """Test that predict works with numpy arrays as input."""
     _, x, y, y_noise = sample_data
     rgram = Regressogram()
-    rgram.fit(x=x, y=y_noise)
+    rgram.fit(X=x, y=y_noise)
 
     # Predict with numpy array
-    pred = rgram.predict(x=x)
+    pred = rgram.predict(X=x)
 
     assert isinstance(pred, np.ndarray)
     assert len(pred) == len(x)
@@ -62,7 +62,7 @@ def test_fit_with_polars_dataframe(sample_data):
     df, x, y, y_noise = sample_data
 
     rgram = Regressogram()
-    pred = rgram.fit_predict(data=df, x="x", y="y_noise")
+    pred = rgram.fit_predict(data=df, X="x", y="y_noise")
 
     assert len(pred) > 0
 
@@ -74,10 +74,10 @@ def test_predict_with_numpy_list():
     y = 2 * x + 1
 
     rgram = Regressogram()
-    rgram.fit(x=x, y=y)
+    rgram.fit(X=x, y=y)
 
     # Predict with list
-    pred = rgram.predict(x=[1.5, 2.5, 3.5])
+    pred = rgram.predict(X=[1.5, 2.5, 3.5])
 
     assert isinstance(pred, np.ndarray)
     assert len(pred) == 3
@@ -94,31 +94,10 @@ def test_fit_and_predict_with_pandas_series(sample_data):
 
     rgram = Regressogram()
     # Pandas Series are treated as array-like when data=None
-    rgram.fit(x=x_series, y=y_series)
+    rgram.fit(X=x_series, y=y_series)
 
     # Predict with pandas Series
-    pred = rgram.predict(x=x_series)
+    pred = rgram.predict(X=x_series)
 
     assert isinstance(pred, np.ndarray)
     assert len(pred) == len(x)
-
-
-def test_predict_with_return_ci(sample_data):
-    """Test that predict with return_ci=True returns tuple."""
-    df, x, y, y_noise = sample_data
-    rgram = Regressogram()  # With default CI settings
-    rgram.fit(data=df, x="x", y="y_noise")
-
-    # Without return_ci
-    pred = rgram.predict(x)
-    assert isinstance(pred, np.ndarray)
-
-    # With return_ci
-    result = rgram.predict(x, return_ci=True)
-    assert isinstance(result, tuple)
-    assert len(result) == 3
-    y_pred, y_ci_low, y_ci_high = result
-    assert isinstance(y_pred, np.ndarray)
-    if y_ci_low is not None:
-        assert isinstance(y_ci_low, np.ndarray)
-        assert isinstance(y_ci_high, np.ndarray)

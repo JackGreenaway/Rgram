@@ -26,25 +26,25 @@ class TestRegressogramErrorHandling:
         x = np.array([1, 2, 3])
         y = np.array([1, 2, 3])
         with pytest.raises(ValueError, match="Unknown binning type"):
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
 
     def test_fit_with_empty_arrays_raises(self):
         """Test that empty arrays raise an error."""
         rgram = Regressogram()
         with pytest.raises(Exception):  # IndexError or ValueError
-            rgram.fit(x=np.array([]), y=np.array([]))
+            rgram.fit(X=np.array([]), y=np.array([]))
 
     def test_fit_with_mismatched_array_lengths_raises(self):
         """Test that mismatched x and y lengths raise an error."""
         rgram = Regressogram()
         with pytest.raises(Exception):
-            rgram.fit(x=np.array([1, 2, 3]), y=np.array([1, 2]))
+            rgram.fit(X=np.array([1, 2, 3]), y=np.array([1, 2]))
 
     def test_fit_with_none_data_and_invalid_input_raises(self):
         """Test that providing string col name without DataFrame raises error."""
         rgram = Regressogram()
         with pytest.raises(ValueError, match="Column name .* provided but data=None"):
-            rgram.fit(x="col_name", y=[1, 2, 3])
+            rgram.fit(X="col_name", y=[1, 2, 3])
 
     def test_invalid_agg_function(self):
         """Test that invalid aggregation function is handled."""
@@ -62,7 +62,7 @@ class TestRegressogramErrorHandling:
         x = np.array([1.0, 2.0, 3.0])
         y = np.array([1.0, 2.0, 3.0])
         try:
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             assert len(result) > 0
         except (ValueError, Exception):
             pass
@@ -71,12 +71,12 @@ class TestRegressogramErrorHandling:
         """Test that complex numbers in x or y raise an error."""
         rgram = Regressogram()
         with pytest.raises((TypeError, ValueError)):
-            rgram.fit(x=np.array([1 + 2j, 2 + 3j, 3 + 4j]), y=np.array([1, 2, 3]))
+            rgram.fit(X=np.array([1 + 2j, 2 + 3j, 3 + 4j]), y=np.array([1, 2, 3]))
 
     def test_predict_with_empty_array_raises(self):
         """Test that predicting with empty array raises."""
         rgram = Regressogram()
-        rgram.fit(x=np.array([1.0, 2.0, 3.0]), y=np.array([1.0, 2.0, 3.0]))
+        rgram.fit(X=np.array([1.0, 2.0, 3.0]), y=np.array([1.0, 2.0, 3.0]))
         with pytest.raises(Exception):
             rgram.predict([])
 
@@ -90,7 +90,7 @@ class TestRegressogramEdgeCases:
         x = np.array([1, 2, 3])
         y = np.array([np.nan, np.nan, np.nan])
         try:
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             assert np.all(np.isnan(result)) or len(result) == 0
         except Exception:
             pass
@@ -99,7 +99,7 @@ class TestRegressogramEdgeCases:
         """Test that NaN inputs in predict are handled."""
         rgram = Regressogram()
         rgram.fit(
-            x=np.array([1.0, 2.0, 3.0, 4.0, 5.0]), y=np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+            X=np.array([1.0, 2.0, 3.0, 4.0, 5.0]), y=np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         )
         with pytest.raises(ValueError, match="NaN"):
             rgram.predict([1.0, np.nan, 5.0])
@@ -109,7 +109,7 @@ class TestRegressogramEdgeCases:
         rgram = Regressogram()
         x = np.array([5.0, 5.0, 5.0, 5.0])
         y = np.array([1.0, 2.0, 3.0, 4.0])
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert len(result) > 0
         assert np.allclose(result, result[0])
 
@@ -118,7 +118,7 @@ class TestRegressogramEdgeCases:
         rgram = Regressogram()
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([5.0, 5.0, 5.0, 5.0, 5.0])
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert np.allclose(result, 5.0)
 
     def test_fit_with_inf_values(self):
@@ -127,7 +127,7 @@ class TestRegressogramEdgeCases:
         x = np.array([1.0, 2.0, 3.0, np.inf])
         y = np.array([1.0, 2.0, 3.0, 4.0])
         try:
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             assert len(result) > 0
         except Exception:
             pass
@@ -137,7 +137,7 @@ class TestRegressogramEdgeCases:
         x = np.array([5.0])
         y = np.array([10.0])
         rgram = Regressogram(binning="dist")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) >= 1
 
@@ -146,7 +146,7 @@ class TestRegressogramEdgeCases:
         x = np.array([1e6, 2e6, 3e6, 4e6, 5e6])
         y = np.array([1e8, 2e8, 3e8, 4e8, 5e8])
         rgram = Regressogram(binning="width")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
@@ -155,7 +155,7 @@ class TestRegressogramEdgeCases:
         x = np.array([1e-6, 2e-6, 3e-6, 4e-6, 5e-6])
         y = np.array([1e-8, 2e-8, 3e-8, 4e-8, 5e-8])
         rgram = Regressogram(binning="width")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
@@ -164,7 +164,7 @@ class TestRegressogramEdgeCases:
         x = np.array([-5, -3, -1, 0, 1, 3, 5])
         y = np.array([1, 2, 3, 4, 5, 6, 7])
         rgram = Regressogram(binning="dist")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
@@ -173,7 +173,7 @@ class TestRegressogramEdgeCases:
         x = np.array([1, 2, 3, 4, 5, 6, 7, 8])
         y = np.array([-2, -1, 1, 2, -3, 4, -5, 6])
         rgram = Regressogram(binning="width")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
@@ -186,7 +186,7 @@ class TestRegressogramEdgeCases:
             [1.0, 1.1, 0.9, 2.0, 2.1, 1.9, 3.0, 3.1, 2.9, 4.0, 4.1, 3.9, 5.0, 5.1, 4.9]
         )
         rgram = Regressogram(binning="dist")
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
         assert np.min(result) >= y.min() - 1
@@ -197,10 +197,11 @@ class TestRegressogramEdgeCases:
         x = np.linspace(0, 1, 10)
         y = x + np.random.randn(10) * 0.02
         rgram = Regressogram(ci=None)
-        pred, lci, uci = rgram.fit_predict(x=x, y=y, return_ci=True)
+        pred = rgram.fit_predict(X=x, y=y)
         assert isinstance(pred, np.ndarray)
-        assert lci is None
-        assert uci is None
+        diagnostics = rgram.predict_diagnostics(x)
+        assert "summary_lower" not in diagnostics.columns
+        assert "summary_upper" not in diagnostics.columns
 
     def test_custom_ci_functions(self):
         """Test custom confidence interval functions."""
@@ -209,7 +210,13 @@ class TestRegressogramEdgeCases:
         ci_lower = lambda x: x.quantile(0.05)  # noqa: E731
         ci_upper = lambda x: x.quantile(0.95)  # noqa: E731
         rgram = Regressogram(ci=(ci_lower, ci_upper))
-        pred, lci, uci = rgram.fit_predict(x=x, y=y, return_ci=True)
+        pred, lci, uci = (
+            rgram.fit(X=x, y=y)
+            .predict_diagnostics(rgram.X_)
+            .select("prediction", "summary_lower", "summary_upper")
+            .to_numpy()
+            .T
+        )
         assert isinstance(pred, np.ndarray)
         assert isinstance(lci, np.ndarray)
         assert isinstance(uci, np.ndarray)
@@ -238,20 +245,20 @@ class TestKernelSmootherErrorHandling:
         x = np.array([1.0, 2.0, 3.0])
         y = np.array([1.0, 2.0, 3.0])
         with pytest.raises(Exception):
-            smoother.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
+            smoother.fit(data=pl.DataFrame({"x": x, "y": y}), X="x", y="y")
 
     def test_fit_with_empty_data_raises(self):
         """Test that empty data raises."""
         smoother = KernelSmoother()
         df = pl.DataFrame({"x": [], "y": []})
         with pytest.raises(Exception):
-            smoother.fit(data=df, x="x", y="y")
+            smoother.fit(data=df, X="x", y="y")
 
     def test_predict_with_incompatible_type(self):
         """Test predict with non-numeric input."""
         smoother = KernelSmoother()
         df = pl.DataFrame({"x": [1.0, 2.0, 3.0], "y": [1.0, 2.0, 3.0]})
-        smoother.fit(data=df, x="x", y="y")
+        smoother.fit(data=df, X="x", y="y")
         with pytest.raises((TypeError, ValueError)):
             smoother.predict(["a", "b", "c"])
 
@@ -264,7 +271,7 @@ class TestKernelSmootherEdgeCases:
         smoother = KernelSmoother()
         df = pl.DataFrame({"x": [1.0], "y": [1.0]})
         try:
-            result = smoother.fit(data=df, x="x", y="y")
+            result = smoother.fit(data=df, X="x", y="y")
             pred = result.predict([1.0])
             assert len(pred) == 1
         except Exception:
@@ -277,7 +284,7 @@ class TestKernelSmootherEdgeCases:
             {"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))}
         )
         try:
-            smoother.fit(data=df, x="x", y="y")
+            smoother.fit(data=df, X="x", y="y")
         except (ValueError, Exception):
             pass
 
@@ -286,7 +293,7 @@ class TestKernelSmootherEdgeCases:
         smoother = KernelSmoother()
         df = pl.DataFrame({"x": [1.0, 2.0, np.nan, 4.0], "y": [1.0, 2.0, 3.0, 4.0]})
         try:
-            smoother.fit(data=df, x="x", y="y")
+            smoother.fit(data=df, X="x", y="y")
         except Exception:
             pass
 
@@ -298,14 +305,14 @@ class TestDataValidationErrors:
         """Test that dict input for x/y raises."""
         rgram = Regressogram()
         with pytest.raises((ValueError, TypeError)):
-            rgram.fit(x={"a": 1}, y={"b": 2})
+            rgram.fit(X={"a": 1}, y={"b": 2})
 
     def test_fit_with_mixed_numeric_types(self):
         """Test that mixed int/float is handled correctly."""
         rgram = Regressogram()
         x = np.array([1, 2.5, 3, 4.7, 5])
         y = np.array([1, 2, 3, 4, 5])
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert len(result) > 0
 
     def test_fit_with_large_array_shape_mismatch(self):
@@ -314,7 +321,7 @@ class TestDataValidationErrors:
         x = np.random.randn(1000)
         y = np.random.randn(999)
         with pytest.raises(Exception):
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
 
     def test_fit_with_pandas_series(self):
         """Test that raw pandas Series are handled."""
@@ -324,7 +331,7 @@ class TestDataValidationErrors:
             rgram = Regressogram()
             x = pd.Series([1, 2, 3])
             y = pd.Series([1, 2, 3])
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
         except ImportError:
             pytest.skip("pandas not installed")
 
@@ -345,7 +352,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         y = np.array([1, 2, 3])
 
         with pytest.raises(ValueError, match="Unknown binning type"):
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
 
     def test_fit_with_empty_arrays_raises(self):
         """Test that empty arrays raise an error."""
@@ -354,7 +361,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         y = np.array([])
 
         with pytest.raises(Exception):  # IndexError or ValueError
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
 
     def test_fit_with_mismatched_array_lengths_raises(self):
         """Test that mismatched x and y lengths raise an error."""
@@ -363,7 +370,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         y = np.array([1, 2])  # Different length
 
         with pytest.raises(Exception):  # Will fail during DataFrame creation
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
 
     def test_predict_before_fit_raises(self):
         """Test that predict before fit raises NotFittedError."""
@@ -377,7 +384,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         rgram = Regressogram()
 
         with pytest.raises(ValueError, match="Column name .* provided but data=None"):
-            rgram.fit(x="col_name", y=[1, 2, 3])
+            rgram.fit(X="col_name", y=[1, 2, 3])
 
     def test_fit_with_none_y_values_raises(self):
         """Test that all None/NaN y values cause issues."""
@@ -387,7 +394,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
 
         # Should handle or raise appropriately
         try:
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             # If it doesn't raise, predictions should be NaN or handled gracefully
             assert np.all(np.isnan(result)) or len(result) == 0
         except Exception:
@@ -400,7 +407,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         x_data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y_data = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        rgram.fit(x=x_data, y=y_data)
+        rgram.fit(X=x_data, y=y_data)
         with pytest.raises(ValueError, match="NaN"):
             rgram.predict([1.0, np.nan, 5.0])
 
@@ -410,7 +417,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         x = np.array([5.0, 5.0, 5.0, 5.0])
         y = np.array([1.0, 2.0, 3.0, 4.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert len(result) > 0
         # All predictions should be the same (aggregated y value)
         assert np.allclose(result, result[0])
@@ -421,7 +428,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([5.0, 5.0, 5.0, 5.0, 5.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert np.allclose(result, 5.0)
 
     def test_fit_with_inf_values_raises_or_handles(self):
@@ -432,7 +439,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
 
         # Should either handle gracefully or raise
         try:
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             assert len(result) > 0
         except Exception:
             # Expected behavior if inf not supported
@@ -444,7 +451,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         x_data = np.array([1.0, 2.0, 3.0])
         y_data = np.array([1.0, 2.0, 3.0])
 
-        rgram.fit(x=x_data, y=y_data)
+        rgram.fit(X=x_data, y=y_data)
 
         with pytest.raises(Exception):
             rgram.predict([])
@@ -470,7 +477,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         y = np.array([1.0, 2.0, 3.0])
 
         try:
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             # If no error, n_bins should be clamped to at least 1
             assert len(result) > 0
         except (ValueError, Exception):
@@ -484,7 +491,7 @@ class TestRegressogramErrorHandling:  # noqa: F811
         y = np.array([1, 2, 3])
 
         with pytest.raises((TypeError, ValueError)):
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
 
 
 class TestKernelSmootherErrorHandling:  # noqa: F811
@@ -502,7 +509,7 @@ class TestKernelSmootherErrorHandling:  # noqa: F811
         y = np.array([1.0, 2.0, 3.0])
 
         with pytest.raises(Exception):
-            smoother.fit(data=pl.DataFrame({"x": x, "y": y}), x="x", y="y")
+            smoother.fit(data=pl.DataFrame({"x": x, "y": y}), X="x", y="y")
 
     def test_predict_before_fit_raises(self):
         """Test that predict before fit raises."""
@@ -517,7 +524,7 @@ class TestKernelSmootherErrorHandling:  # noqa: F811
         df = pl.DataFrame({"x": [], "y": []})
 
         with pytest.raises(Exception):
-            smoother.fit(data=df, x="x", y="y")
+            smoother.fit(data=df, X="x", y="y")
 
     def test_fit_with_single_point_raises_or_handles(self):
         """Test behavior with single data point."""
@@ -525,7 +532,7 @@ class TestKernelSmootherErrorHandling:  # noqa: F811
         df = pl.DataFrame({"x": [1.0], "y": [1.0]})
 
         try:
-            result = smoother.fit(data=df, x="x", y="y")
+            result = smoother.fit(data=df, X="x", y="y")
             # If it succeeds, predictions should work
             pred = result.predict([1.0])
             assert len(pred) == 1
@@ -541,7 +548,7 @@ class TestKernelSmootherErrorHandling:  # noqa: F811
         )
 
         try:
-            smoother.fit(data=df, x="x", y="y")
+            smoother.fit(data=df, X="x", y="y")
             # Negative bandwidth might be allowed but shouldn't crash
         except (ValueError, Exception):
             # Expected if negative bandwidth not allowed
@@ -553,7 +560,7 @@ class TestKernelSmootherErrorHandling:  # noqa: F811
         df = pl.DataFrame({"x": [1.0, 2.0, np.nan, 4.0], "y": [1.0, 2.0, 3.0, 4.0]})
 
         try:
-            smoother.fit(data=df, x="x", y="y")
+            smoother.fit(data=df, X="x", y="y")
             # May handle NaN or raise
         except Exception:
             pass
@@ -562,7 +569,7 @@ class TestKernelSmootherErrorHandling:  # noqa: F811
         """Test predict with non-numeric input."""
         smoother = KernelSmoother()
         df = pl.DataFrame({"x": [1.0, 2.0, 3.0], "y": [1.0, 2.0, 3.0]})
-        smoother.fit(data=df, x="x", y="y")
+        smoother.fit(data=df, X="x", y="y")
 
         with pytest.raises((TypeError, ValueError)):
             smoother.predict(["a", "b", "c"])
@@ -581,7 +588,7 @@ class TestDataValidationErrors:  # noqa: F811
             y = pd.Series([1, 2, 3])
 
             # Should either work (converted) or raise
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
         except ImportError:
             pytest.skip("pandas not installed")
 
@@ -590,7 +597,7 @@ class TestDataValidationErrors:  # noqa: F811
         rgram = Regressogram()
 
         with pytest.raises((ValueError, TypeError)):
-            rgram.fit(x={"a": 1}, y={"b": 2})
+            rgram.fit(X={"a": 1}, y={"b": 2})
 
     def test_fit_with_mixed_numeric_types(self):
         """Test that mixed int/float is handled."""
@@ -598,7 +605,7 @@ class TestDataValidationErrors:  # noqa: F811
         x = np.array([1, 2.5, 3, 4.7, 5])
         y = np.array([1, 2, 3, 4, 5])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert len(result) > 0
 
     def test_fit_with_large_array_shape_mismatch(self):
@@ -608,4 +615,4 @@ class TestDataValidationErrors:  # noqa: F811
         y = np.random.randn(999)  # One fewer element
 
         with pytest.raises(Exception):
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)

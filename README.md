@@ -18,6 +18,8 @@ The one-feature scope is intentional. To explore several features in a wider dat
 
 Start with all observations for a descriptive view and inspect bin counts, kernel support, and residuals. Vary the bin count or bandwidth to see whether a pattern is stable across smoothing choices. Cross-validation is optional for this workflow; use held-out evaluation when assessing predictive performance. See the [EDA examples](docs/sklearn.md#exploratory-analysis) for diagnostics and plots.
 
+Rgram has an **unstable API**. Parameters, methods, and result schemas may change between releases without backward compatibility or a deprecation period. Pin the package version for reproducible analyses.
+
 ## Installation
 
 From a checkout, install the locked development environment and run the tests:
@@ -50,7 +52,7 @@ print(smoothed.predict_diagnostics([0.5, 2.5]))
 print(binned.data_summary_)
 ```
 
-The standard `fit(X, y)` and `predict(X)` calls and `X=` keyword are supported alongside the legacy exploration keywords. Unfitted prediction raises `sklearn.exceptions.NotFittedError`. Both estimators return `self` from `fit`, support `get_params`, `set_params`, cloning, pipelines and R² `score`, and expose fitted attributes with a trailing underscore. Refit after changing parameters that determine the fitted model. They support one feature and one target; arrays may have shape `(n_samples,)` or `(n_samples, 1)`.
+Use `fit(X, y)` and `predict(X)` with one numeric feature; `X=` is the feature keyword throughout the public API. Predictions always return a one-dimensional array. Use `predict_interval(X)` for bootstrap bounds. Unfitted prediction raises `sklearn.exceptions.NotFittedError`. Both estimators return `self` from `fit`, support `get_params`, `set_params`, cloning, pipelines and R² `score`, and expose fitted attributes with a trailing underscore. Refit after changing parameters that determine the fitted model. They support one feature and one target; arrays may have shape `(n_samples,)` or `(n_samples, 1)`.
 
 For Polars data, select the columns explicitly. A LazyFrame is materialized once for the selected feature and target so later changes to its source cannot change a fitted model.
 
@@ -257,7 +259,7 @@ Parameters that change the model or its predictions, such as `agg`, `n_bins`, `b
 
 For regressograms, `extrapolation="clip"` retains the existing edge-bin prediction behavior and now warns explicitly on outside-range queries. It maps a prediction to an edge cell without overwriting the query value. For kernel smoothers, `extrapolation="allow"` evaluates at the actual outside-range query and warns; positive kernel support is still required. Both support `extrapolation="nan"` and `"raise"`. `binning="none"` cannot invent an estimate for an unseen feature value. Set `unsupported="raise"` to reject empty cells, zero-mass weighted means or unsupported kernel queries.
 
-No regressogram intervals are computed by default: `ci=None`. If you want descriptive quantile endpoints, request `ci=(quantile(0.1), quantile(0.9))`. Mean ± standard deviation can still be supplied through explicit Polars callables, but it describes spread and is not a confidence interval for the mean. The legacy `return_ci=True` argument returns these configured summaries, or `(prediction, None, None)` if none are configured.
+No regressogram intervals are computed by default: `ci=None`. If you want descriptive quantile endpoints, request `ci=(quantile(0.1), quantile(0.9))`. Mean ± standard deviation can still be supplied through explicit Polars callables, but it describes spread and is not a confidence interval for the mean. Configured descriptive endpoints are exposed in `bins_` and in the `summary_lower` and `summary_upper` columns of `predict_diagnostics(X)`.
 
 Both estimators provide `predict_interval()` for pointwise paired-bootstrap confidence intervals of the fitted regression curve. These are not prediction intervals for future observations or simultaneous confidence bands. They condition on the selected smoothing parameters and do not correct smoothing bias or include tuning uncertainty.
 
@@ -273,7 +275,7 @@ IID resampling assumes independent observations. Whole-group resampling and movi
 
 ## Diagnostics and interactive exploration
 
-`regression_diagnostics(x, y)` returns observations, predictions, residuals and support in original row order. `predict_diagnostics(x)` exposes support and training information for each query. Regressogram `bins_` additionally reports row counts, positive-weight counts, weight totals, observed feature ranges and nominal cell bounds.
+`regression_diagnostics(X, y)` returns observations, predictions, residuals and support in original row order. `predict_diagnostics(X)` exposes support and training information for each query. Regressogram `bins_` additionally reports row counts, positive-weight counts, weight totals, observed feature ranges and nominal cell bounds.
 
 ```python
 from rgram import plot_diagnostics
@@ -286,9 +288,7 @@ Diagnostic plots use scatter points and do not sort or connect observation rows.
 
 Run `uv run python examples/kernel_explorer.py` for kernel, bandwidth, query, local-regression and binning controls, plus an explicitly requested bootstrap interval button. The demo generates ordered synthetic features; the library does not sort them. Explorer callbacks are tested headlessly; a desktop backend is required for interactive use.
 
-## Compatibility and current limits
-
-The latest working-tree changes remove `warn` and `warn_unsorted` constructor parameters, make unsorted warnings the default, remove automatic sorted-index construction, change `agg`'s default to the equivalent named `"mean"`, and change the default `ci` to `None`. They add numeric aggregation adapters, weighted regressograms, feature-name checks and explicit support/extrapolation inspection. Migrate warning suppression to Python filters and request descriptive intervals explicitly if desired.
+## API stability and current limits
 
 The single-feature scope is a deliberate design choice for relationship exploration; multivariate prediction is outside the current scope. CV remains optional. Sparse input, weighted built-in quantiles/variances, automatic imputation, full sklearn metadata routing, simultaneous confidence bands and prediction intervals are not implemented. Custom weighted conventions can be supplied through adapters. The library tests selected sklearn contracts and integrations but does not claim every generic estimator check passes its intentionally univariate API.
 

@@ -96,10 +96,9 @@ class CoverageSearchCV(RegressorMixin, BaseEstimator):
 
     def fit(
         self,
-        X: Input = None,
-        y: Input = None,
+        X: Input,
+        y: Input,
         *,
-        x: Input = None,
         data: Optional[Frame] = None,
         groups: Optional[ArrayLike] = None,
         sample_weight: Optional[ArrayLike] = None,
@@ -108,12 +107,10 @@ class CoverageSearchCV(RegressorMixin, BaseEstimator):
 
         Parameters
         ----------
-        X : array-like of shape (n_samples,) or (n_samples, 1), or str, default=None
+        X : array-like of shape (n_samples,) or (n_samples, 1), or str
             Single feature or its column name when data is supplied.
-        y : array-like or str, default=None
+        y : array-like or str
             Aligned numeric response or its column name. Required.
-        x : array-like or str, default=None
-            Legacy alias for X; supply exactly one alias.
         data : polars.DataFrame or polars.LazyFrame, default=None
             Source for named feature and response columns.
         groups : array-like of shape (n_samples,) or None, default=None
@@ -132,7 +129,7 @@ class CoverageSearchCV(RegressorMixin, BaseEstimator):
             For invalid input, fold indices, policies, or when no candidate qualifies.
             Candidate fit/prediction errors propagate rather than becoming scores.
         """
-        x = BaseUtils._resolve_X(X, x)
+        x = X
         for name in (
             "best_estimator_",
             "best_params_",
@@ -295,15 +292,13 @@ class CoverageSearchCV(RegressorMixin, BaseEstimator):
         """Require a refitted winner; retained results alone do not make an unsuccessful search fitted."""
         return hasattr(self, "best_estimator_")
 
-    def predict(self, X: Input = None, *, x: Input = None) -> Prediction:
+    def predict(self, X: Input) -> Prediction:
         """Predict through the refitted winning estimator.
 
         Parameters
         ----------
-        X : array-like of shape (n_queries,) or (n_queries, 1), default=None
+        X : array-like of shape (n_queries,) or (n_queries, 1)
             Query feature values, with the fitted feature name if named.
-        x : array-like, default=None
-            Legacy alias for X; supply exactly one alias.
 
         Returns
         -------
@@ -315,6 +310,6 @@ class CoverageSearchCV(RegressorMixin, BaseEstimator):
         sklearn.exceptions.NotFittedError
             If a successful search has not produced ``best_estimator_``.
         """
-        x = BaseUtils._resolve_X(X, x)
+        x = X
         check_is_fitted(self, "best_estimator_")
         return self.best_estimator_.predict(x)

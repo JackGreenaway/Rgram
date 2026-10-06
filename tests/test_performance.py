@@ -20,7 +20,7 @@ class TestRegressogramPerformance:
 
         rgram = Regressogram()
         start = time.time()
-        rgram.fit(x=x, y=y)
+        rgram.fit(X=x, y=y)
         elapsed = time.time() - start
 
         assert elapsed < 1.0  # Should be very fast
@@ -32,7 +32,7 @@ class TestRegressogramPerformance:
 
         rgram = Regressogram()
         start = time.time()
-        rgram.fit(x=x, y=y)
+        rgram.fit(X=x, y=y)
         elapsed = time.time() - start
 
         assert elapsed < 5.0  # Should be reasonably fast
@@ -44,7 +44,7 @@ class TestRegressogramPerformance:
 
         rgram = Regressogram()
         start = time.time()
-        rgram.fit(x=x, y=y)
+        rgram.fit(X=x, y=y)
         elapsed = time.time() - start
 
         assert elapsed < 30.0  # Should complete in reasonable time
@@ -57,7 +57,7 @@ class TestRegressogramPerformance:
         x_test = np.random.randn(50)
 
         rgram = Regressogram()
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         start = time.time()
         pred = rgram.predict(x_test)
@@ -72,7 +72,7 @@ class TestRegressogramPerformance:
         y_train = np.random.randn(500)
 
         rgram = Regressogram()
-        rgram.fit(x=x_train, y=y_train)
+        rgram.fit(X=x_train, y=y_train)
 
         batch_sizes = [10, 100, 1000]
         for batch_size in batch_sizes:
@@ -91,7 +91,7 @@ class TestRegressogramPerformance:
 
             rgram = Regressogram()
             start = time.time()
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
             elapsed = time.time() - start
             times.append(elapsed)
 
@@ -111,7 +111,7 @@ class TestKernelSmootherPerformance:
 
         smoother = KernelSmoother()
         start = time.time()
-        smoother.fit(data=df, x="x", y="y")
+        smoother.fit(data=df, X="x", y="y")
         elapsed = time.time() - start
 
         assert elapsed < 1.0
@@ -122,7 +122,7 @@ class TestKernelSmootherPerformance:
 
         smoother = KernelSmoother()
         start = time.time()
-        smoother.fit(data=df, x="x", y="y")
+        smoother.fit(data=df, X="x", y="y")
         elapsed = time.time() - start
 
         assert elapsed < 30.0
@@ -134,7 +134,7 @@ class TestKernelSmootherPerformance:
         )
 
         smoother = KernelSmoother()
-        smoother.fit(data=df, x="x", y="y")
+        smoother.fit(data=df, X="x", y="y")
 
         x_test = np.linspace(0, 10, 100)
 
@@ -155,7 +155,7 @@ class TestKernelSmootherPerformance:
             x_eval = np.linspace(0, 10, n_eval)
 
             smoother = KernelSmoother()
-            smoother.fit(data=df, x="x", y="y")
+            smoother.fit(data=df, X="x", y="y")
 
             result = smoother.predict(x_eval)
             assert len(result) == n_eval
@@ -172,7 +172,7 @@ class TestMemoryEfficiency:
         # Fit multiple times
         for _ in range(10):
             rgram = Regressogram()
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
 
         # Should complete without memory issues
 
@@ -182,7 +182,7 @@ class TestMemoryEfficiency:
         y = np.sin(x)
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert len(result) == 5000
         assert result.shape[0] == 5000
@@ -201,8 +201,8 @@ class TestConcurrentUsage:
         y1 = x**2
         y2 = x**3
 
-        rgram1.fit(x=x, y=y1)
-        rgram2.fit(x=x, y=y2)
+        rgram1.fit(X=x, y=y1)
+        rgram2.fit(X=x, y=y2)
 
         pred1 = rgram1.predict([5.0])
         pred2 = rgram2.predict([5.0])
@@ -219,12 +219,12 @@ class TestConcurrentUsage:
         y2 = -x2
 
         rgram1 = Regressogram()
-        rgram1.fit(x=x1, y=y1)
+        rgram1.fit(X=x1, y=y1)
         pred1_before = rgram1.predict([2.5])
 
         # Fit a different model
         rgram2 = Regressogram()
-        rgram2.fit(x=x2, y=y2)
+        rgram2.fit(X=x2, y=y2)
 
         # First model's predictions should be unchanged
         pred1_after = rgram1.predict([2.5])
@@ -240,7 +240,7 @@ class TestStressConditions:
         y = np.sin(x / 1e6)
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert len(result) == 100
 
@@ -250,7 +250,7 @@ class TestStressConditions:
         y = np.tile(np.sin(np.linspace(0, 10, 20)), 50) + np.random.randn(1000) * 0.1
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert len(result) == 1000
 
@@ -267,7 +267,7 @@ class TestStressConditions:
         y = np.sin(x)
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert len(result) == 1000
 
@@ -283,7 +283,7 @@ class TestStressConditions:
         y = np.sin(x)
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert len(result) == 210
 
@@ -294,7 +294,7 @@ class TestStressConditions:
 
         for _ in range(5):
             rgram = Regressogram()
-            rgram.fit(x=x, y=y)
+            rgram.fit(X=x, y=y)
             pred = rgram.predict(x)
             assert len(pred) == len(x)
 
@@ -306,7 +306,7 @@ class TestStressConditions:
             x = np.linspace(0, 10, 50 + i * 10)
             y = np.sin(x)
 
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             assert len(result) > 0
 
 
@@ -319,7 +319,7 @@ class TestDatasetVariations:
         y = x + np.random.randn(100) * 1
 
         rgram = Regressogram()
-        pred = rgram.fit_predict(x=x, y=y)
+        pred = rgram.fit_predict(X=x, y=y)
         assert len(pred) > 0
 
     def test_monotonically_decreasing(self):
@@ -328,7 +328,7 @@ class TestDatasetVariations:
         y = 100 - x + np.random.randn(100) * 1
 
         rgram = Regressogram()
-        pred = rgram.fit_predict(x=x, y=y)
+        pred = rgram.fit_predict(X=x, y=y)
         assert len(pred) > 0
 
     def test_periodic_data(self):
@@ -337,7 +337,7 @@ class TestDatasetVariations:
         y = np.sin(x) + np.cos(2 * x)
 
         rgram = Regressogram()
-        pred = rgram.fit_predict(x=x, y=y)
+        pred = rgram.fit_predict(X=x, y=y)
         assert len(pred) > 0
 
     def test_noisy_data(self):
@@ -346,7 +346,7 @@ class TestDatasetVariations:
         y = x + np.random.randn(100) * 100  # Very large noise
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert len(result) == 100
 
     def test_sparse_data(self):
@@ -355,7 +355,7 @@ class TestDatasetVariations:
         y = np.array([0, 0.1, 25, 27, 96, 100], dtype=float)
 
         rgram = Regressogram()
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert len(result) == 6
 
 
@@ -369,7 +369,7 @@ class TestScalingBehavior:
 
         for n_bins in [5, 10, 20, 50]:
             rgram = Regressogram(binning="dist", n_bins=n_bins)
-            result = rgram.fit_predict(x=x, y=y)
+            result = rgram.fit_predict(X=x, y=y)
             assert len(result) == 1000
 
     def test_scaling_with_eval_samples(self):
@@ -382,6 +382,6 @@ class TestScalingBehavior:
             x_eval = np.linspace(0, 10, n_eval)
 
             smoother = KernelSmoother()
-            result = smoother.fit_predict(data=df, x="x", y="y", x_eval=x_eval)
+            result = smoother.fit(data=df, X="x", y="y").predict(x_eval)
 
             assert len(result) == n_eval

@@ -17,7 +17,7 @@ import numpy as np
 
 
 def plot_diagnostics(
-    estimator: BaseUtils, x: Input, y: Input
+    estimator: BaseUtils, X: Input, y: Input
 ) -> tuple[Figure, NDArray[Any]]:
     """Plot residuals and observed-versus-predicted values without sorting rows.
 
@@ -26,7 +26,7 @@ def plot_diagnostics(
     estimator : Regressogram or KernelSmoother
         Successfully fitted model providing regression_diagnostics. For a
         pipeline, use the final estimator with transformed feature coordinates.
-    x : array-like of shape (n_samples,) or (n_samples, 1)
+    X : array-like of shape (n_samples,) or (n_samples, 1)
         Evaluation feature values, aligned with y.
     y : array-like of shape (n_samples,) or (n_samples, 1)
         Observed responses, for training or held-out observations.
@@ -68,7 +68,7 @@ def plot_diagnostics(
         raise ImportError(
             "plot_diagnostics requires matplotlib; install rgram[plot]"
         ) from exc
-    diagnostics = estimator.regression_diagnostics(x, y)
+    diagnostics = estimator.regression_diagnostics(X, y)
     figure, axes = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
     predicted = diagnostics["prediction"].to_numpy()
     observed = diagnostics["observed"].to_numpy()

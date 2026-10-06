@@ -18,7 +18,7 @@ Named weighted means and sums use the original weights. Other weighted statistic
 
 Every aggregation and configured interval endpoint must return one real numeric scalar per bin. NaN is an explicit unsupported result, not a request to remove a bin or prediction row. Infinite results raise. Functions that deliberately filter, sort or otherwise transform their received values are client-authored statistics; the library does not add such preprocessing around them.
 
-The default `agg="mean"` is equivalent to the previous default mean callable. `ci=None` is the default: no descriptive endpoints are computed unless supplied. A tuple such as `ci=(quantile(0.1), quantile(0.9))` describes response quantiles within a bin. It is not a confidence interval for the regression mean. Standard pickle supports named reductions, quantile helpers and adapters around top-level functions; arbitrary lambdas need a serializer that supports them.
+The default aggregation is `agg="mean"`. `ci=None` is the default: no descriptive endpoints are computed unless supplied. A tuple such as `ci=(quantile(0.1), quantile(0.9))` describes response quantiles within a bin. It is not a confidence interval for the regression mean. Standard pickle supports named reductions, quantile helpers and adapters around top-level functions; arbitrary lambdas need a serializer that supports them.
 
 ## Observation preservation and numerical buffers
 
@@ -64,7 +64,7 @@ Automatic bandwidth rules use all feature values without observation weighting. 
 
 ## Extrapolation and unsupported predictions
 
-Regressograms use `extrapolation="clip"` by default for compatibility: an outside-range query can use an edge cell, with `ExtrapolationWarning`. The query itself is not clipped. Kernel smoothers use `extrapolation="allow"` by default and evaluate the kernel at the actual query, also with a warning. Both offer `"nan"` and `"raise"` policies. `in_training_range` exposes this distinction separately from numerical support.
+Regressograms use `extrapolation="clip"` by default: an outside-range query can use an edge cell, with `ExtrapolationWarning`. The query itself is not clipped. Kernel smoothers use `extrapolation="allow"` by default and evaluate the kernel at the actual query, also with a warning. Both offer `"nan"` and `"raise"` policies. `in_training_range` exposes this distinction separately from numerical support.
 
 `unsupported="nan"` preserves a missing-estimate row and warns. `unsupported="raise"` fails explicitly. An empty cell, an all-zero-weight mean, or an unsupported kernel neighborhood cannot silently disappear from the result. Infinite-support kernels can give finite predictions far outside the training range, so finite prediction coverage is not evidence of reliable extrapolation.
 
@@ -94,7 +94,7 @@ By default, every replicate must support a query before bounds are reported. Oth
 
 Bootstrap resampling can create unsorted temporary samples even when the original observations were sorted. Standard warning filters remain active, and the estimator does not sort those resamples. An explicit `algorithm="neighbors"` can therefore reject a resample; use `"auto"` or `"brute"` for bootstrap work that must accommodate arbitrary sample order. A local `warnings.catch_warnings` block can suppress expected `UnsortedInputWarning` messages at the caller's choice.
 
-`KernelSmoother.predict(..., return_ci=True)` is a convenience for IID-bootstrap bounds. For regressograms, legacy `return_ci` returns only the explicitly configured `ci` aggregations, or `None` endpoints by default. Use `predict_interval` for bootstrap inference on either estimator.
+`predict(X)` always returns a one-dimensional prediction array. Use `predict_interval(X)` for bootstrap inference on either estimator. Configured regressogram descriptive endpoints are exposed through `bins_` and `predict_diagnostics(X)`.
 
 ## Warnings, diagnostics and documented limits
 

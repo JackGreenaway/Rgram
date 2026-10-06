@@ -12,49 +12,6 @@ from rgram.smoothing import KernelSmoother
 from rgram.base import BaseUtils
 
 
-class TestBaseUtilsDataConversion:
-    """Test BaseUtils data conversion helper functions."""
-
-    def test_to_list_with_none(self):
-        """Test _to_list with None input."""
-        assert BaseUtils._to_list(None) is None
-
-    def test_to_list_with_string(self):
-        """Test _to_list with single string."""
-        assert BaseUtils._to_list("single") == ["single"]
-
-    def test_to_list_with_list(self):
-        """Test _to_list preserves lists."""
-        assert BaseUtils._to_list([1, 2, 3]) == [1, 2, 3]
-
-    def test_to_list_with_tuple(self):
-        """Test _to_list converts tuples to lists."""
-        assert BaseUtils._to_list((1, 2, 3)) == [1, 2, 3]
-
-    def test_to_list_with_numpy_array(self):
-        """Test _to_list converts numpy arrays to lists."""
-        result = BaseUtils._to_list(np.array([1, 2]))
-        assert isinstance(result, list)
-        assert len(result) == 2
-
-    def test_to_list_with_generator(self):
-        """Test _to_list with generator."""
-        gen = (x for x in [1, 2, 3])
-        result = BaseUtils._to_list(gen)
-        assert isinstance(result, list)
-        assert len(result) == 3
-
-    def test_to_list_preserves_order(self):
-        """Test that _to_list preserves element order."""
-        original = [3, 1, 4, 1, 5, 9]
-        result = BaseUtils._to_list(original)
-        assert result == original
-
-    def test_to_list_empty_list(self):
-        """Test _to_list with empty list."""
-        assert BaseUtils._to_list([]) == []
-
-
 class TestBaseUtilsArrayLikeDetection:
     """Test BaseUtils array-like type detection."""
 
@@ -172,17 +129,7 @@ class TestBaseUtilsDataPreparation:
 
 
 class TestBaseUtilsDataValidation:
-    """Test BaseUtils data processing and validation (legacy tests)."""
-
-    def test_to_list_with_various_types(self):
-        """Test to_list with different input types."""
-        assert BaseUtils._to_list(None) is None
-        assert BaseUtils._to_list("single") == ["single"]
-        assert BaseUtils._to_list([1, 2, 3]) == [1, 2, 3]
-        assert BaseUtils._to_list((1, 2)) == [1, 2]
-        result = BaseUtils._to_list(np.array([1, 2]))
-        assert isinstance(result, list)
-        assert len(result) == 2
+    """Test BaseUtils data processing and validation ."""
 
     def test_is_array_like_detection(self):
         """Test is_array_like detection of various types."""
@@ -212,7 +159,7 @@ class TestRegressogramDataValidation:
         x = np.array([1, 2, 3])
         y = np.array([1, 2, 3])
 
-        result = rgram.fit(x=x, y=y)
+        result = rgram.fit(X=x, y=y)
         assert result is rgram
 
     def test_fit_predict_returns_numpy_array(self):
@@ -221,20 +168,8 @@ class TestRegressogramDataValidation:
         x = np.array([1, 2, 3, 4, 5])
         y = np.array([1, 2, 3, 4, 5])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
-
-    def test_fit_predict_with_ci_returns_tuple(self):
-        """Test that fit_predict with CI returns tuple."""
-        rgram = Regressogram()
-        x = np.array([1, 2, 3, 4, 5])
-        y = np.array([1, 2, 3, 4, 5])
-
-        result = rgram.fit_predict(x=x, y=y, return_ci=True)
-        assert isinstance(result, tuple)
-        assert len(result) == 3
-        y_pred, y_ci_low, y_ci_high = result
-        assert isinstance(y_pred, np.ndarray)
 
     def test_predict_output_dtype(self):
         """Test that predict output is numeric numpy array."""
@@ -242,7 +177,7 @@ class TestRegressogramDataValidation:
         x = np.array([1.0, 2.0, 3.0])
         y = np.array([1.0, 2.0, 3.0])
 
-        rgram.fit(x=x, y=y)
+        rgram.fit(X=x, y=y)
         result = rgram.predict(x)
 
         assert isinstance(result, np.ndarray)
@@ -254,35 +189,12 @@ class TestRegressogramDataValidation:
         x = np.array([1, 2, 3])
         y = np.array([1, 2, 3])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
     """Test BaseUtils data processing and validation."""
-
-    def test_to_list_with_various_types(self):
-        """Test to_list with different input types."""
-        assert BaseUtils._to_list(None) is None
-        assert BaseUtils._to_list("single") == ["single"]
-        assert BaseUtils._to_list([1, 2, 3]) == [1, 2, 3]
-        assert BaseUtils._to_list((1, 2)) == [1, 2]
-        # numpy arrays are converted to list of their elements
-        result = BaseUtils._to_list(np.array([1, 2]))
-        assert isinstance(result, list)
-        assert len(result) == 2
-
-    def test_to_list_with_generator(self):
-        """Test to_list with generator."""
-        gen = (x for x in [1, 2, 3])
-        result = BaseUtils._to_list(gen)
-        assert isinstance(result, list)
-
-    def test_to_list_preserves_order(self):
-        """Test that to_list preserves element order."""
-        original = [3, 1, 4, 1, 5, 9]
-        result = BaseUtils._to_list(original)
-        assert result == original
 
     def test_is_array_like_detection(self):
         """Test is_array_like detection of various types."""
@@ -388,7 +300,7 @@ class TestKernelSmootherDataValidation:
             {"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))}
         )
 
-        result = smoother.fit(data=df, x="x", y="y")
+        result = smoother.fit(data=df, X="x", y="y")
         assert result is smoother
 
     def test_predict_output_dtype(self):
@@ -398,7 +310,7 @@ class TestKernelSmootherDataValidation:
             {"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))}
         )
 
-        smoother.fit(data=df, x="x", y="y")
+        smoother.fit(data=df, X="x", y="y")
         result = smoother.predict([5.0])
 
         assert isinstance(result, np.ndarray)
@@ -411,21 +323,9 @@ class TestKernelSmootherDataValidation:
             {"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))}
         )
 
-        result = smoother.fit_predict(data=df, x="x", y="y")
+        result = smoother.fit_predict(data=df, X="x", y="y")
 
         assert isinstance(result, np.ndarray)
-
-    # def test_fit_predict_with_ci_returns_tuple(self):
-    #     """Test fit_predict with return_ci returns tuple."""
-    #     smoother = KernelSmoother()
-    #     df = pl.DataFrame(
-    #         {"x": np.linspace(0, 10, 20), "y": np.sin(np.linspace(0, 10, 20))}
-    #     )
-
-    #     result = smoother.fit_predict(data=df, x="x", y="y", return_ci=True)
-
-    #     assert isinstance(result, tuple)
-    #     assert len(result) == 3
 
 
 class TestInputTypeHandling:
@@ -437,7 +337,7 @@ class TestInputTypeHandling:
         x = pl.Series([1, 2, 3, 4, 5])
         y = [1, 2, 3, 4, 5]
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
@@ -447,7 +347,7 @@ class TestInputTypeHandling:
         x = [1, 2, 3, 4, 5]
         y = pl.Series([1, 2, 3, 4, 5])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
@@ -457,7 +357,7 @@ class TestInputTypeHandling:
         x = np.array([1, 2.5, 3, 4.7, 5])
         y = np.array([1.5, 2, 3.2, 4, 5.1])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) > 0
 
@@ -467,7 +367,7 @@ class TestInputTypeHandling:
         x = np.array([1, 2, 3, 4, 5], dtype=int)
         y = np.array([10, 20, 30, 40, 50], dtype=int)
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
 
         # Predictions should be numeric
         assert isinstance(result, np.ndarray)
@@ -485,7 +385,7 @@ class TestPandasCoercion:
         x = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
         y = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) == 5
 
@@ -497,7 +397,7 @@ class TestPandasCoercion:
         x = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
         y = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) == 5
 
@@ -509,7 +409,7 @@ class TestPandasCoercion:
         x = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
         y = pd.Series([2.0, 4.0, 6.0, 8.0, 10.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) == 5
 
@@ -524,7 +424,7 @@ class TestPandasCoercion:
 
         # Convert to polars for fit since the method expects polars
         pl_df = pl.from_pandas(pd_df)
-        result = rgram.fit_predict(data=pl_df, x="feature", y="target")
+        result = rgram.fit_predict(data=pl_df, X="feature", y="target")
         assert isinstance(result, np.ndarray)
         assert len(result) == 5
 
@@ -537,7 +437,7 @@ class TestPandasCoercion:
         x = pd.Series([1.0, 2.0, 3.0], index=["a", "b", "c"])
         y = pd.Series([2.0, 4.0, 6.0], index=["x", "y", "z"])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) == 3
 
@@ -549,7 +449,7 @@ class TestPandasCoercion:
         x = pd.Series([1.0, 2.0, 3.0], dtype="float32")
         y = pd.Series([2.0, 4.0, 6.0], dtype="float32")
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) == 3
 
@@ -561,7 +461,7 @@ class TestPandasCoercion:
         x = pd.Series([1, 2, 3, 4, 5], dtype="int64")
         y = pd.Series([2, 4, 6, 8, 10], dtype="int64")
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) == 5
 
@@ -574,8 +474,8 @@ class TestPandasCoercion:
         y_train = pd.Series([1.0, 2.0, 3.0, 4.0])
         x_test = pd.Series([1.5, 2.5, 3.5])
 
-        rgram.fit(x=x_train, y=y_train)
-        result = rgram.predict(x=x_test)
+        rgram.fit(X=x_train, y=y_train)
+        result = rgram.predict(X=x_test)
 
         assert isinstance(result, np.ndarray)
         assert len(result) == 3
@@ -590,7 +490,7 @@ class TestPandasCoercion:
 
         # Should raise an error due to NaN validation
         with pytest.raises((ValueError, TypeError)):
-            rgram.fit_predict(x=x, y=y)
+            rgram.fit_predict(X=x, y=y)
 
     def test_kernel_smoother_with_pandas_series(self):
         """Test KernelSmoother with pandas Series."""
@@ -600,7 +500,7 @@ class TestPandasCoercion:
         x = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
         y = pd.Series([1.0, 2.0, 3.0, 4.0, 5.0])
 
-        result = ks.fit_predict(x=x, y=y)
+        result = ks.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         assert len(result) == 5
 
@@ -614,7 +514,7 @@ class TestDuplicatePreservation:
         x = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 3.0])
         y = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         # fit_predict returns predictions for each input point
         # x=1: mean of [10, 20, 30] = 20
         # x=2: mean of [40, 50] = 45
@@ -636,7 +536,7 @@ class TestDuplicatePreservation:
         x = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
         y = np.array([10.0, 20.0, 30.0, 40.0, 50.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         # All duplicates should aggregate to mean of all y values
         expected_mean = np.mean([10.0, 20.0, 30.0, 40.0, 50.0])
         assert np.isclose(result[0], expected_mean)
@@ -647,7 +547,7 @@ class TestDuplicatePreservation:
         x = np.array([1.0, 1.0, 1.0, 2.0, 2.0])
         y = np.array([5.0, 5.0, 5.0, 8.0, 8.0])  # Duplicate y values
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         # Count should be 3 for x=1 and 2 for x=2, not 1
         assert np.isclose(result[0], 3.0)  # Three values at x=1
         assert np.isclose(result[3], 2.0)  # Two values at x=2
@@ -658,7 +558,7 @@ class TestDuplicatePreservation:
         x = np.array([1.0, 1.0, 1.0, 1.0])
         y = np.array([5.0, 5.0, 5.0, 5.0])  # Identical values
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         # Should count all 4 values, not drop duplicates
         assert np.isclose(result[0], 4.0)
 
@@ -668,7 +568,7 @@ class TestDuplicatePreservation:
         x = np.array([1.0, 1.0, 1.0])
         y = np.array([10.0, 20.0, 30.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         # Sum of [10, 20, 30] = 60
         assert np.isclose(result[0], 60.0)
 
@@ -678,7 +578,7 @@ class TestDuplicatePreservation:
         x = np.array([1.0, 1.0, 1.0, 2.0])
         y = np.array([10.0, 20.0, 30.0, 50.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         # Min of [10, 20, 30] = 10
         assert np.isclose(result[0], 10.0)
         # Min of [50] = 50
@@ -690,7 +590,7 @@ class TestDuplicatePreservation:
         x = np.array([1.0, 1.0, 1.0, 2.0])
         y = np.array([10.0, 20.0, 30.0, 50.0])
 
-        result = rgram.fit_predict(x=x, y=y)
+        result = rgram.fit_predict(X=x, y=y)
         # Max of [10, 20, 30] = 30
         assert np.isclose(result[0], 30.0)
         # Max of [50] = 50
@@ -703,12 +603,12 @@ class TestDuplicatePreservation:
 
         # fit_predict
         rgram1 = Regressogram(binning="int", agg=lambda s: s.mean())
-        result_fit_predict = rgram1.fit_predict(x=x, y=y)
+        result_fit_predict = rgram1.fit_predict(X=x, y=y)
 
         # fit then predict
         rgram2 = Regressogram(binning="int", agg=lambda s: s.mean())
-        rgram2.fit(x=x, y=y)
-        result_separate = rgram2.predict(x=x)
+        rgram2.fit(X=x, y=y)
+        result_separate = rgram2.predict(X=x)
 
         # Results should be identical
         assert np.allclose(result_fit_predict, result_separate)
@@ -720,7 +620,7 @@ class TestDuplicatePreservation:
         )
 
         rgram = Regressogram(binning="int", agg=lambda s: s.sum())
-        result = rgram.fit_predict(data=df, x="x", y="y")
+        result = rgram.fit_predict(data=df, X="x", y="y")
 
         # Sum for x=1: 10+20+30 = 60
         assert np.isclose(result[0], 60.0)
@@ -733,7 +633,7 @@ class TestDuplicatePreservation:
         x = np.array([1.0, 1.0, 1.0, 2.0, 2.0, 3.0])
         y = np.array([10.0, 20.0, 30.0, 40.0, 50.0, 60.0])
 
-        result = ks.fit_predict(x=x, y=y)
+        result = ks.fit_predict(X=x, y=y)
         assert isinstance(result, np.ndarray)
         # Should have output for all 6 input points
         assert len(result) == 6

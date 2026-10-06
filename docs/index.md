@@ -1,5 +1,12 @@
 # Rgram: explore feature relationships
 
+## API stability
+
+Rgram has an **unstable API**. Parameters, methods, and result schemas may change
+between releases without backward compatibility or a deprecation period.
+Pin the package version for reproducible analyses.
+
+
 Rgram helps you explore how one numeric response varies with one numeric feature.
 Use **regressograms** for interpretable bin summaries and **kernel regression**
 for smooth local curves, with familiar scikit-learn fitting and pipeline APIs.
