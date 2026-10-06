@@ -191,3 +191,36 @@ with sklearn's default routing configuration for a pipeline. `CoverageSearchCV`
 does not forward weights through nested pipeline steps. See
 [scikit-learn's metadata routing guide](https://scikit-learn.org/stable/metadata_routing.html)
 for the upstream request mechanism.
+
+(r2_score)=
+## R² scoring
+
+The inherited `score(X, y, sample_weight=None)` evaluates the coefficient of
+determination, R², using the estimator's predictions. With equal observation
+weights, it is
+
+$$
+R^2 = 1 - \frac{\sum_i (y_i - \widehat y_i)^2}
+                 {\sum_i (y_i - \overline y)^2}.
+$$
+
+The best possible score is 1; predicting the observed mean gives 0 for a
+nonconstant response, and scores can be negative. Scoring weights apply to both
+sums and to the observed mean. They do not refit the model. R² is undefined with
+fewer than two evaluation observations. Scikit-learn's default finite-score
+handling maps constant-response cases to 1 for perfect predictions and 0 otherwise.
+See [the scikit-learn R² reference](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.r2_score.html)
+for details. This score is distinct from `CoverageSearchCV.best_score_`, which is
+negative pooled validation MSE.
+
+## Glossary
+
+```{eval-rst}
+.. glossary::
+
+   meta-estimator
+      An estimator that wraps or combines other estimators. Examples include
+      scikit-learn's Pipeline and GridSearchCV, and Rgram's CoverageSearchCV.
+      Wrapping a model does not automatically route every fitting argument;
+      use the explicit weight forwarding described above.
+```

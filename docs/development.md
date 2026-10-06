@@ -56,7 +56,9 @@ The repository includes `.github/workflows/docs.yml`. It builds and validates th
 site on relevant pushes and pull requests, and offers a manual run. Deployment
 runs only on the repository's default branch, never on pull requests.
 
-1. In the repository's **Settings → Pages**, set **Source** to **GitHub Actions**.
+1. In the repository's **Settings → Pages → Build and deployment**, set **Source**
+   to **GitHub Actions**. Do not choose **Deploy from a branch**, `/ (root)`, or
+   `/docs`: those publish source files without running Sphinx.
 2. Commit and push the documentation changes to your default branch, or run the
    **Documentation** workflow on that branch.
 3. The workflow uploads `docs/_build/html` and deploys to the `github-pages`
@@ -79,3 +81,20 @@ Internal modules and helper responsibilities are listed in
 details, not additional supported user APIs. API pages obtain signatures and
 method documentation directly from the installed source through
 [Sphinx autodoc](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html).
+
+## Troubleshooting: raw directives on the published page
+
+If a page displays `` ```{eval-rst} ``, `.. autoclass::`, `{download}`, or
+`{toctree}` literally, the Markdown source was published without the Sphinx
+build. GitHub's default Markdown/Jekyll publishing cannot execute these directives.
+
+Change the Pages source to **GitHub Actions**, then open the repository's
+**Actions → Documentation → Run workflow**, selecting the default branch.
+Both the `build` and `deploy` jobs must succeed. The workflow publishes the
+**generated HTML in `docs/_build/html`**, not the repository root or `docs/`.
+Refresh the site after deployment. The API page should contain the constructor
+signature, parameter descriptions, fitted attributes, and complete method reference.
+
+If the workflow is absent, commit and push `.github/workflows/docs.yml` together
+with the documentation and supporting scripts. If it fails, inspect its failed
+step rather than switching back to branch-based publishing.
