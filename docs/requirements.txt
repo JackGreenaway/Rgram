@@ -1,0 +1,4 @@
+# A separate docs environment keeps documentation dependencies out of runtime installs.
+Sphinx==7.4.7
+myst-parser==3.0.1
+pydata-sphinx-theme==0.16.1

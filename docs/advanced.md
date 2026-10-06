@@ -1,6 +1,12 @@
 # Advanced estimator contracts
 
-The [README](../README.md) contains complete starter examples, aggregation choices, warning filters and an explanation of optional cross-validation. The [statistical parameter reference](statistical_parameters.md) explains each setting, its default and its effect on estimates. This guide describes the numerical and statistical details. All ordinary fits preserve observation order. Neither estimator sorts a dataset or builds a sorted training index.
+The [quick start](getting_started.md) contains complete starter examples, aggregation choices, warning filters and an explanation of optional cross-validation. The [statistical parameter reference](statistical_parameters.md) explains each setting, its default and its effect on estimates. This guide describes the numerical and statistical details. All ordinary fits preserve observation order. Neither estimator sorts a dataset or builds a sorted training index.
+
+## Scope and interpretation
+
+Rgram's primary purpose is exploratory analysis of a numeric feature–response relationship. Both estimators intentionally fit one feature and one response at a time, keeping the curve and its support easy to inspect. For several candidate features, fit separate curves against the response; for subgroup comparisons, fit separate models on explicitly selected groups.
+
+These are pairwise associations. They do not adjust for other variables, estimate feature interactions, or identify causal effects. Multivariate prediction is outside the current scope. The scikit-learn interface supports familiar fitting, preprocessing pipelines, and optional evaluation; it does not change this exploratory focus. A descriptive fit can use all observations, while claims about predictive performance require held-out evaluation.
 
 ## Aggregation execution and weights
 
@@ -96,4 +102,4 @@ Warnings use Python categories, not constructor switches or mutable class settin
 
 `regression_diagnostics` returns observed values, predictions, residuals and support without sorting or dropping rows. Optional `plot_diagnostics` uses scatter plots, reports unsupported rows that cannot be drawn, and does not connect observations after secretly sorting them. The explorer uses explicitly generated ordered synthetic data and makes interval calculation an explicit button action.
 
-Tests cover numeric references, row/weight snapshots, custom callback errors, named feature checks, selected sklearn contracts, support-aware selection, bootstrap calculations and property-based row conservation. Some broader features remain deliberately absent: sparse/multivariate estimation, built-in weighted quantile/variance conventions, automatic imputation, full sklearn metadata routing, prediction intervals and simultaneous bands. The [review](review.md) describes concrete next steps without claiming these features are implemented.
+Tests cover numeric references, row/weight snapshots, custom callback errors, named feature checks, selected sklearn contracts, support-aware selection, bootstrap calculations and property-based row conservation. The single-feature scope is intentional for relationship exploration. Other unsupported features include sparse input, built-in weighted quantile/variance conventions, automatic imputation, full sklearn metadata routing, prediction intervals and simultaneous bands. The [scikit-learn guide](sklearn.md) explains supported exploratory and prediction workflows.

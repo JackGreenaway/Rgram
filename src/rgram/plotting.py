@@ -19,11 +19,48 @@ import numpy as np
 def plot_diagnostics(
     estimator: BaseUtils, x: Input, y: Input
 ) -> tuple[Figure, NDArray[Any]]:
-    """Plot residuals and observed versus predicted values without sorting rows.
+    """Plot residuals and observed-versus-predicted values without sorting rows.
 
-    Returns (figure, axes). Matplotlib is optional. Unsupported predictions stay
-    in regression_diagnostics(); the plot explicitly reports their count because
-    points without finite coordinates cannot be drawn. No data is modified.
+    Parameters
+    ----------
+    estimator : Regressogram or KernelSmoother
+        Successfully fitted model providing regression_diagnostics. For a
+        pipeline, use the final estimator with transformed feature coordinates.
+    x : array-like of shape (n_samples,) or (n_samples, 1)
+        Evaluation feature values, aligned with y.
+    y : array-like of shape (n_samples,) or (n_samples, 1)
+        Observed responses, for training or held-out observations.
+
+    Returns
+    -------
+    figure : matplotlib.figure.Figure
+        Figure containing both diagnostic panels and a support-count title.
+    axes : ndarray of shape (2,)
+        Residual-versus-feature axis and observed-versus-predicted axis.
+
+    Raises
+    ------
+    ImportError
+        If Matplotlib is absent; install rgram[plot].
+    sklearn.exceptions.NotFittedError
+        If the estimator has no successful fit.
+    ValueError
+        If evaluation pairs are invalid or strict prediction policies raise.
+
+    Notes
+    -----
+    Uses scatter points, never connecting or sorting observation rows.
+    Unsupported rows remain in the diagnostic table and are counted in the
+    title, though non-finite points cannot be drawn. No data is modified.
+    The caller chooses whether to display, save, or close the returned figure.
+
+    Examples
+    --------
+    >>> from rgram import Regressogram, plot_diagnostics
+    >>> model = Regressogram(n_bins=2).fit([0., 1., 2.], [1., 3., 4.])
+    >>> figure, axes = plot_diagnostics(model, [0., 1., 2.], [1., 3., 4.])
+    >>> len(axes)
+    2
     """
     try:
         import matplotlib.pyplot as plt

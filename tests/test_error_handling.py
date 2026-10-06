@@ -4,6 +4,7 @@ Tests invalid inputs, edge cases, boundary conditions, and proper error messages
 """
 
 import pytest
+from sklearn.exceptions import NotFittedError
 import numpy as np
 import polars as pl
 from rgram.rgram import Regressogram
@@ -14,9 +15,9 @@ class TestRegressogramErrorHandling:
     """Test error conditions and invalid inputs for Regressogram."""
 
     def test_predict_before_fit_raises(self):
-        """Test that predict before fit raises RuntimeError."""
+        """Test that predict before fit raises NotFittedError."""
         rgram = Regressogram()
-        with pytest.raises(RuntimeError, match="Call fit\\(\\) before predict"):
+        with pytest.raises(NotFittedError, match="not fitted"):
             rgram.predict([1, 2, 3])
 
     def test_invalid_binning_strategy_raises_valueerror(self):
@@ -223,7 +224,7 @@ class TestKernelSmootherErrorHandling:
     def test_predict_before_fit_raises(self):
         """Test that predict before fit raises."""
         smoother = KernelSmoother()
-        with pytest.raises(RuntimeError, match=r"You must call fit\(\) before predict"):
+        with pytest.raises(NotFittedError, match="not fitted"):
             smoother.predict([1.0, 2.0, 3.0])
 
     def test_manual_bandwidth_without_value_raises(self):
@@ -365,10 +366,10 @@ class TestRegressogramErrorHandling:  # noqa: F811
             rgram.fit(x=x, y=y)
 
     def test_predict_before_fit_raises(self):
-        """Test that predict before fit raises RuntimeError."""
+        """Test that predict before fit raises NotFittedError."""
         rgram = Regressogram()
 
-        with pytest.raises(RuntimeError, match="Call fit\\(\\) before predict"):
+        with pytest.raises(NotFittedError, match="not fitted"):
             rgram.predict([1, 2, 3])
 
     def test_fit_with_none_data_and_invalid_input_raises(self):
@@ -507,7 +508,7 @@ class TestKernelSmootherErrorHandling:  # noqa: F811
         """Test that predict before fit raises."""
         smoother = KernelSmoother()
 
-        with pytest.raises(RuntimeError, match="You must call fit\(\) before predict"):
+        with pytest.raises(NotFittedError, match="not fitted"):
             smoother.predict([1.0, 2.0, 3.0])
 
     def test_fit_with_empty_data_raises(self):

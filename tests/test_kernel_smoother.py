@@ -1,6 +1,7 @@
 """Comprehensive tests for KernelSmoother bandwidth selection and predict functionality."""
 
 import pytest
+from sklearn.exceptions import NotFittedError
 import polars as pl
 import numpy as np
 from rgram.smoothing import KernelSmoother
@@ -122,7 +123,7 @@ class TestKernelSmootherPredict:
     def test_predict_before_fit_raises(self):
         """Test that predict before fit raises error."""
         smoother = KernelSmoother()
-        with pytest.raises(RuntimeError, match="You must call fit\(\) before predict"):
+        with pytest.raises(NotFittedError, match="not fitted"):
             smoother.predict([1.0, 2.0, 3.0])
 
     def test_predict_single_point(self, fitted_smoother):

@@ -1,8 +1,22 @@
 # Rgram
 
-Rgram provides univariate regressograms and kernel regression with a scikit-learn-style estimator API. It accepts numeric arrays or selected Polars columns, preserves observation and prediction order, and makes data handling, aggregation, support and uncertainty explicit.
+Rgram is designed for exploring relationships between one numeric feature and one numeric response at a time. Its regressograms and kernel smoothers help reveal nonlinear patterns, summarize how a response changes across a feature, and compare relationships across subgroups. A scikit-learn-style estimator API makes these exploratory models familiar to fit, inspect, and use in pipelines. It accepts numeric arrays or selected Polars columns, preserves observation and prediction order, and makes data handling, aggregation, support and uncertainty explicit.
 
-This README describes the current working tree. The [advanced guide](docs/advanced.md) explains numerical and statistical details, and the [review and roadmap](docs/review.md) records completed improvements and remaining work.
+The complete documentation site is built from [docs/index.md](docs/index.md), with a user guide, theory, examples, and a searchable API reference. [Build and GitHub Pages publishing instructions](docs/development.md) are included.
+
+This README describes the current working tree. The [advanced guide](docs/advanced.md) explains numerical and statistical details, and the [scikit-learn usage guide](docs/sklearn.md) includes prediction pipelines, cross-validation, weighted fitting, exploratory analysis, and compatibility limits.
+
+Use a regressogram for an interpretable binned response summary, or a kernel smoother to reveal a nonlinear relationship without specifying a global curve. Exploratory analysis is the primary purpose. Prediction is also supported: `predict` evaluates the fitted relationship at requested feature values, which is useful for drawing curves as well as making predictions. Evaluate held-out error when using these estimates to predict new observations.
+
+See the [scikit-learn guide](docs/sklearn.md) for runnable `Pipeline` and `GridSearchCV` examples. These models are final regressors in a pipeline and accept one feature; select a column first when starting with a wider table.
+
+## Exploring feature relationships
+
+Each fit describes a pairwise feature–response relationship. For example, explore how demand varies with temperature, whether a response levels off at high feature values, or whether the same relationship differs between groups. With mean aggregation, the curve summarizes the average response near each feature value; other regressogram aggregations can describe medians or quantiles.
+
+The one-feature scope is intentional. To explore several features in a wider dataset, fit a separate model for each feature against the response. These curves describe associations individually; they do not adjust for the other features, estimate interactions, or establish causality. Comparing subgroup curves means explicitly selecting each subgroup and fitting its own model.
+
+Start with all observations for a descriptive view and inspect bin counts, kernel support, and residuals. Vary the bin count or bandwidth to see whether a pattern is stable across smoothing choices. Cross-validation is optional for this workflow; use held-out evaluation when assessing predictive performance. See the [EDA examples](docs/sklearn.md#exploratory-analysis) for diagnostics and plots.
 
 ## Installation
 
@@ -36,7 +50,7 @@ print(smoothed.predict_diagnostics([0.5, 2.5]))
 print(binned.data_summary_)
 ```
 
-Both estimators return `self` from `fit`, support `get_params`, `set_params`, cloning, pipelines and R² `score`, and expose fitted attributes with a trailing underscore. Refit after changing parameters that determine the fitted model. They support one feature and one target; arrays may have shape `(n_samples,)` or `(n_samples, 1)`.
+The standard `fit(X, y)` and `predict(X)` calls and `X=` keyword are supported alongside the legacy exploration keywords. Unfitted prediction raises `sklearn.exceptions.NotFittedError`. Both estimators return `self` from `fit`, support `get_params`, `set_params`, cloning, pipelines and R² `score`, and expose fitted attributes with a trailing underscore. Refit after changing parameters that determine the fitted model. They support one feature and one target; arrays may have shape `(n_samples,)` or `(n_samples, 1)`.
 
 For Polars data, select the columns explicitly. A LazyFrame is materialized once for the selected feature and target so later changes to its source cannot change a fitted model.
 
@@ -49,7 +63,11 @@ print(model.feature_names_in_)
 print(model.predict(pl.DataFrame({"temperature": [1.5, 2.5]})))
 ```
 
-Named prediction inputs must match the fitted feature name. An unnamed array is also accepted because the estimator has exactly one feature. A refit with unnamed data clears the previous feature name.
+Named prediction inputs must match the fitted feature name. An unnamed array is also accepted, with a scikit-learn-style feature-name warning. A refit with unnamed data clears the previous feature name.
+
+## Theory and suitability
+
+The [theory guide](docs/theory.md) explains regressograms, Nadaraya–Watson and local-linear regression, smoothing choices, and bootstrap assumptions with primary-source references. It describes useful exploratory questions and limits: pairwise curves do not establish causality, adjust for other features, test all forms of dependence, or validate extrapolation.
 
 ## Understanding the statistical parameters
 
@@ -272,7 +290,7 @@ Run `uv run python examples/kernel_explorer.py` for kernel, bandwidth, query, lo
 
 The latest working-tree changes remove `warn` and `warn_unsorted` constructor parameters, make unsorted warnings the default, remove automatic sorted-index construction, change `agg`'s default to the equivalent named `"mean"`, and change the default `ci` to `None`. They add numeric aggregation adapters, weighted regressograms, feature-name checks and explicit support/extrapolation inspection. Migrate warning suppression to Python filters and request descriptive intervals explicitly if desired.
 
-CV remains optional. Sparse or multivariate regression, weighted built-in quantiles/variances, automatic imputation, full sklearn metadata routing, simultaneous confidence bands and prediction intervals are not implemented. Custom weighted conventions can be supplied through adapters. The library tests selected sklearn contracts and integrations but does not claim every generic estimator check passes its intentionally univariate API.
+The single-feature scope is a deliberate design choice for relationship exploration; multivariate prediction is outside the current scope. CV remains optional. Sparse input, weighted built-in quantiles/variances, automatic imputation, full sklearn metadata routing, simultaneous confidence bands and prediction intervals are not implemented. Custom weighted conventions can be supplied through adapters. The library tests selected sklearn contracts and integrations but does not claim every generic estimator check passes its intentionally univariate API.
 
 ## Development
 

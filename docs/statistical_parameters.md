@@ -1,6 +1,8 @@
 # Statistical parameter reference
 
-This guide explains the statistical meaning, defaults and practical effects of Rgram's parameters. The [README](../README.md) provides introductory examples, and the [advanced guide](advanced.md) describes implementation contracts. Ordinary fits use all supplied rows. Cross-validation and bootstrap resampling run only when explicitly requested, and neither estimator sorts client observations or query rows.
+This guide explains the statistical meaning, defaults and practical effects of Rgram's parameters. The [quick start](getting_started.md) provides introductory examples, and the [advanced guide](advanced.md) describes implementation contracts. Ordinary fits use all supplied rows. Cross-validation and bootstrap resampling run only when explicitly requested, and neither estimator sorts client observations or query rows.
+
+Rgram is primarily intended to explore one numeric feature–response relationship at a time. Its univariate scope is intentional: choose a feature and response, inspect their fitted curve and local support, and repeat for other features or explicitly selected subgroups. Each curve summarizes a pairwise association without adjusting for other variables or modeling interactions. Multivariate prediction is outside the current scope.
 
 ## The quantities being estimated
 

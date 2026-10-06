@@ -16,19 +16,67 @@ from rgram.base import BaseUtils
 
 
 class CoverageSearchCV(RegressorMixin, BaseEstimator):
-    """Grid search using pooled validation MSE and explicit prediction coverage.
+    """Select parameters by validation MSE with explicit support requirements.
 
-    Every fold must meet min_coverage (default 1.0). Ineligible candidates get
-    infinite loss, even if their supported predictions have tiny error. If no
-    candidate qualifies, fit raises; cv_results_ remains available for inspection.
-    Lowering min_coverage explicitly allows MSE on supported rows only, which
-    can favor selective models: inspect both coverage and error.
+    Parameters
+    ----------
+    estimator : sklearn estimator
+        Cloneable single-feature regressor with fit and predict. Fit errors and
+        prediction policies are respected, not overridden.
+    param_grid : dict or list of dicts
+        Parameter names mapped to sequences of candidates, as in ParameterGrid.
+        Nested names use the usual step__parameter convention.
+    cv : int, splitter or iterable, default=5
+        Integer uses shuffled KFold. Otherwise supply a split(X, y, groups)
+        object or iterable of nonempty, disjoint train/test index pairs.
+    min_coverage : float, default=1.0
+        Minimum fraction of finite predictions required in every fold, in (0, 1].
+        Lowering this compares only supported rows and can favor selective models.
+    random_state : int or None, default=0
+        Seed for integer-CV splitting. Does not reseed a supplied splitter.
 
-    cv accepts an integer (shuffled KFold), a splitter, or iterable train/test
-    indices. Supply a time/group-aware splitter for dependent observations.
-    Fit errors propagate. Scoring is unweighted MSE; optional sample_weight is
-    passed only to fitting. The winning estimator is refit on all rows. Designed
-    for univariate estimators; arrays and Polars column-name input are accepted.
+    Attributes
+    ----------
+    best_estimator_ : estimator
+        Winning model refitted on all rows. Available only after successful fit.
+    best_params_ : dict
+        Winning parameter combination.
+    best_index_ : int
+        Position of the winner in ``cv_results_``. Ties use the first candidate.
+    best_score_ : float
+        Negative pooled unweighted validation MSE, not R-squared.
+    cv_results_ : dict
+        Candidate parameters, MSE, support fractions, eligibility, selection loss,
+        validation counts, and per-fold MSE/coverage arrays. See result schemas.
+    cv_splits_ : tuple of (train_indices, test_indices)
+        Copies of the actual fold membership indices.
+    n_splits_ : int
+        Number of supplied validation folds.
+    n_features_in_ : int
+        Always one after successful fit.
+    feature_names_in_ : ndarray of shape (1,)
+        Original feature name, only when the training input is named.
+
+    Notes
+    -----
+    The selection loss pools squared errors over finite validation predictions.
+    Each fold must independently meet min_coverage. Ineligible candidates have
+    infinite selection loss. If none qualifies, fit raises and ``cv_results_`` remains
+    inspectable, but the search is not fitted. There is no n_jobs, scoring, refit,
+    or error_score option. Inherited score reports R-squared.
+    Weights affect fitting only. Direct weight forwarding to nested pipelines is
+    not implemented. Unlike GridSearchCV's integer regression CV, integer CV here
+    is shuffled. Preprocessing must be inside the candidate pipeline to avoid leakage.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from rgram import CoverageSearchCV, Regressogram
+    >>> X = np.linspace(0, 1, 30).reshape(-1, 1)
+    >>> search = CoverageSearchCV(Regressogram(), {'n_bins': [1, 3]}, cv=3)
+    >>> _ = search.fit(X, X[:, 0])
+    >>> search.predict(X).shape
+    (30,)
     """
 
     def __init__(
@@ -48,13 +96,43 @@ class CoverageSearchCV(RegressorMixin, BaseEstimator):
 
     def fit(
         self,
-        x: Input,
-        y: Input,
+        X: Input = None,
+        y: Input = None,
         *,
+        x: Input = None,
         data: Optional[Frame] = None,
         groups: Optional[ArrayLike] = None,
         sample_weight: Optional[ArrayLike] = None,
     ) -> CoverageSearchCV:
+        """Evaluate candidates and refit the eligible winner on all observations.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_samples,) or (n_samples, 1), or str, default=None
+            Single feature or its column name when data is supplied.
+        y : array-like or str, default=None
+            Aligned numeric response or its column name. Required.
+        x : array-like or str, default=None
+            Legacy alias for X; supply exactly one alias.
+        data : polars.DataFrame or polars.LazyFrame, default=None
+            Source for named feature and response columns.
+        groups : array-like of shape (n_samples,) or None, default=None
+            Labels passed to an explicit group-aware splitter. Rejected with integer cv.
+        sample_weight : array-like of shape (n_samples,) or None, default=None
+            Nonnegative fitting weights, sliced by training fold. Scoring is unweighted.
+
+        Returns
+        -------
+        self : CoverageSearchCV
+            Fitted search. The winner is refit on every supplied row.
+
+        Raises
+        ------
+        ValueError
+            For invalid input, fold indices, policies, or when no candidate qualifies.
+            Candidate fit/prediction errors propagate rather than becoming scores.
+        """
+        x = BaseUtils._resolve_X(X, x)
         for name in (
             "best_estimator_",
             "best_params_",
@@ -213,6 +291,30 @@ class CoverageSearchCV(RegressorMixin, BaseEstimator):
         self.n_features_in_ = 1
         return self
 
-    def predict(self, x: Input) -> Prediction:
+    def __sklearn_is_fitted__(self) -> bool:
+        """Require a refitted winner; retained results alone do not make an unsuccessful search fitted."""
+        return hasattr(self, "best_estimator_")
+
+    def predict(self, X: Input = None, *, x: Input = None) -> Prediction:
+        """Predict through the refitted winning estimator.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_queries,) or (n_queries, 1), default=None
+            Query feature values, with the fitted feature name if named.
+        x : array-like, default=None
+            Legacy alias for X; supply exactly one alias.
+
+        Returns
+        -------
+        prediction : ndarray of shape (n_queries,)
+            Winner's predictions in query order, respecting its prediction policies.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If a successful search has not produced ``best_estimator_``.
+        """
+        x = BaseUtils._resolve_X(X, x)
         check_is_fitted(self, "best_estimator_")
         return self.best_estimator_.predict(x)

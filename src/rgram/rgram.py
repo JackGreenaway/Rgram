@@ -1,3 +1,5 @@
+"""Binned summaries for one numeric feature–response relationship."""
+
 from __future__ import annotations
 
 from typing import Literal, Optional, Sequence, Union
@@ -6,6 +8,7 @@ import numpy as np
 import polars as pl
 from numpy.typing import ArrayLike
 from sklearn.base import BaseEstimator, RegressorMixin, clone
+from sklearn.utils.validation import check_is_fitted
 
 from rgram._typing import CV, Input, Prediction
 from rgram.aggregation import (
@@ -74,6 +77,28 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
 
     Attributes
     ----------
+    X_ : ndarray of shape (n_samples,)
+        Independent snapshot of original training features in row order.
+    y_ : ndarray of shape (n_samples,)
+        Independent snapshot of original training responses in row order.
+    sample_weight_ : ndarray of shape (n_samples,)
+        Original supplied weights, or ones if absent. Independent snapshot.
+    sample_weight_provided_ : bool
+        Whether observation weights were supplied during fit.
+    feature_names_in_ : ndarray of shape (1,)
+        Training feature name, present only for named input.
+    data_summary_ : dict
+        Data integrity, original dtype, fitted policy and computation summary.
+    n_features_in_ : int
+        Always one.
+    n_samples_in_ : int
+        Number of rows, including zero-weight rows.
+    selected_n_bins_ : int, str or None
+        Count selected by internal CV, or original n_bins option without CV.
+    requested_n_bins_ : int
+        Nominal cell count after rule/cap selection but before tied boundaries
+        are merged. Present for dist/width only. Sample/constant-x constraints
+        can reduce an explicit request before this attribute is assigned.
     n_bins_ : int
         Number of fitted cells (empty cells may exist).
     bin_edges_ : ndarray
@@ -85,15 +110,6 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
     cv_results_ : dict
         Error and coverage by candidate, available when n_bins='cv'.
 
-    Methods
-    -------
-    fit(x, y, data=None, sample_weight=None)
-        Learn bin parameters from training data.
-    predict(x, return_ci=False)
-        Predict binned regression values at new x points.
-        Returns array or tuple with optional confidence intervals.
-    fit_predict(x, y, data=None, return_ci=False)
-        Fit and predict on training x values.
     """
 
     def __init__(
@@ -126,6 +142,7 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
         self.unsupported = unsupported
 
     def _validate_parameters(self) -> None:
+        """Validate bin rules, support policies, and declared scalar/weighted aggregation contracts."""
         if isinstance(self.agg, str):
             if self.agg not in AGGREGATIONS:
                 raise ValueError(
@@ -195,6 +212,7 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
     def _cv_bin_count(
         self, x: Input, y: Input, sample_weight: Optional[ArrayLike] = None
     ) -> int:
+        """Run explicit coverage-aware bin-count CV and retain candidate results without mutating parameters."""
         from rgram.model_selection import CoverageSearchCV
 
         limit = min(self.max_bins, max(1, len(x) // self.min_samples_bin))
@@ -225,6 +243,7 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
         return search.best_params_["n_bins"]
 
     def _learn_bin_params(self, data: pl.LazyFrame) -> None:
+        """Learn bounds, count and interior boundaries; merge ties and expose fitted resolution."""
         x = data.select("x_val").collect()["x_val"].to_numpy()
         n = len(x)
         self._x_min, self._x_max = x.min().item(), x.max().item()
@@ -353,54 +372,58 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
 
     def fit(
         self,
-        x: Input,
-        y: Input,
+        X: Input = None,
+        y: Input = None,
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
         sample_weight: Optional[ArrayLike] = None,
+        *,
+        x: Input = None,
     ) -> "Regressogram":
-        """
-        Learn bin parameters from training data (univariate only).
-
-        Supports flexible input similar to seaborn (e.g., kdeplot):
-        - Provide DataFrame + single column name (recommended for production)
-        - Provide raw array/Series (convenient for exploration)
+        """Fit one numeric feature and one numeric response.
 
         Parameters
         ----------
-        x : str or array-like
-            Single feature to bin. Column name if `data` provided, else array-like.
-        y : str or array-like
-            Single target. Column name if `data` provided, else array-like.
-        data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y are treated as column names (str).
-            If None, x/y are treated as array-like values.
+        X : array-like of shape (n_samples,) or (n_samples, 1), or str, default=None
+            Numeric feature, or its column name when data is supplied.
+        y : array-like of shape (n_samples,) or (n_samples, 1), or str, default=None
+            Numeric response, or its column name when data is supplied. Required.
+        data : polars.DataFrame or polars.LazyFrame, default=None
+            Source for named columns. Selected columns are materialized once.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Finite nonnegative influence weights with positive total mass.
+        x : array-like or str, default=None
+            Legacy alias for X. Supply exactly one of X and x.
 
         Returns
         -------
-        self : object
-            Fitted estimator.
+        self : estimator
+            Fitted estimator, with independent training snapshots.
 
         Raises
         ------
         ValueError
-            If x/y are sequences of column names (multivariate not supported).
-            If x and y arrays have different lengths or are empty.
+            For incompatible shapes, unequal lengths, missing/non-finite values,
+            invalid settings, or unsupported weighting conventions.
         TypeError
-            If agg or ci are not callable, or if input contains complex numbers.
+            For nonnumeric/complex input or invalid callback/data types.
+
+        Notes
+        -----
+        Rows and duplicates are preserved. Unsorted input emits an advisory warning.
+        A failed refit invalidates prediction access. Zero-weight rows still participate
+        in feature-based bin or bandwidth selection. Normal fitting does not run CV;
+        Regressogram(n_bins='cv') explicitly requests it.
 
         Examples
         --------
-        >>> import polars as pl
         >>> import numpy as np
         >>> from rgram import Regressogram
-        >>>
-        >>> # DataFrame mode
-        >>> df = pl.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
-        >>> rgram = Regressogram().fit(data=df, x="x", y="y")
-        >>>
-        >>> # Array mode
-        >>> rgram = Regressogram().fit(x=[1, 2, 3], y=[4, 5, 6])
+        >>> X = np.arange(10.0).reshape(-1, 1)
+        >>> model = Regressogram().fit(X, X[:, 0])
+        >>> model.predict(X).shape
+        (10,)
         """
+        x = self._resolve_X(X, x)
         self._is_fitted = False
         self._validate_parameters()
         self._bin_edges = []
@@ -519,8 +542,8 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
         return self
 
     def _prediction_frame(self, values: ArrayLike) -> pl.DataFrame:
-        if not self.__sklearn_is_fitted__():
-            raise RuntimeError("Call fit() before predict().")
+        """Join fitted bin estimates in query order, retaining support/range flags and applying policies."""
+        check_is_fitted(self)
         x = self._prediction_features(values)
         self._check_order(x)
         if self.binning in ("dist", "width"):
@@ -568,8 +591,40 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
             pl.Series("in_training_range", ~outside), pl.Series("supported", finite)
         )
 
-    def predict(self, x: Input, return_ci: bool = False) -> Prediction:
-        """Predict in input order. return_ci returns explicitly configured bin summaries."""
+    def predict(
+        self, X: Input = None, return_ci: bool = False, *, x: Input = None
+    ) -> Prediction:
+        """Evaluate the fitted bin summary at each query.
+
+        Parameters
+        ----------
+        X : array-like of shape (n_queries,) or (n_queries, 1), default=None
+            Query feature values. Named inputs must match the fitted feature.
+        return_ci : bool, default=False
+            Return configured descriptive ci endpoints alongside predictions.
+        x : array-like, default=None
+            Legacy alias for X; supply exactly one alias.
+
+        Returns
+        -------
+        prediction : ndarray of shape (n_queries,) or tuple
+            Default: one estimate per query, in input order. With return_ci=True,
+            return (prediction, lower, upper); endpoints are None if ci=None.
+            Configured endpoints are descriptive summaries, not bootstrap intervals.
+
+        Raises
+        ------
+        sklearn.exceptions.NotFittedError
+            If no successful fit is available.
+        ValueError
+            For invalid queries, feature-name mismatch, or a strict support/range policy.
+
+        See Also
+        --------
+        predict_interval : Bootstrap confidence intervals for the curve.
+        predict_diagnostics : Bin assignment, counts, support and range flags.
+        """
+        x = self._resolve_X(X, x)
         frame = self._prediction_frame(x)
         prediction = frame["y_pred_rgram"].to_numpy()
         if not return_ci:
@@ -583,7 +638,21 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
         )
 
     def predict_diagnostics(self, x: Input) -> pl.DataFrame:
-        """Return one row per query with support, assigned bin and training counts."""
+        """Return bin assignment and support information for each query.
+
+        Parameters
+        ----------
+        x : array-like of shape (n_queries,) or (n_queries, 1)
+            One query feature, with fitted feature name if named.
+
+        Returns
+        -------
+        diagnostics : polars.DataFrame
+            Columns: x, prediction, rgram_bin, n_samples, weight_sum,
+            n_positive_weight, supported, in_training_range. Each row corresponds
+            to the query at the same position. Missing bin information is null;
+            unsupported predictions are NaN unless a strict policy raises.
+        """
         return self._prediction_frame(x).select(
             pl.col("x_val").alias("x"),
             pl.col("y_pred_rgram").alias("prediction"),
@@ -597,40 +666,43 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
 
     def fit_predict(
         self,
-        x: Input,
-        y: Input,
+        X: Input = None,
+        y: Input = None,
         data: Union[pl.DataFrame, pl.LazyFrame, None] = None,
         return_ci: bool = False,
         sample_weight: Optional[ArrayLike] = None,
+        *,
+        x: Input = None,
     ) -> Prediction:
-        """
-        Fit and predict on training x values in one call (univariate only).
+        """Fit and evaluate at the original training feature values.
 
         Parameters
         ----------
-        x : str or array-like
-            Single feature column name if `data` provided, else single array-like data values.
-        y : str or array-like
-            Single target column name if `data` provided, else single array-like data values.
-        data : pl.DataFrame, pl.LazyFrame, or None, optional
-            Input data. If provided, x/y must be column names (str).
-            If None, x/y must be array-like data (list, ndarray, Series).
+        X : array-like or str, default=None
+            One training feature, or its column name when data is supplied.
+        y : array-like or str, default=None
+            One training response, or its column name when data is supplied. Required.
+        data : polars.DataFrame or polars.LazyFrame, default=None
+            Source for named columns.
         return_ci : bool, default=False
-            If True, return confidence intervals along with predictions.
+            Return configured descriptive ci endpoints, not bootstrap intervals.
+        sample_weight : array-like of shape (n_samples,), default=None
+            Observation influence weights; see fit.
+        x : array-like or str, default=None
+            Legacy alias for X; supply exactly one alias.
 
         Returns
         -------
-        np.ndarray or tuple
-            If return_ci=False: array of predictions at training x values
-            If return_ci=True: tuple of (y_pred, y_ci_low, y_ci_high)
+        prediction : ndarray or tuple
+            Training predictions in original row order. With return_ci=True, return
+            (prediction, lower, upper), with None endpoints if ci=None.
 
-        Raises
-        ------
-        TypeError
-            If x/y are not str when data is provided, or not array-like when data is None.
-        ValueError
-            If x/y are sequences of column names (univariate only).
+        Notes
+        -----
+        Uses fit followed by predict on the stored training features. In-sample
+        accuracy does not measure generalization to new observations.
         """
+        x = self._resolve_X(X, x)
         # Validate univariate constraint when data is provided
         if data is not None:
             if isinstance(x, (list, tuple)):

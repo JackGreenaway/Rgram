@@ -5,6 +5,7 @@ import pickle
 import numpy as np
 import polars as pl
 import pytest
+from sklearn.exceptions import NotFittedError
 from sklearn.base import clone, is_regressor
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import make_pipeline
@@ -72,7 +73,7 @@ def test_multivariate_rejected_and_failed_refit_invalidates(cls):
     model = cls().fit([1.0, 2.0, 3.0], [3.0, 4.0, 5.0])
     with pytest.raises(ValueError, match="univariate"):
         model.fit(np.ones((3, 2)), [1.0, 2.0, 3.0])
-    with pytest.raises(RuntimeError):
+    with pytest.raises(NotFittedError):
         model.predict([1.0])
     with pytest.raises(ValueError, match="univariate"):
         model.fit(["a", "b"], "a", data=pl.DataFrame({"a": [1.0], "b": [2.0]}))
@@ -179,3 +180,108 @@ def test_gaussian_far_query_does_not_underflow():
         kernel="gaussian", bandwidth="manual", bandwidth_value=1
     ).fit([0.0, 1.0], [3.0, 7.0])
     np.testing.assert_allclose(model.predict([1000.0]), [7.0])
+
+
+@pytest.mark.parametrize("cls", [Regressogram, KernelSmoother])
+def test_standard_keywords_and_legacy_aliases(cls):
+    X = np.arange(12.0).reshape(-1, 1)
+    y = np.sin(X[:, 0])
+    model = cls().fit(X=X, y=y)
+    np.testing.assert_allclose(model.predict(X=X), model.predict(X))
+    np.testing.assert_allclose(cls().fit_predict(X=X, y=y), model.predict(X))
+    legacy = cls().fit(x=X, y=y)
+    query_kw = {"x": X} if cls is Regressogram else {"x_eval": X}
+    np.testing.assert_allclose(legacy.predict(**query_kw), model.predict(X))
+    with pytest.raises(TypeError, match="either X or"):
+        model.fit(X=X, x=X, y=y)
+    with pytest.raises(TypeError, match="either X or"):
+        model.predict(X=X, **query_kw)
+    with pytest.raises(NotFittedError):
+        cls().predict(X=X)
+
+
+@pytest.mark.parametrize("cls", [Regressogram, KernelSmoother])
+def test_feature_name_contract_and_refit(cls):
+    X = pl.DataFrame({"temperature": np.arange(12.0)})
+    y = np.arange(12.0)
+    model = cls().fit(X=X, y=y)
+    np.testing.assert_array_equal(model.feature_names_in_, ["temperature"])
+    with pytest.raises(ValueError, match="does not match"):
+        model.predict(X.rename({"temperature": "humidity"}))
+    with pytest.warns(UserWarning, match="does not have valid feature names"):
+        model.predict(X.to_numpy())
+    model.fit(X.to_numpy(), y)
+    assert not hasattr(model, "feature_names_in_")
+    with pytest.warns(UserWarning, match="fitted without feature names"):
+        model.predict(X)
+
+
+def test_coverage_search_failed_fit_is_not_fitted():
+    from rgram import CoverageSearchCV
+
+    X = np.arange(12.0).reshape(-1, 1)
+    search = CoverageSearchCV(Regressogram(), {"n_bins": [1, 2]}, cv=3)
+    search.fit(X=X, y=X[:, 0])
+    check_is_fitted(search)
+    assert search.predict(X=X).shape == (12,)
+    search.set_params(
+        estimator=KernelSmoother(bandwidth="manual", bandwidth_value=1e-6)
+    )
+    with pytest.raises(ValueError, match="No candidate"):
+        search.set_params(param_grid={}).fit(X, X[:, 0])
+    assert hasattr(search, "cv_results_")
+    with pytest.raises(NotFittedError):
+        check_is_fitted(search)
+    with pytest.raises(NotFittedError):
+        search.predict(X)
+
+
+@pytest.mark.parametrize("cls", [Regressogram, KernelSmoother])
+def test_dataframe_selection_pipeline_weights_and_target_transform(cls):
+    import pandas as pd
+    from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
+    from sklearn.metrics import r2_score
+    from sklearn.pipeline import Pipeline
+
+    X = pd.DataFrame({"temperature": np.arange(20.0), "humidity": np.ones(20)})
+    y = 2 + X["temperature"].to_numpy()
+    weights = np.arange(1.0, 21.0)
+    pipeline = Pipeline(
+        [
+            (
+                "select",
+                ColumnTransformer(
+                    [
+                        ("temperature", StandardScaler(), ["temperature"]),
+                    ],
+                    remainder="drop",
+                ),
+            ),
+            ("model", cls()),
+        ]
+    )
+    pipeline.fit(X, y, model__sample_weight=weights)
+    np.testing.assert_array_equal(pipeline[-1].sample_weight_, weights)
+    prediction = pipeline.predict(X)
+    assert prediction.shape == (20,)
+    assert pipeline.score(X, y, sample_weight=weights) == pytest.approx(
+        r2_score(y, prediction, sample_weight=weights)
+    )
+    wrapped = TransformedTargetRegressor(
+        regressor=clone(pipeline),
+        func=np.log,
+        inverse_func=np.exp,
+    ).fit(X, y)
+    assert np.isfinite(wrapped.predict(X)).all()
+
+
+@pytest.mark.parametrize("cls", [Regressogram, KernelSmoother])
+def test_sklearn_partial_dependence(cls):
+    from sklearn.inspection import partial_dependence
+
+    X = np.linspace(0, 5, 30).reshape(-1, 1)
+    model = cls().fit(X, np.sin(X[:, 0]))
+    result = partial_dependence(model, X, [0], method="brute", grid_resolution=8)
+    np.testing.assert_allclose(
+        result["average"][0], model.predict(result["grid_values"][0].reshape(-1, 1))
+    )

@@ -8,6 +8,7 @@ import numpy as np
 import polars as pl
 from numpy.typing import ArrayLike
 from sklearn.base import clone
+from sklearn.utils.validation import check_is_fitted
 
 from rgram._typing import Array, Input
 from rgram.base import BaseUtils
@@ -22,6 +23,12 @@ def _resample_indices(
     groups: Optional[ArrayLike],
     block_size: Optional[int],
 ) -> Iterator[Array]:
+    """Yield paired row indices for IID, whole-group, or moving-block draws.
+
+    Group labels must be nonmissing with at least two groups. Block lengths
+    must lie between two and n - 1. Blocks preserve within-block input order
+    and are concatenated/truncated to n rows; groups can vary sample size.
+    """
     if resampling == "groups":
         labels = np.asarray(groups)
         if labels.ndim != 1 or len(labels) != n:
@@ -68,8 +75,15 @@ def bootstrap_interval(
     block_size: Optional[int],
     min_valid_fraction: float,
 ) -> pl.DataFrame:
-    if not model.__sklearn_is_fitted__():
-        raise RuntimeError("Call fit() before predict_interval")
+    """Implementation of BaseUtils.predict_interval.
+
+    Validate interval settings, create a clone with fixed selected smoothing,
+    resample paired rows, count finite draws, and form pointwise percentile or
+    basic bounds. See the public method for each parameter and result column.
+    Errors from strict estimator policies propagate. No positive-weight draws
+    count as unsupported; other failed fits are not silently excluded.
+    """
+    check_is_fitted(model)
     for name, value in (
         ("confidence_level", confidence_level),
         ("min_valid_fraction", min_valid_fraction),

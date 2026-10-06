@@ -1,4 +1,5 @@
 import pytest
+from sklearn.exceptions import NotFittedError
 import numpy as np
 import polars as pl
 from rgram.rgram import Regressogram
@@ -17,7 +18,7 @@ def test_predict_returns_correct_length(sample_data):
 def test_predict_before_fit_raises():
     rgram = Regressogram()
 
-    with pytest.raises(RuntimeError):
+    with pytest.raises(NotFittedError):
         rgram.predict([1, 2, 3])
 
 

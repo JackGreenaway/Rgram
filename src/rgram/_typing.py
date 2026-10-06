@@ -22,12 +22,16 @@ WeightedReducer = Callable[[pl.Expr, pl.Expr], pl.Expr]
 
 
 class Splitter(Protocol):
+    """Structural CV protocol for splitters accepting X, optional y and groups."""
+
     def split(
         self,
         X: ArrayLike,
         y: Optional[ArrayLike] = None,
         groups: Optional[ArrayLike] = None,
-    ) -> Iterable[tuple[ArrayLike, ArrayLike]]: ...
+    ) -> Iterable[tuple[ArrayLike, ArrayLike]]:
+        """Yield paired row indices from features and optional responses/groups."""
+        ...
 
 
 CV = Union[int, Splitter, Iterable[tuple[ArrayLike, ArrayLike]]]
