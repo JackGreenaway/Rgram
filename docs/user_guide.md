@@ -9,6 +9,77 @@ This guide connects those goals to the settings and diagnostics you can inspect.
 - [Statistical Parameters](statistical_parameters.md)
 - [Advanced](advanced.md)
 
+## Configure the classes
+
+The [class settings guide](statistical_parameters.md) explains every constructor
+setting, its default, available choices, and its effect on the fit. Start with
+the walkthrough below, then use the tables for individual options:
+
+- [Regressogram settings](statistical_parameters.md#regressogram-parameters):
+  binning, response statistics, bin counts and widths, validation, and prediction
+  policies.
+- [KernelSmoother settings](statistical_parameters.md#kernelsmoother-parameters):
+  bandwidth, kernel, local regression, support, extrapolation, and computation.
+- [CoverageSearchCV settings](statistical_parameters.md#optional-cross-validation-parameters):
+  candidate models, parameter grids, fold design, and minimum prediction coverage.
+- [Aggregation helper settings](statistical_parameters.md#aggregation-helper-classes):
+  custom reducers, weighting conventions, and quantile interpolation.
+
+### Set up a regressogram
+
+Choose `binning` first: `"dist"` adapts widths to observation density, `"width"`
+keeps feature intervals equally wide, `"none"` groups exact values, and `"int"`
+groups values after truncation toward zero. For distribution or width binning,
+choose `n_bins`; alternatively, width binning accepts `bin_width` with
+`n_bins=None`. More bins or narrower widths expose detail but leave fewer
+observations in each estimate.
+
+Next choose the response summary with `agg`. Use `ci` when you also want two
+descriptive endpoints, such as response percentiles within each bin. These
+endpoints describe response spread; bootstrap curve intervals are a separate
+operation. `max_bins` bounds allocation, while `min_samples_bin` guides the
+default distribution count and automatic CV candidates without guaranteeing a
+minimum occupancy in every bin.
+
+Set `n_bins="cv"` to select counts using held-out responses. Only then do `cv`,
+`bin_candidates`, and `random_state` control internal selection. Finally choose
+`extrapolation` for queries outside the observed range and `unsupported` for bins
+without a usable estimate. These policies address different conditions.
+
+### Set up a kernel smoother
+
+Choose `bandwidth` to use an automatic feature-based rule or `"manual"` with
+`bandwidth_value`. `bandwidth_adjust` multiplies either choice. Smaller widths
+give nearby observations more concentrated influence; larger widths smooth over
+more of the relationship. Choose `kernel` to control how influence falls with
+distance. Compact kernels can leave gaps when the width is too small.
+
+Choose `regression="local_constant"` for a local weighted average or
+`"local_linear"` for a local fitted line. With local-linear fitting, `singular`
+decides whether an unresolved slope falls back to a constant or raises.
+`unsupported` controls queries without usable local weight; `extrapolation`
+controls outside-range queries even when they have support.
+
+The remaining settings control evaluation: `algorithm` chooses the calculation
+path, `batch_size` limits brute-force query batches, and `n_eval_samples` sets
+the default grid resolution. Increasing grid resolution adds evaluation points;
+change bandwidth to alter smoothing.
+
+### Set up a coverage-aware search
+
+Pass an `estimator` and a `param_grid` of settings to compare. `cv` defines the
+validation design, and `random_state` seeds its shuffled folds when `cv` is an
+integer. `min_coverage` requires a minimum fraction of finite predictions in
+every fold before a candidate can win. Keep the default full coverage unless
+scoring only supported rows answers your intended question. The winner is
+always refitted on all training rows.
+
+Constructor settings can be inspected with `get_params()` and changed with
+`set_params(...)`. Refit after changing model settings. Fitted attributes such as
+`n_bins_` and `bandwidth_` report what was learned; they are results rather than
+constructor options. The settings guide also distinguishes fitting inputs and
+method options, including weights, diagnostics, and bootstrap intervals.
+
 ## Choose the summary you need
 
 Use `Regressogram` when feature intervals and a small table of counts and local

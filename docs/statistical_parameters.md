@@ -73,6 +73,27 @@ Constant features produce one cell. Zero-width spread rules fall back to Sturges
 
 For the quantile helper, `"linear"` blends the neighboring ordered responses at fractional rank `q * (n_bin - 1)`. `"lower"` and `"higher"` select the lower or upper rank, `"nearest"` selects the nearest rank, and `"midpoint"` averages the neighboring responses. `"equiprobable"` selects the empirical inverse-CDF rank, corresponding to `ceil(n_bin * q) - 1` clipped to valid zero-based indices. These choices can differ substantially in small bins. Computing an order statistic may order temporary values; it never reorders the client's observation records.
 
+### Aggregation helper classes
+
+The helpers above construct configurable callable objects. You can also
+instantiate their classes directly from `rgram.aggregation`. Every constructor
+setting is listed here; the same meanings apply to the corresponding factory
+function.
+
+| Class | Setting and default | Effect |
+|---|---|---|
+| `ArrayAggregation` | `func` (required) | Numeric reducer called with a copied NumPy response array; it must return one real scalar. |
+| `ArrayAggregation` | `weighted=False` | With `False`, call `func(values)`. With `True`, call `func(values, weights)` and implement weighting explicitly; absent observation weights are replaced by ones. |
+| `WeightedAggregation` | `func` (required) | Native reducer called with response and weight Polars expressions; return a scalar reduction expression that implements your weighting convention. |
+| `Quantile` | `q` (required) | Response percentile as a fraction in `[0, 1]`; `0.5` gives a median. This reducer is unweighted. |
+| `Quantile` | `interpolation="linear"` | Choose how fractional ranks are resolved using the interpolation options explained above. This affects response percentiles within a bin. |
+
+For example, `quantile(0.9)` constructs `Quantile(q=0.9)`, and
+`array_aggregation(func, weighted=True)` constructs
+`ArrayAggregation(func=func, weighted=True)`. The objects support estimator
+parameter inspection and cloning, including nested settings such as `agg__q`.
+See the [aggregation reference](api/aggregation.md) for executable examples.
+
 ## KernelSmoother parameters
 
 | Parameter and default         | What it does and how to interpret it                                                                                                                                                                                                                                                                 |
