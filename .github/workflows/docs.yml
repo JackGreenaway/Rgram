@@ -23,6 +23,8 @@ jobs:
         run: uv sync --locked --group docs --python 3.11
       - name: Check class references match the implementation
         run: uv run --locked --python 3.11 --group docs python scripts/build_api_reference.py --check
+      - name: Check standalone gallery sources
+        run: uv run --locked --python 3.11 --group docs python scripts/build_gallery.py --check
       - name: Check API coverage and execute documentation examples
         run: |
           uv run --locked --python 3.11 --group docs python scripts/check_docs.py

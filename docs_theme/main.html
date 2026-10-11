@@ -6,7 +6,7 @@
 
 {% block site_nav %}
 <ul class="nav navbar-nav docs-topnav">
-  {% for title, target in [('Getting started', 'getting_started.md'), ('User guide', 'user_guide.md'), ('API', 'api/index.md'), ('Examples', 'examples.md')] %}
+  {% for title, target in [('Getting started', 'getting_started.md'), ('User guide', 'user_guide.md'), ('API', 'api/index.md'), ('Examples', 'examples.md'), ('Development', 'development.md')] %}
   {% for entry in nav.pages if entry.file.src_uri == target %}
   <li class="nav-item"><a class="nav-link{% if entry.active %} active{% endif %}" href="{{ entry.url|url }}"{% if entry.active %} aria-current="page"{% endif %}>{{ title }}</a></li>
   {% endfor %}

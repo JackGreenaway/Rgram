@@ -1,47 +1,8 @@
 # CoverageSearchCV
 
-This optional search object is deliberately narrower than `GridSearchCV`.
-It uses pooled unweighted validation MSE and rejects candidates with inadequate
-support in any fold. See [search result fields](results.md#search-results) and
-[the search contracts](../advanced.md#optional-cv-fit-weights-and-inspectable-splits).
-
-## What it solves
-
-A candidate smoother can look accurate on the rows where it predicts while
-leaving other validation rows unsupported. `CoverageSearchCV` makes the required
-fraction of finite predictions explicit when comparing parameter settings.
-
-## When to use it
-
-Use it to select a single-feature regressor by pooled validation MSE while
-requiring sufficient prediction coverage in every fold. The default requires
-full coverage. Use ordinary `GridSearchCV` when you need its broader scoring and
-search options; this helper has its own [search contracts](../advanced.md).
-
-## Example: select a bandwidth with full coverage
-
-```python
-import numpy as np
-from rgram import CoverageSearchCV, KernelSmoother
-
-X = np.linspace(0.0, 6.0, 40).reshape(-1, 1)
-y = np.sin(X[:, 0])
-search = CoverageSearchCV(
-    KernelSmoother(kernel="gaussian", bandwidth="manual"),
-    {"bandwidth_value": [0.3, 0.6, 1.0]},
-    cv=3,
-    min_coverage=1.0,
-    random_state=42,
-).fit(X, y)
-print(search.best_params_)
-print(search.cv_results_)
-assert np.isfinite(search.predict([[2.0], [3.0]])).all()
-```
-
-The search evaluates each bandwidth using shuffled folds and refits the winner.
-Gaussian weighting usually avoids support gaps; compact kernels can expose them.
-Review coverage and MSE together in `cv_results_`. The winning validation score
-supports parameter selection; use a separate test set for a final performance claim.
+See [component workflows](../workflows.md) for rationale and worked analysis,
+[the user guide](../user_guide.md) for concepts, and [result schemas](results.md)
+for diagnostic tables.
 
 <!-- BEGIN REFERENCE:rgram.CoverageSearchCV -->
 <span id="rgram.CoverageSearchCV"></span>
@@ -97,6 +58,18 @@ Weights affect fitting only. Direct weight forwarding to nested pipelines is
 not implemented. Unlike GridSearchCV's integer regression CV, integer CV here
 is shuffled. Preprocessing must be inside the candidate pipeline to avoid leakage.
 
+### Examples
+
+```pycon
+>>> import numpy as np
+>>> from rgram import CoverageSearchCV, Regressogram
+>>> X = np.linspace(0, 1, 30).reshape(-1, 1)
+>>> search = CoverageSearchCV(Regressogram(), {'n_bins': [1, 3]}, cv=3)
+>>> _ = search.fit(X, X[:, 0])
+>>> search.predict(X).shape
+(30,)
+```
+
 
 ### Methods
 
@@ -117,7 +90,7 @@ is shuffled. Preprocessing must be inside the candidate pipeline to avoid leakag
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/model_selection.py#L97">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">fit</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/model_selection.py#L97">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.CoverageSearchCV.</span><span class="api-name">fit</span>(
     X,
     y,
     *,
@@ -160,7 +133,7 @@ Evaluate candidates and refit the eligible winner on all observations.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.CoverageSearchCV.</span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
 
 
 Get metadata routing of this object.
@@ -183,7 +156,7 @@ mechanism works.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.CoverageSearchCV.</span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
 
 
 Get parameters for this estimator.
@@ -209,7 +182,7 @@ Get parameters for this estimator.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/model_selection.py#L295">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict</span>(X)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/model_selection.py#L295">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.CoverageSearchCV.</span><span class="api-name">predict</span>(X)</code></pre></div>
 
 
 Predict through the refitted winning estimator.
@@ -241,7 +214,7 @@ Predict through the refitted winning estimator.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L672">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">score</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L672">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.CoverageSearchCV.</span><span class="api-name">score</span>(
     X,
     y,
     sample_weight=None,
@@ -291,7 +264,7 @@ regressors (except for
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_fit_request</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.CoverageSearchCV.</span><span class="api-name">set_fit_request</span>(
     *,
     data=&#x27;$UNCHANGED$&#x27;,
     groups=&#x27;$UNCHANGED$&#x27;,
@@ -345,7 +318,7 @@ Added in version 1.3.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_params</span>(**params)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.CoverageSearchCV.</span><span class="api-name">set_params</span>(**params)</code></pre></div>
 
 
 Set the parameters of this estimator.
@@ -376,7 +349,7 @@ possible to update each component of a nested object.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_score_request</span>(*, sample_weight=&#x27;$UNCHANGED$&#x27;)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.CoverageSearchCV.</span><span class="api-name">set_score_request</span>(*, sample_weight=&#x27;$UNCHANGED$&#x27;)</code></pre></div>
 
 
 Configure whether metadata should be requested to be passed to the `score` method.

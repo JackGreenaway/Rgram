@@ -1,43 +1,8 @@
 # KernelSmoother
 
-Use this estimator to inspect a local response curve. [Kernel theory](../theory.md#kernel-regression-a-moving-neighborhood)
-and [bandwidth/kernel parameters](../statistical_parameters.md) explain the
-smoothing controls. See [result schemas](results.md) for diagnostics and snapshots.
-
-## What it solves
-
-You want to see a changing local response without imposing a global straight line
-or polynomial. `KernelSmoother` pools observations with distance-based weights,
-producing a smooth curve you can evaluate at chosen feature locations.
-
-## When to use it
-
-Use it when a continuous local mean is more useful than fixed interval summaries.
-Bandwidth sets the smoothing scale in feature units. Compare bandwidths and
-inspect support; choose local-linear fitting when a local slope is useful, with
-the [boundary example](../gallery/boundary.md) explaining its behavior.
-
-## Example: compare smoothing scales
-
-```python
-import numpy as np
-from rgram import KernelSmoother
-
-X = np.linspace(0.0, 6.0, 40).reshape(-1, 1)
-y = np.sin(X[:, 0])
-query = np.linspace(0.0, 6.0, 12).reshape(-1, 1)
-for bandwidth in (0.3, 1.0):
-    model = KernelSmoother(
-        kernel="gaussian", bandwidth="manual", bandwidth_value=bandwidth,
-    ).fit(X, y)
-    print(bandwidth, model.predict(query))
-    assert np.isfinite(model.predict(query)).all()
-```
-
-The narrower bandwidth follows more local shape; the broader one averages across
-more of the feature range. This noiseless illustration makes that difference easy
-to inspect. With real data, compare residuals and observation influence as well.
-The [bandwidth gallery](../gallery/bandwidth.md) repeats the comparison with noise.
+See [component workflows](../workflows.md) for rationale and worked analysis,
+[the user guide](../user_guide.md) for concepts, and [result schemas](results.md)
+for diagnostic tables.
 
 <!-- BEGIN REFERENCE:rgram.KernelSmoother -->
 <span id="rgram.KernelSmoother"></span>
@@ -106,6 +71,20 @@ neighbors when training x is already sorted. No sorting is performed. Infinite-s
 and custom kernels use O(n_train * n_query) time with bounded blocks. get_weights() explicitly
 materializes a dense matrix and should be used on small query selections.
 
+### See Also
+
+- [Regressogram](regressogram.md#rgram.Regressogram): Alternative univariate response summary.
+
+### Examples
+
+```pycon
+>>> from rgram import KernelSmoother
+>>> model = KernelSmoother(kernel='gaussian', bandwidth='manual', bandwidth_value=1.)
+>>> _ = model.fit([0., 1., 2.], [3., 3., 3.])
+>>> model.predict([0.5, 1.5]).round(2)
+array([3., 3.])
+```
+
 
 ### Methods
 
@@ -132,7 +111,7 @@ materializes a dense matrix and should be used on small query selections.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L185">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">fit</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L196">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">fit</span>(
     X,
     y,
     *,
@@ -172,6 +151,17 @@ A failed refit invalidates prediction access. Zero-weight rows still participate
 in feature-based bin or bandwidth selection. Normal fitting does not run CV;
 Regressogram(n_bins='cv') explicitly requests it.
 
+#### Examples
+
+```pycon
+>>> import numpy as np
+>>> from rgram import KernelSmoother
+>>> X = np.arange(10.0).reshape(-1, 1)
+>>> model = KernelSmoother().fit(X, X[:, 0])
+>>> model.predict(X).shape
+(10,)
+```
+
 
 </div>
 
@@ -181,7 +171,7 @@ Regressogram(n_bins='cv') explicitly requests it.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L596">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">fit_predict</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L607">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">fit_predict</span>(
     X,
     y,
     *,
@@ -222,7 +212,7 @@ for bootstrap confidence bounds.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
 
 
 Get metadata routing of this object.
@@ -245,7 +235,7 @@ mechanism works.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
 
 
 Get parameters for this estimator.
@@ -271,7 +261,7 @@ Get parameters for this estimator.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L499">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_weights</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L510">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">get_weights</span>(
     X,
     *,
     kind=&#x27;prediction&#x27;,
@@ -307,7 +297,7 @@ ordinary prediction does not require storing this full matrix.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L549">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict</span>(X)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L560">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">predict</span>(X)</code></pre></div>
 
 
 Evaluate the local-constant or local-linear response curve.
@@ -331,6 +321,10 @@ Evaluate the local-constant or local-linear response curve.
 <dt><code class="api-field-name">ValueError</code></dt><dd><p>For invalid queries, feature-name mismatch, or strict policies.</p></dd>
 </dl>
 
+#### See Also
+
+- [predict_interval](#rgram.KernelSmoother.predict_interval): Pointwise bootstrap bounds and draw-support diagnostics.
+
 
 </div>
 
@@ -340,7 +334,7 @@ Evaluate the local-constant or local-linear response curve.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L526">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict_diagnostics</span>(X)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L537">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">predict_diagnostics</span>(X)</code></pre></div>
 
 
 Return local support and numerical information for each query.
@@ -371,7 +365,7 @@ measures weight concentration, not confidence or signed-coefficient variance.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L576">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict_grid</span>()</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/smoothing.py#L587">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">predict_grid</span>()</code></pre></div>
 
 
 Evaluate diagnostics on an evenly spaced training-range grid.
@@ -396,7 +390,7 @@ all grid coordinates are equal. Fit must have succeeded first.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L606">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict_interval</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L606">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">predict_interval</span>(
     X,
     *,
     confidence_level=0.95,
@@ -458,7 +452,7 @@ errors propagate. Explicit neighbor-only algorithms can reject unsorted draws.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L568">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">regression_diagnostics</span>(X, y)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L568">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">regression_diagnostics</span>(X, y)</code></pre></div>
 
 
 Inspect observed values, fitted values, and residuals in input order.
@@ -492,7 +486,7 @@ Inspect observed values, fitted values, and residuals in input order.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L672">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">score</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L672">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">score</span>(
     X,
     y,
     sample_weight=None,
@@ -542,7 +536,7 @@ regressors (except for
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_fit_request</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">set_fit_request</span>(
     *,
     data=&#x27;$UNCHANGED$&#x27;,
     sample_weight=&#x27;$UNCHANGED$&#x27;,
@@ -594,7 +588,7 @@ Added in version 1.3.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_params</span>(**params)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">set_params</span>(**params)</code></pre></div>
 
 
 Set the parameters of this estimator.
@@ -625,7 +619,7 @@ possible to update each component of a nested object.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_score_request</span>(*, sample_weight=&#x27;$UNCHANGED$&#x27;)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.KernelSmoother.</span><span class="api-name">set_score_request</span>(*, sample_weight=&#x27;$UNCHANGED$&#x27;)</code></pre></div>
 
 
 Configure whether metadata should be requested to be passed to the `score` method.

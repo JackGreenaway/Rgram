@@ -87,13 +87,32 @@ def inline(text):
     return re.sub(r"\$(.*?)\$", r'<span class="arithmatex">\(\1\)</span>', text)
 
 
-def render_doc(doc, level):
+def render_doc(doc, level, owner=None):
     sections = re.split(
         r"\n([A-Za-z ]+)\n-{3,}\n", inspect.cleandoc(normalize_rst(doc))
     )
     output = [sections[0].replace("``", "`").strip() + "\n"]
     for heading, body in zip(sections[1::2], sections[2::2]):
-        if heading in {"Examples", "See Also"}:
+        if heading == "Examples":
+            output.append(f"{'#' * level} Examples\n")
+            output.append("```pycon\n" + body.strip() + "\n```\n")
+            continue
+        if heading == "See Also":
+            output.append(f"{'#' * level} See Also\n")
+            for entry in re.split(r"\n(?=\S)", body.strip()):
+                target, _, description = entry.partition("\n")
+                target, _, inline_description = target.partition(" : ")
+                description = " ".join((inline_description + " " + description).split())
+                links = {
+                    "Regressogram": "regressogram.md#rgram.Regressogram",
+                    "KernelSmoother": "kernel_smoother.md#rgram.KernelSmoother",
+                }
+                link = links.get(target.strip())
+                if link is None and owner and hasattr(resolve(owner), target.strip()):
+                    link = f"#{owner}.{target.strip()}"
+                label = f"[{target.strip()}]({link})" if link else f"`{target.strip()}`"
+                output.append(f"- {label}: {description}")
+            output.append("")
             continue
         output.append(f"{'#' * level} {heading}\n")
         if heading in {"Parameters", "Attributes", "Returns", "Raises"}:
@@ -131,7 +150,7 @@ def reference(name):
         if not (is_class and issubclass(obj, Warning))
         else "",
         '<div class="api-class-body" markdown="1">',
-        render_doc(inspect.getdoc(obj) or "", 3),
+        render_doc(inspect.getdoc(obj) or "", 3, owner=name),
     ]
     if is_class and not issubclass(obj, Warning):
         methods = [
@@ -153,8 +172,8 @@ def reference(name):
                     f'<span id="{name}.{key}"></span>',
                     f"### {key} {{.api-method-title}}",
                     '<div class="api-method-body" markdown="1">',
-                    signature_block(value, key),
-                    render_doc(inspect.getdoc(value) or "", 4),
+                    signature_block(value, f"{name}.{key}"),
+                    render_doc(inspect.getdoc(value) or "", 4, owner=name),
                     "</div>",
                 ]
             )

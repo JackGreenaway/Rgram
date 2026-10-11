@@ -24,12 +24,11 @@ nav:
       - Estimators and pipelines: sklearn.md
       - Statistical parameters: statistical_parameters.md
       - Advanced usage: advanced.md
-  - Classes:
-      - Regressogram: api/regressogram.md
-      - KernelSmoother: api/kernel_smoother.md
-      - CoverageSearchCV: api/coverage_search.md
+      - Component workflows: workflows.md
+      - Data handling: data_contracts.md
   - Examples:
       - Overview: examples.md
+      - Held-out prediction: gallery/prediction.md
       - Bandwidth: gallery/bandwidth.md
       - Bins: gallery/bins.md
       - Boundary: gallery/boundary.md
@@ -41,6 +40,9 @@ nav:
       - Support: gallery/support.md
   - API reference:
       - Overview: api/index.md
+      - Regressogram: api/regressogram.md
+      - KernelSmoother: api/kernel_smoother.md
+      - CoverageSearchCV: api/coverage_search.md
       - Aggregations: api/aggregation.md
       - Plotting: api/plotting.md
       - Warnings: api/warnings.md

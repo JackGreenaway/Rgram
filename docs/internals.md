@@ -96,7 +96,7 @@ Shared validation and inspection methods for univariate regressors.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L606">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict_interval</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L606">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.base.BaseUtils.</span><span class="api-name">predict_interval</span>(
     X,
     *,
     confidence_level=0.95,
@@ -158,7 +158,7 @@ errors propagate. Explicit neighbor-only algorithms can reject unsorted draws.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L568">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">regression_diagnostics</span>(X, y)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L568">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.base.BaseUtils.</span><span class="api-name">regression_diagnostics</span>(X, y)</code></pre></div>
 
 
 Inspect observed values, fitted values, and residuals in input order.

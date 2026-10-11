@@ -51,6 +51,16 @@ Wrap a NumPy/Python scalar function for agg or a ci endpoint.
 <dt><code class="api-field-name">adapter</code> <span class="api-field-type">ArrayAggregation</span></dt><dd><p>Cloneable reducer, retaining the callable and weighting option.</p></dd>
 </dl>
 
+### Examples
+
+```pycon
+>>> import numpy as np
+>>> from rgram import Regressogram, array_aggregation
+>>> model = Regressogram(n_bins=1, agg=array_aggregation(np.median))
+>>> model.fit([0., 1., 2.], [1., 3., 9.]).predict([1.])
+array([3.])
+```
+
 
 </div>
 <!-- END REFERENCE:rgram.array_aggregation -->
@@ -78,6 +88,17 @@ Wrap a native weighted Polars scalar reduction.
 <dl class="api-fields">
 <dt><code class="api-field-name">adapter</code> <span class="api-field-type">WeightedAggregation</span></dt><dd><p>Cloneable native reducer. With no fitting weights, the adapter uses ones.</p></dd>
 </dl>
+
+### Examples
+
+```pycon
+>>> from rgram import Regressogram, weighted_aggregation
+>>> reducer = weighted_aggregation(lambda values, weights:
+...     (values * weights).sum() / weights.sum())
+>>> model = Regressogram(n_bins=1, agg=reducer)
+>>> model.fit([0., 1.], [2., 8.], sample_weight=[1., 2.]).predict([0.5])
+array([6.])
+```
 
 
 </div>
@@ -111,6 +132,15 @@ Create an unweighted native Polars quantile reducer.
 <dl class="api-fields">
 <dt><code class="api-field-name">reducer</code> <span class="api-field-type">Quantile</span></dt><dd><p>Cloneable quantile callable for agg or either descriptive ci endpoint.</p></dd>
 </dl>
+
+### Examples
+
+```pycon
+>>> from rgram import Regressogram, quantile
+>>> model = Regressogram(n_bins=1, agg=quantile(0.5))
+>>> model.fit([0., 1., 2.], [1., 3., 9.]).predict([1.])
+array([3.])
+```
 
 
 </div>
@@ -169,7 +199,7 @@ is rejected by Regressogram. This adapter inherits sklearn get_params/set_params
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/aggregation.py#L38">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">__call__</span>(values, weights=None)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/aggregation.py#L38">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.ArrayAggregation.</span><span class="api-name">__call__</span>(values, weights=None)</code></pre></div>
 
 
 Apply the numeric callback to independent input copies.
@@ -196,7 +226,7 @@ Apply the numeric callback to independent input copies.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.ArrayAggregation.</span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
 
 
 Get metadata routing of this object.
@@ -219,7 +249,7 @@ mechanism works.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.ArrayAggregation.</span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
 
 
 Get parameters for this estimator.
@@ -245,7 +275,7 @@ Get parameters for this estimator.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_params</span>(**params)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.ArrayAggregation.</span><span class="api-name">set_params</span>(**params)</code></pre></div>
 
 
 Set the parameters of this estimator.
@@ -314,7 +344,7 @@ inherits sklearn get_params/set_params and is cloneable.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/aggregation.py#L104">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">__call__</span>(values, weights=None)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/aggregation.py#L104">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.WeightedAggregation.</span><span class="api-name">__call__</span>(values, weights=None)</code></pre></div>
 
 
 Build the weighted Polars reduction expression.
@@ -341,7 +371,7 @@ Build the weighted Polars reduction expression.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.WeightedAggregation.</span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
 
 
 Get metadata routing of this object.
@@ -364,7 +394,7 @@ mechanism works.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.WeightedAggregation.</span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
 
 
 Get parameters for this estimator.
@@ -390,7 +420,7 @@ Get parameters for this estimator.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_params</span>(**params)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.WeightedAggregation.</span><span class="api-name">set_params</span>(**params)</code></pre></div>
 
 
 Set the parameters of this estimator.
@@ -463,7 +493,7 @@ Inherits sklearn get_params/set_params.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/aggregation.py#L148">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">__call__</span>(values)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/aggregation.py#L148">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.Quantile.</span><span class="api-name">__call__</span>(values)</code></pre></div>
 
 
 Build an unweighted quantile expression.
@@ -495,7 +525,7 @@ Build an unweighted quantile expression.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.Quantile.</span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
 
 
 Get metadata routing of this object.
@@ -518,7 +548,7 @@ mechanism works.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.Quantile.</span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
 
 
 Get parameters for this estimator.
@@ -544,7 +574,7 @@ Get parameters for this estimator.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_params</span>(**params)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.Quantile.</span><span class="api-name">set_params</span>(**params)</code></pre></div>
 
 
 Set the parameters of this estimator.

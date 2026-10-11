@@ -46,6 +46,16 @@ Unsupported rows remain in the diagnostic table and are counted in the
 title, though non-finite points cannot be drawn. No data is modified.
 The caller chooses whether to display, save, or close the returned figure.
 
+### Examples
+
+```pycon
+>>> from rgram import Regressogram, plot_diagnostics
+>>> model = Regressogram(n_bins=2).fit([0., 1., 2.], [1., 3., 4.])
+>>> figure, axes = plot_diagnostics(model, [0., 1., 2.], [1., 3., 4.])
+>>> len(axes)
+2
+```
+
 
 </div>
 <!-- END REFERENCE:rgram.plot_diagnostics -->

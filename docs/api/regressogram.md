@@ -1,42 +1,8 @@
 # Regressogram
 
-Use this estimator for compact, interpretable summaries of a feature-response
-relationship. [Theory and interpretation](../theory.md#regressograms-fixed-cells-and-local-summaries)
-and [bin/aggregation parameters](../statistical_parameters.md) explain its
-statistical choices. See [result schemas](results.md) for `bins_` and diagnostics.
-
-## What it solves
-
-A scatter plot can contain too many individual responses to summarize clearly.
-`Regressogram` groups a feature into intervals and computes one response statistic
-per interval, giving you a compact table and a piecewise constant curve.
-
-## When to use it
-
-Use it when interval boundaries and counts help explain the relationship, or when
-you need a median, percentile, or custom per-bin statistic. Increasing the bin
-count retains more local detail while reducing the observations pooled in each
-cell. Compare [bin counts](../gallery/bins.md) and
-[response summaries](../gallery/summaries.md) before settling on a configuration.
-
-## Example: summarize a typical response
-
-```python
-import numpy as np
-from rgram import Regressogram
-
-X = np.arange(8.0).reshape(-1, 1)
-y = np.array([1.0, 2.0, 3.0, 4.0, 8.0, 9.0, 10.0, 30.0])
-model = Regressogram(n_bins=4, agg="median").fit(X, y)
-print(model.bins_)
-print(model.predict([[1.0], [5.0]]))
-assert model.predict([[1.0], [5.0]]).shape == (2,)
-```
-
-The table exposes each interval's estimate and count. Here the median defines the
-statistical target; it is a different summary from a mean, and a small bin still
-contains little evidence. Refit with `agg="mean"` to compare the effect of the
-large response. See [result schemas](results.md) for the table columns.
+See [component workflows](../workflows.md) for rationale and worked analysis,
+[the user guide](../user_guide.md) for concepts, and [result schemas](results.md)
+for diagnostic tables.
 
 <!-- BEGIN REFERENCE:rgram.Regressogram -->
 <span id="rgram.Regressogram"></span>
@@ -62,10 +28,7 @@ large response. See [result schemas](results.md) for the table columns.
 
 <div class="api-class-body" markdown="1">
 
-Regressogram
-
-Binned regression estimator for one feature and target.
-Predicts using binned aggregation with optional confidence intervals.
+Binned response summaries for one numeric feature and target.
 
 ### Parameters
 
@@ -104,6 +67,19 @@ Predicts using binned aggregation with optional confidence intervals.
 <dt><code class="api-field-name">cv_results_</code> <span class="api-field-type">dict</span></dt><dd><p>Error and coverage by candidate, available when n_bins=&#x27;cv&#x27;.</p></dd>
 </dl>
 
+### See Also
+
+- [KernelSmoother](kernel_smoother.md#rgram.KernelSmoother): Alternative univariate response summary.
+
+### Examples
+
+```pycon
+>>> from rgram import Regressogram
+>>> model = Regressogram(n_bins=2).fit([0., 1., 2., 3.], [1., 3., 5., 7.])
+>>> model.predict([0.5, 2.5])
+array([2., 6.])
+```
+
 
 ### Methods
 
@@ -128,7 +104,7 @@ Predicts using binned aggregation with optional confidence intervals.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/rgram.py#L359">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">fit</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/rgram.py#L365">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">fit</span>(
     X,
     y,
     *,
@@ -168,6 +144,17 @@ A failed refit invalidates prediction access. Zero-weight rows still participate
 in feature-based bin or bandwidth selection. Normal fitting does not run CV;
 Regressogram(n_bins='cv') explicitly requests it.
 
+#### Examples
+
+```pycon
+>>> import numpy as np
+>>> from rgram import Regressogram
+>>> X = np.arange(10.0).reshape(-1, 1)
+>>> model = Regressogram().fit(X, X[:, 0])
+>>> model.predict(X).shape
+(10,)
+```
+
 
 </div>
 
@@ -177,7 +164,7 @@ Regressogram(n_bins='cv') explicitly requests it.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/rgram.py#L637">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">fit_predict</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/rgram.py#L643">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">fit_predict</span>(
     X,
     y,
     *,
@@ -218,7 +205,7 @@ bootstrap bounds, and predict_diagnostics exposes descriptive endpoints.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1743">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">get_metadata_routing</span>()</code></pre></div>
 
 
 Get metadata routing of this object.
@@ -241,7 +228,7 @@ mechanism works.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L248">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">get_params</span>(deep=True)</code></pre></div>
 
 
 Get parameters for this estimator.
@@ -267,7 +254,7 @@ Get parameters for this estimator.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/rgram.py#L573">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict</span>(X)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/rgram.py#L579">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">predict</span>(X)</code></pre></div>
 
 
 Evaluate the fitted bin summary at each query.
@@ -291,6 +278,11 @@ Evaluate the fitted bin summary at each query.
 <dt><code class="api-field-name">ValueError</code></dt><dd><p>For invalid queries, feature-name mismatch, or strict policies.</p></dd>
 </dl>
 
+#### See Also
+
+- [predict_interval](#rgram.Regressogram.predict_interval): Pointwise bootstrap confidence intervals.
+- [predict_diagnostics](#rgram.Regressogram.predict_diagnostics): Bin summaries, support and descriptive endpoints.
+
 
 </div>
 
@@ -300,7 +292,7 @@ Evaluate the fitted bin summary at each query.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/rgram.py#L601">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict_diagnostics</span>(X)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/rgram.py#L607">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">predict_diagnostics</span>(X)</code></pre></div>
 
 
 Return bin assignment and support information for each query.
@@ -326,7 +318,7 @@ Return bin assignment and support information for each query.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L606">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict_interval</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L606">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">predict_interval</span>(
     X,
     *,
     confidence_level=0.95,
@@ -388,7 +380,7 @@ errors propagate. Explicit neighbor-only algorithms can reject unsorted draws.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L568">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">regression_diagnostics</span>(X, y)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L568">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">regression_diagnostics</span>(X, y)</code></pre></div>
 
 
 Inspect observed values, fitted values, and residuals in input order.
@@ -422,7 +414,7 @@ Inspect observed values, fitted values, and residuals in input order.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L672">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">score</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L672">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">score</span>(
     X,
     y,
     sample_weight=None,
@@ -472,7 +464,7 @@ regressors (except for
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_fit_request</span>(
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">set_fit_request</span>(
     *,
     data=&#x27;$UNCHANGED$&#x27;,
     sample_weight=&#x27;$UNCHANGED$&#x27;,
@@ -524,7 +516,7 @@ Added in version 1.3.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_params</span>(**params)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/base.py#L400">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">set_params</span>(**params)</code></pre></div>
 
 
 Set the parameters of this estimator.
@@ -555,7 +547,7 @@ possible to update each component of a nested object.
 
 <div class="api-method-body" markdown="1">
 
-<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">set_score_request</span>(*, sample_weight=&#x27;$UNCHANGED$&#x27;)</code></pre></div>
+<div class="api-signature"><a class="api-source" href="https://github.com/scikit-learn/scikit-learn/blob/main/sklearn/utils/_metadata_requests.py#L1440">[inherited API]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.Regressogram.</span><span class="api-name">set_score_request</span>(*, sample_weight=&#x27;$UNCHANGED$&#x27;)</code></pre></div>
 
 
 Configure whether metadata should be requested to be passed to the `score` method.

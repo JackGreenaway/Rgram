@@ -21,7 +21,9 @@ python -m pip install 'rgram[plot]'
 ```
 
 Python 3.9 or newer is required. NumPy, Polars, and scikit-learn are runtime
-dependencies; Matplotlib is optional. This site's reference describes the source
+dependencies; Matplotlib is optional. Minimum declared versions are NumPy 2.0.2,
+Polars 1.28.1, and scikit-learn 1.6. The pandas extra requires pandas 2.2.3 or
+newer; plotting requires Matplotlib 3.9.4 or newer. This site's reference describes the source
 revision used to build it, which may contain changes newer than a published wheel.
 For the current checkout:
 

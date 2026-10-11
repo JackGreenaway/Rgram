@@ -95,6 +95,17 @@ class KernelSmoother(RegressorMixin, BaseEstimator, BaseUtils):
     neighbors when training x is already sorted. No sorting is performed. Infinite-support
     and custom kernels use O(n_train * n_query) time with bounded blocks. get_weights() explicitly
     materializes a dense matrix and should be used on small query selections.
+    See Also
+    --------
+    Regressogram : Alternative univariate response summary.
+
+    Examples
+    --------
+    >>> from rgram import KernelSmoother
+    >>> model = KernelSmoother(kernel='gaussian', bandwidth='manual', bandwidth_value=1.)
+    >>> _ = model.fit([0., 1., 2.], [3., 3., 3.])
+    >>> model.predict([0.5, 1.5]).round(2)
+    array([3., 3.])
     """
 
     _KERNELS = {

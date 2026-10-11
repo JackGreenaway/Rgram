@@ -22,11 +22,7 @@ from rgram.warnings import BinningWarning, ExtrapolationWarning, SupportWarning
 
 
 class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
-    """
-    Regressogram
-
-    Binned regression estimator for one feature and target.
-    Predicts using binned aggregation with optional confidence intervals.
+    """Binned response summaries for one numeric feature and target.
 
     Parameters
     ----------
@@ -98,6 +94,16 @@ class Regressogram(RegressorMixin, BaseEstimator, BaseUtils):
     cv_results_ : dict
         Error and coverage by candidate, available when n_bins='cv'.
 
+    See Also
+    --------
+    KernelSmoother : Alternative univariate response summary.
+
+    Examples
+    --------
+    >>> from rgram import Regressogram
+    >>> model = Regressogram(n_bins=2).fit([0., 1., 2., 3.], [1., 3., 5., 7.])
+    >>> model.predict([0.5, 2.5])
+    array([2., 6.])
     """
 
     def __init__(

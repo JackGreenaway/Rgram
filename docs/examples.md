@@ -10,6 +10,9 @@ See [theory and suitability](theory.md) before interpreting a fitted curve.
 
 ## Start with your analysis question
 
+For a complete predictive workflow, start with [demand from temperature](gallery/prediction.md):
+train/test splitting, pipeline preprocessing, bandwidth selection, and verified output.
+
 - **A noisy curve needs a summary:** compare [bin counts](gallery/bins.md) or [bandwidths](gallery/bandwidth.md).
 - **The mean may hide the response distribution:** compare [response summaries](gallery/summaries.md).
 - **Selected groups may behave differently:** fit [subgroup curves](gallery/subgroups.md) and inspect their support.
@@ -18,6 +21,84 @@ See [theory and suitability](theory.md) before interpreting a fitted curve.
 
 Use the same sequence on each page: identify the question, review the choices,
 read the plot, run the example, then decide what to change in your own analysis.
+
+## Browse the gallery
+
+<div class="docs-gallery" markdown="1">
+
+<div class="docs-gallery-card" markdown="1">
+
+[![Bin count: preview of the fitted relationship or diagnostic.](_static/gallery/bins.png)](gallery/bins.md)
+
+[Bin count](gallery/bins.md)
+
+</div>
+
+<div class="docs-gallery-card" markdown="1">
+
+[![Bandwidth: preview of the fitted relationship or diagnostic.](_static/gallery/bandwidth.png)](gallery/bandwidth.md)
+
+[Bandwidth](gallery/bandwidth.md)
+
+</div>
+
+<div class="docs-gallery-card" markdown="1">
+
+[![Subgroup curves: preview of the fitted relationship or diagnostic.](_static/gallery/subgroups.png)](gallery/subgroups.md)
+
+[Subgroup curves](gallery/subgroups.md)
+
+</div>
+
+<div class="docs-gallery-card" markdown="1">
+
+[![Boundary behavior: preview of the fitted relationship or diagnostic.](_static/gallery/boundary.png)](gallery/boundary.md)
+
+[Boundary behavior](gallery/boundary.md)
+
+</div>
+
+<div class="docs-gallery-card" markdown="1">
+
+[![Response summaries: preview of the fitted relationship or diagnostic.](_static/gallery/summaries.png)](gallery/summaries.md)
+
+[Response summaries](gallery/summaries.md)
+
+</div>
+
+<div class="docs-gallery-card" markdown="1">
+
+[![Observation influence: preview of the fitted relationship or diagnostic.](_static/gallery/influence.png)](gallery/influence.md)
+
+[Observation influence](gallery/influence.md)
+
+</div>
+
+<div class="docs-gallery-card" markdown="1">
+
+[![Bootstrap intervals: preview of the fitted relationship or diagnostic.](_static/gallery/intervals.png)](gallery/intervals.md)
+
+[Bootstrap intervals](gallery/intervals.md)
+
+</div>
+
+<div class="docs-gallery-card" markdown="1">
+
+[![Prediction support: preview of the fitted relationship or diagnostic.](_static/gallery/support.png)](gallery/support.md)
+
+[Prediction support](gallery/support.md)
+
+</div>
+
+<div class="docs-gallery-card" markdown="1">
+
+[![Residuals: preview of the fitted relationship or diagnostic.](_static/gallery/residuals.png)](gallery/residuals.md)
+
+[Residuals](gallery/residuals.md)
+
+</div>
+
+</div>
 
 ## What each example examines
 
