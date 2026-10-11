@@ -102,6 +102,10 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 ## What each example examines
 
+For runnable recipes using your own callbacks, see
+[custom aggregations and smoothers](custom_examples.md): native Polars reductions,
+NumPy statistics, weighted reducers, descriptive endpoints, and custom kernels.
+
 | Example | Question to review | Main impact or interpretation |
 |---|---|---|
 | [Bin count](gallery/bins.md) | How much local detail should a response summary retain? | More bins resolve smaller regions but pool fewer observations per estimate. |

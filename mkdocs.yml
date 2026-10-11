@@ -28,6 +28,7 @@ nav:
       - Data handling: data_contracts.md
   - Examples:
       - Overview: examples.md
+      - Custom aggregations and smoothers: custom_examples.md
       - Held-out prediction: gallery/prediction.md
       - Bandwidth: gallery/bandwidth.md
       - Bins: gallery/bins.md

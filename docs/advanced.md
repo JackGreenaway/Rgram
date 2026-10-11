@@ -10,6 +10,9 @@ These are pairwise associations. They do not adjust for other variables, estimat
 
 ## Aggregation execution and weights
 
+See [custom aggregations and smoothers](custom_examples.md) for complete callback
+examples, including explicit weight handling and a custom kernel.
+
 Named aggregations and bare Polars-expression callables run in the native aggregation engine. `array_aggregation(func)` runs a numeric function once per occupied bin in Python. Its arrays are independent copies in original relative row order. Running numeric callbacks outside a Rust UDF boundary keeps user exceptions as normal Python exceptions, including errors about non-scalar results.
 
 `array_aggregation(func, weighted=True)` calls `func(values, weights)`. `weighted_aggregation(func)` calls a native expression function with the corresponding value and weight expressions. A weighted adapter without supplied weights receives ones. No adapter silently guesses whether a second function argument means a weight, an axis or something else. For example, use `lambda values, weights: np.average(values, weights=weights)` rather than passing `np.average` directly as a two-positional-argument weighted function.
