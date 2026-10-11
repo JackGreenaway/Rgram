@@ -1,101 +1,69 @@
-# Development and publishing documentation
+# Development and GitHub Pages
 
-```{toctree}
-:maxdepth: 2
+Rgram uses the same MkDocs theme and generated reference formatting as
+[polars-learn](https://github.com/JackGreenaway/polars-learn). Documentation
+and development dependencies are recorded in `uv.lock`, separately from runtime
+requirements. Tests cover Python 3.9 and 3.12; documentation and releases use 3.11.
 
-internals
-```
-
-## Library development
-
-From the repository root:
+## Build and validate
 
 ```bash
-uv sync
-uv run pytest -q
-uv run ruff check src/rgram examples tests/test_estimator_contract.py tests/test_advanced_estimators.py tests/test_aggregation_and_transparency.py tests/test_properties.py
+uv sync --locked --group docs --python 3.11
+uv run --locked --python 3.11 --group docs python scripts/build_api_reference.py
+uv run --locked --python 3.11 --group docs python scripts/build_api_reference.py --check
+uv run --locked --python 3.11 --group docs python scripts/check_docs.py
+uv run --locked --python 3.11 --group docs python scripts/check_examples.py
+uv run --locked --python 3.11 --group docs mkdocs build --strict
+uv run --locked --python 3.11 --group docs python scripts/check_docs.py --html site
+uv run --locked --python 3.11 --group docs mkdocs serve
+```
+
+Open `http://127.0.0.1:8000`. The site includes search, dark/light mode,
+responsive navigation, source links, and MathJax equations. Equations require
+access to the MathJax CDN. Generated HTML lives in `site/` and is ignored by Git.
+
+## Keep references aligned with source
+
+Reference blocks are generated from live signatures and NumPy-style docstrings,
+including public inherited estimator methods. After changing code or docstrings,
+run `scripts/build_api_reference.py` and commit the updated Markdown. CI rejects
+stale reference blocks. Add reference markers for new exports, document their
+arguments and fitted state, and update [result schemas](api/results.md).
+
+The coverage check enumerates exports, methods, parameters, attributes, and
+modules. The HTML check verifies API anchors and local page, fragment, and asset
+links. The example check runs guide snippets, public doctests, and gallery plots
+headlessly. MkDocs treats navigation and link warnings as errors.
+
+See [implementation details](internals.md) for contributor guidance.
+
+## Publish GitHub Pages
+
+1. Set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**.
+2. Push to `main`, or manually run the **Documentation** workflow on `main`.
+3. The build validates the site and uploads `site/`; the deploy job publishes it
+   to the `github-pages` environment. Pull requests only build and validate.
+
+The published URL is <https://jackgreenaway.github.io/Rgram/>. A local build does
+not publish the site. If raw Markdown appears, check that Pages uses GitHub
+Actions and that both workflow jobs succeeded.
+
+## Tests and releases
+
+```bash
+uv sync --locked
+uv run --locked pytest -q
+uv run --locked ruff check src/rgram examples tests/test_estimator_contract.py tests/test_advanced_estimators.py tests/test_aggregation_and_transparency.py tests/test_properties.py scripts/build_api_reference.py scripts/check_docs.py
 uv build
 ```
 
-Tests cover estimator integration, numerical references, aggregation, weighted
-fits, validation, row preservation, search coverage, intervals, and plotting
-callbacks. The package metadata and runtime dependencies are in `pyproject.toml`;
-`uv.lock` records the development environment. CI tests Python 3.9 and 3.12.
+The **Create GitHub Release** workflow validates the package, reads
+`project.version`, rejects existing version tags, checks wheel/source distributions,
+and creates `vX.Y.Z` with generated release notes. Run it from the intended release
+commit. The **Upload Python Package** workflow publishes those validated artifacts
+after a successful release workflow, or builds and validates a release published
+through GitHub's UI. Published tags must match `project.version`.
 
-## Build the documentation
-
-The site uses Sphinx, MyST Markdown, NumPy-style docstrings, and the PyData Sphinx
-theme. Scikit-learn also uses [PyData in its documentation configuration](https://github.com/scikit-learn/scikit-learn/blob/main/doc/conf.py).
-The documentation dependencies are separate from runtime dependencies.
-
-```bash
-python -m pip install -e '.[plot,pandas]' -r docs/requirements.txt
-python scripts/check_docs.py
-python scripts/check_examples.py
-python -m sphinx -b html -W --keep-going docs docs/_build/html
-python scripts/check_docs.py --html docs/_build/html
-python -m http.server --directory docs/_build/html 8000
-```
-
-Open `http://localhost:8000`. The output is a static site with search, navigation,
-API signatures, source links, and MathJax equations. MathJax is loaded from a CDN;
-viewing typeset equations requires network access. Site assets and internal links
-use relative paths so a GitHub Pages repository subpath works.
-
-The coverage check enumerates top-level exports, public estimator methods,
-constructor/method arguments, and package modules. The HTML check verifies API
-anchors and all local page, fragment, and asset links. The example check executes
-all guide snippets, public docstring examples, and single-panel gallery plots
-headlessly. The strict Sphinx
-build treats warnings as errors. External source availability can be checked separately
-with `python -m sphinx -b linkcheck docs docs/_build/linkcheck`; transient external
-network failures do not block the normal HTML build.
-
-## Publish to GitHub Pages
-
-The repository includes `.github/workflows/docs.yml`. It builds and validates the
-site on relevant pushes and pull requests, and offers a manual run. Deployment
-runs only on the repository's default branch, never on pull requests.
-
-1. In the repository's **Settings → Pages → Build and deployment**, set **Source**
-   to **GitHub Actions**. Do not choose **Deploy from a branch**, `/ (root)`, or
-   `/docs`: those publish source files without running Sphinx.
-2. Commit and push the documentation changes to your default branch, or run the
-   **Documentation** workflow on that branch.
-3. The workflow uploads `docs/_build/html` and deploys to the `github-pages`
-   environment. Use the URL shown in the deployment job.
-
-The Sphinx GitHub Pages extension emits `.nojekyll`, preserving directories such
-as `_static`. The workflow follows [GitHub's custom workflow requirements](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
-No generated HTML needs to be committed and no third-party hosting service is
-required. This setup prepares publication; a local build does not publish a site.
-
-## Keep the reference complete
-
-When adding an export or public method, add its API directive and document its
-parameters, returned objects, errors, and behavior. Update fitted-attribute and
-result-schema tables when adding outputs. Explain new statistical assumptions in
-the user guide, and add an example when they change how users interpret a result.
-
-Internal modules and helper responsibilities are listed in
-[the implementation guide](internals.md). Private helpers are implementation
-details, not additional supported user APIs. API pages obtain signatures and
-method documentation directly from the installed source through
-[Sphinx autodoc](https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html).
-
-## Troubleshooting: raw directives on the published page
-
-If a page displays `` ```{eval-rst} ``, `.. autoclass::`, `{download}`, or
-`{toctree}` literally, the Markdown source was published without the Sphinx
-build. GitHub's default Markdown/Jekyll publishing cannot execute these directives.
-
-Change the Pages source to **GitHub Actions**, then open the repository's
-**Actions → Documentation → Run workflow**, selecting the default branch.
-Both the `build` and `deploy` jobs must succeed. The workflow publishes the
-**generated HTML in `docs/_build/html`**, not the repository root or `docs/`.
-Refresh the site after deployment. The API page should contain the constructor
-signature, parameter descriptions, fitted attributes, and complete method reference.
-
-If the workflow is absent, commit and push `.github/workflows/docs.yml` together
-with the documentation and supporting scripts. If it fails, inspect its failed
-step rather than switching back to branch-based publishing.
+Configure a PyPI trusted publisher for `JackGreenaway/Rgram`, workflow
+`python-publish.yml`, environment `pypi`. Publishing uses OpenID Connect. Repository
+Pages and PyPI settings must be configured before their first deployment.

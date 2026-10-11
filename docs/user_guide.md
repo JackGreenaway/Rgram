@@ -1,13 +1,13 @@
 # User guide
 
-```{toctree}
-:maxdepth: 2
+Choose the question before the model: a bin summary explains intervals, a smooth
+curve describes local shape, and a validation workflow evaluates prediction.
+This guide connects those goals to the settings and diagnostics you can inspect.
 
-theory
-sklearn
-statistical_parameters
-advanced
-```
+- [Theory](theory.md)
+- [Estimators and pipelines](sklearn.md)
+- [Statistical Parameters](statistical_parameters.md)
+- [Advanced](advanced.md)
 
 ## Choose the summary you need
 

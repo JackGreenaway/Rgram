@@ -1,7 +1,8 @@
 """Check API documentation coverage and, optionally, rendered local links.
 
-Run from the repository root after installing the library. Uses the standard
-library; --html additionally checks generated HTML anchors and local links.
+Run from the repository root after installing the library and docs dependencies.
+Uses PyYAML for site configuration; --html additionally checks generated HTML
+anchors and local links.
 """
 
 from __future__ import annotations
@@ -12,6 +13,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 import re
 from urllib.parse import unquote, urlsplit
+
+import yaml
 
 import rgram
 from rgram.aggregation import ArrayAggregation, Quantile, WeightedAggregation
@@ -57,13 +60,8 @@ def check_source():
             or name.startswith("rgram.aggregation.")
             and name.count(".") == 2
         ):
-            if not re.search(
-                r"(?:\{auto(?:class|function|exception)\}|auto(?:class|function|exception)::)\s+"
-                + re.escape(name)
-                + r"\b",
-                source,
-            ):
-                errors.append(f"Missing API directive: {name}")
+            if f"<!-- BEGIN REFERENCE:{name} -->" not in source:
+                errors.append(f"Missing generated API reference: {name}")
         try:
             signature = inspect.signature(obj)
         except (TypeError, ValueError):
@@ -127,6 +125,9 @@ def check_html(directory):
         for p in directory.rglob("*.html")
         if "_static" not in p.relative_to(directory).parts
     }
+    site_prefix = urlsplit(
+        yaml.safe_load((ROOT / "mkdocs.yml").read_text())["site_url"]
+    ).path
     errors = []
     ids = set().union(*(page.ids for page in files.values())) if files else set()
     for name in public_symbols():
@@ -140,12 +141,15 @@ def check_html(directory):
             if url.scheme or url.netloc:
                 continue
             local = unquote(url.path)
-            if local.startswith("/"):
+            if path.name == "404.html" and local.startswith(site_prefix):
+                target = (directory / local[len(site_prefix) :]).resolve()
+            elif local.startswith("/"):
                 errors.append(
                     f"Root-relative URL would break repository Pages: {path.name}: {href}"
                 )
                 continue
-            target = (path.parent / local).resolve() if local else path
+            else:
+                target = (path.parent / local).resolve() if local else path
             if target.is_dir():
                 target /= "index.html"
             if not target.exists():
@@ -165,7 +169,7 @@ def check_html(directory):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--html", type=Path, help="Built Sphinx HTML directory")
+    parser.add_argument("--html", type=Path, help="Built MkDocs HTML directory")
     args = parser.parse_args()
     errors = check_source()
     if args.html:

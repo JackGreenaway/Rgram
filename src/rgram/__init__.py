@@ -46,6 +46,8 @@ from .aggregation import array_aggregation, quantile, weighted_aggregation
 from .plotting import plot_diagnostics
 from .warnings import DataHandlingWarning, ExtrapolationWarning
 
+__version__ = "0.2.14"
+
 __all__ += [
     "array_aggregation",
     "weighted_aggregation",

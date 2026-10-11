@@ -8,21 +8,18 @@ sorted before independent response noise is generated. A Gaussian local-constant
 fit uses bandwidth 0.4. Paired IID bootstrap resampling refits the model and
 evaluates bounds at 100 locations in the original observed feature range.
 
-```{image} ../_static/gallery/intervals.png
-:alt: Pointwise bootstrap intervals: a single large plot of the example's observations or diagnostics.
-:width: 100%
-```
+![Pointwise bootstrap intervals: a single large plot of the example's observations or diagnostics.](../_static/gallery/intervals.png)
 
 ## Choices and their impact
 
-| Item | What is being reviewed | Impact and interpretation |
-|---|---|---|
-| Gray responses | Variation of individual observations | Their vertical spread is response noise, which is not the target of the shaded curve intervals. |
-| Blue fitted curve | The local response mean estimated from the original data | Remains the reference estimate while the bootstrap describes variation across resampled fits. |
-| Shaded 95% bounds | Pointwise percentile bootstrap intervals | At each query, bounds come from the distribution of bootstrap predictions. Connecting them is a display choice, not a simultaneous band. |
-| Dashed generating mean | Known synthetic relationship | Makes possible smoothing bias visible; the bootstrap does not correct that bias. |
-| 100 resamples and fixed seed | Monte Carlo calculation and reproducibility | The seed makes this run reproducible. More draws improve numerical stability of bootstrap quantiles, not the validity of sampling assumptions. |
-| 100 query locations | Where uncertainty is evaluated | More locations increase plotting detail and computation without adding training data. |
+| Item                         | What is being reviewed                                   | Impact and interpretation                                                                                                                      |
+| ---------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gray responses               | Variation of individual observations                     | Their vertical spread is response noise, which is not the target of the shaded curve intervals.                                                |
+| Blue fitted curve            | The local response mean estimated from the original data | Remains the reference estimate while the bootstrap describes variation across resampled fits.                                                  |
+| Shaded 95% bounds            | Pointwise percentile bootstrap intervals                 | At each query, bounds come from the distribution of bootstrap predictions. Connecting them is a display choice, not a simultaneous band.       |
+| Dashed generating mean       | Known synthetic relationship                             | Makes possible smoothing bias visible; the bootstrap does not correct that bias.                                                               |
+| 100 resamples and fixed seed | Monte Carlo calculation and reproducibility              | The seed makes this run reproducible. More draws improve numerical stability of bootstrap quantiles, not the validity of sampling assumptions. |
+| 100 query locations          | Where uncertainty is evaluated                           | More locations increase plotting detail and computation without adding training data.                                                          |
 
 ## Interpreting the plot
 
@@ -66,7 +63,7 @@ python examples/plot_relationships.py --example intervals
 python examples/plot_relationships.py --example intervals --output-dir /tmp/rgram-figures
 ```
 
-Download {download}`the complete gallery script <../../examples/plot_relationships.py>`.
+Download [the complete gallery script](https://github.com/JackGreenaway/Rgram/blob/main/examples/plot_relationships.py).
 The function below is the implementation used to generate this plot. Inline
 comments explain the modeling decisions and interpretation of diagnostic values.
 It returns a figure; the CLI handles displaying or saving it and then closes it.
@@ -74,7 +71,40 @@ The [shared helpers](../examples.md#code-structure-and-shared-helpers) supply on
 common styling and explicit Gaussian/manual-bandwidth configuration. Run the
 complete downloaded script using the command above.
 
-```{literalinclude} ../../examples/plot_relationships.py
-:language: python
-:pyobject: intervals
+```python
+def intervals() -> Figure:
+    """Display supported pointwise bootstrap bounds for a regression curve."""
+    rng = np.random.default_rng(17)
+    # Sample a random design with independent noise, appropriate to paired IID draws.
+    # Sorting is explicit here for the display; the estimator never sorts rows.
+    X = np.sort(rng.uniform(0, 6, 100))
+    y = np.sin(X) + rng.normal(0, 0.3, len(X))
+    # Keep original queries in the observed range; resampled ranges can differ.
+    query = np.linspace(X.min(), X.max(), 100)
+    model = _gaussian_smoother(0.4).fit(X, y)
+    # Fix the seed for reproducibility. More draws reduce Monte Carlo variation,
+    # but do not correct smoothing bias or include bandwidth-selection uncertainty.
+    interval = model.predict_interval(query, n_resamples=100, random_state=17)
+    figure, ax = _create_axes("Pointwise bootstrap uncertainty for the curve")
+    _plot_observations(ax, X, y)
+    # Connecting pointwise bounds is a display choice, not a simultaneous band.
+    # NaN bounds would remain gaps rather than being silently filled.
+    ax.fill_between(
+        query,
+        interval["lower"].to_numpy(),
+        interval["upper"].to_numpy(),
+        color=COLORS[0],
+        alpha=0.2,
+        label="95% pointwise bootstrap bounds",
+    )
+    ax.plot(
+        query,
+        interval["prediction"].to_numpy(),
+        color=COLORS[0],
+        lw=3,
+        label="Fitted local mean",
+    )
+    ax.plot(query, np.sin(query), "--", color="#334155", lw=2, label="Generating mean")
+    _add_legend(ax)
+    return figure
 ```

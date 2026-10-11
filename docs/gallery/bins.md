@@ -8,10 +8,7 @@ receive the same 150 observations and use the same mean aggregation; only the
 number of quantile bins changes. The feature coordinates are evenly spaced here,
 so quantile cells are approximately equal in width as well as occupancy.
 
-```{image} ../_static/gallery/bins.png
-:alt: Choosing a bin count: a single large plot of the example's observations or diagnostics.
-:width: 100%
-```
+![Choosing a bin count: a single large plot of the example's observations or diagnostics.](../_static/gallery/bins.png)
 
 ## Choices and their impact
 
@@ -64,7 +61,7 @@ python examples/plot_relationships.py --example bins
 python examples/plot_relationships.py --example bins --output-dir /tmp/rgram-figures
 ```
 
-Download {download}`the complete gallery script <../../examples/plot_relationships.py>`.
+Download [the complete gallery script](https://github.com/JackGreenaway/Rgram/blob/main/examples/plot_relationships.py).
 The function below is the implementation used to generate this plot. Inline
 comments explain the modeling decisions and interpretation of diagnostic values.
 It returns a figure; the CLI handles displaying or saving it and then closes it.
@@ -72,7 +69,30 @@ The [shared helpers](../examples.md#code-structure-and-shared-helpers) supply on
 common styling and explicit Gaussian/manual-bandwidth configuration. Run the
 complete downloaded script using the command above.
 
-```{literalinclude} ../../examples/plot_relationships.py
-:language: python
-:pyobject: bins
+```python
+def bins() -> Figure:
+    """Compare coarse and fine response summaries on identical observations."""
+    # Fix the observations so bin count is the only model choice that changes.
+    rng = np.random.default_rng(42)
+    X = np.linspace(0, 6, 150)
+    y = np.sin(X) + rng.normal(0, 0.2, len(X))
+    # A dense query grid draws the fitted cells; it adds no training information.
+    query = np.linspace(0, 6, 350)
+    figure, ax = _create_axes("How bin count changes a response summary")
+    _plot_observations(ax, X, y)
+    # Ground truth is available only because we generated these observations.
+    ax.plot(query, np.sin(query), "--", color="#334155", lw=2, label="Generating mean")
+    # More cells preserve finer structure but pool fewer responses per estimate.
+    for count, color in zip((6, 18), COLORS):
+        model = Regressogram(n_bins=count).fit(X, y)
+        ax.step(
+            query,
+            model.predict(query),
+            where="mid",
+            lw=2.8,
+            color=color,
+            label=f"{count} quantile bins",
+        )
+    _add_legend(ax)
+    return figure
 ```

@@ -7,10 +7,7 @@ any estimate. Training features occupy 0-2 and 4-6, leaving a deliberate gap.
 An Epanechnikov kernel with bandwidth 0.35 has compact support, so it cannot reach
 training observations from the middle of that gap.
 
-```{image} ../_static/gallery/support.png
-:alt: Recognizing unsupported queries: a single large plot of the example's observations or diagnostics.
-:width: 100%
-```
+![Recognizing unsupported queries: a single large plot of the example's observations or diagnostics.](../_static/gallery/support.png)
 
 ## Choices and their impact
 
@@ -63,7 +60,7 @@ python examples/plot_relationships.py --example support
 python examples/plot_relationships.py --example support --output-dir /tmp/rgram-figures
 ```
 
-Download {download}`the complete gallery script <../../examples/plot_relationships.py>`.
+Download [the complete gallery script](https://github.com/JackGreenaway/Rgram/blob/main/examples/plot_relationships.py).
 The function below is the implementation used to generate this plot. Inline
 comments explain the modeling decisions and interpretation of diagnostic values.
 It returns a figure; the CLI handles displaying or saving it and then closes it.
@@ -71,7 +68,43 @@ The [shared helpers](../examples.md#code-structure-and-shared-helpers) supply on
 common styling and explicit Gaussian/manual-bandwidth configuration. Run the
 complete downloaded script using the command above.
 
-```{literalinclude} ../../examples/plot_relationships.py
-:language: python
-:pyobject: support
+```python
+def support() -> Figure:
+    """Expose a feature gap rather than drawing a supported curve across it."""
+    rng = np.random.default_rng(23)
+    # Leave a deliberate gap: no observations are available between 2 and 4.
+    X = np.r_[np.linspace(0, 2, 70), np.linspace(4, 6, 70)]
+    y = np.sin(X) + rng.normal(0, 0.12, len(X))
+    query = np.linspace(0, 6, 350)
+    # This compact kernel reaches at most 0.35 feature units from a query.
+    model = KernelSmoother(
+        kernel="epanechnikov", bandwidth="manual", bandwidth_value=0.35
+    ).fit(X, y)
+    # Suppress only the expected support advisory; the orange region and broken
+    # line make those unsupported rows explicit, and NaN values are retained.
+    with warnings.catch_warnings():
+        warnings.simplefilter(
+            "ignore", SupportWarning
+        )  # Gap is highlighted explicitly below.
+        diagnostic = model.predict_diagnostics(query)
+    # Query support is distinct from being inside the overall training range.
+    unsupported = ~diagnostic["supported"].to_numpy()
+    figure, ax = _create_axes("A gap in observations can mean no estimate")
+    _plot_observations(ax, X, y)
+    ax.plot(
+        query,
+        diagnostic["prediction"].to_numpy(),
+        color=COLORS[0],
+        lw=3,
+        label="Compact-kernel estimate",
+    )
+    ax.axvspan(
+        query[unsupported].min(),
+        query[unsupported].max(),
+        color=COLORS[1],
+        alpha=0.15,
+        label="Unsupported queries → NaN",
+    )
+    _add_legend(ax)
+    return figure
 ```

@@ -68,12 +68,126 @@ a single snapshot, rejects invalid rows, and preserves dtype/order. Public
 methods inherited by estimators are documented on their API pages. The complete
 utility reference below includes private helpers for contributors.
 
-```{eval-rst}
-.. autoclass:: rgram.base.BaseUtils
-   :members:
-   :private-members:
-   :special-members: __sklearn_is_fitted__
-   ```
+<!-- BEGIN REFERENCE:rgram.base.BaseUtils -->
+<span id="rgram.base.BaseUtils"></span>
+
+## rgram.base.BaseUtils
+
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L16">[source]</a><pre><code><span class="api-keyword">class </span><span class="api-module">rgram.base.</span><span class="api-name">BaseUtils</span>(
+
+)</code></pre></div>
+
+
+<div class="api-class-body" markdown="1">
+
+Shared validation and inspection methods for univariate regressors.
+
+
+### Methods
+
+| Method | Purpose |
+| --- | --- |
+| [predict_interval](#rgram.base.BaseUtils.predict_interval) | Compute pointwise paired-bootstrap confidence intervals for the curve. |
+| [regression_diagnostics](#rgram.base.BaseUtils.regression_diagnostics) | Inspect observed values, fitted values, and residuals in input order. |
+
+<span id="rgram.base.BaseUtils.predict_interval"></span>
+
+### predict_interval {.api-method-title}
+
+<div class="api-method-body" markdown="1">
+
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L606">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">predict_interval</span>(
+    X,
+    *,
+    confidence_level=0.95,
+    n_resamples=200,
+    random_state=None,
+    method=&#x27;percentile&#x27;,
+    resampling=&#x27;iid&#x27;,
+    groups=None,
+    block_size=None,
+    min_valid_fraction=1.0,
+)</code></pre></div>
+
+
+Compute pointwise paired-bootstrap confidence intervals for the curve.
+
+#### Parameters
+
+<dl class="api-fields">
+<dt><code class="api-field-name">X</code> <span class="api-field-type">array-like of shape (n_queries,) or (n_queries, 1)</span></dt><dd><p>Query locations; order and duplicates are preserved.</p></dd>
+<dt><code class="api-field-name">confidence_level</code> <span class="api-field-type">float, default=0.95</span></dt><dd><p>Nominal interval level strictly between zero and one.</p></dd>
+<dt><code class="api-field-name">n_resamples</code> <span class="api-field-type">int, default=200</span></dt><dd><p>Bootstrap refits, at least two. More draws improve Monte Carlo stability.</p></dd>
+<dt><code class="api-field-name">random_state</code> <span class="api-field-type">int or None, default=None</span></dt><dd><p>Seed for resampling, independent of any estimator CV seed.</p></dd>
+<dt><code class="api-field-name">method</code> <span class="api-field-type">{&#x27;percentile&#x27;, &#x27;basic&#x27;}, default=&#x27;percentile&#x27;</span></dt><dd><p>Bootstrap quantiles, or quantiles reflected around the original estimate.</p></dd>
+<dt><code class="api-field-name">resampling</code> <span class="api-field-type">{&#x27;iid&#x27;, &#x27;groups&#x27;, &#x27;blocks&#x27;}, default=&#x27;iid&#x27;</span></dt><dd><p>Resample paired independent rows, whole independent groups, or contiguous moving blocks in original training order. No sorting occurs.</p></dd>
+<dt><code class="api-field-name">groups</code> <span class="api-field-type">array-like of shape (<code>n_samples_in_</code>,) or None, default=None</span></dt><dd><p>Nonmissing group labels, required only for group resampling. At least two distinct groups are required.</p></dd>
+<dt><code class="api-field-name">block_size</code> <span class="api-field-type">int or None, default=None</span></dt><dd><p>Block length from 2 to <code>n_samples_in_</code> - 1, required only for blocks.</p></dd>
+<dt><code class="api-field-name">min_valid_fraction</code> <span class="api-field-type">float, default=1.0</span></dt><dd><p>Fraction of draws that must support each query, in (0, 1]. At least two valid draws are always required. Lower fractions condition on valid draws.</p></dd>
+</dl>
+
+#### Returns
+
+<dl class="api-fields">
+<dt><code class="api-field-name">interval</code> <span class="api-field-type">polars.DataFrame</span></dt><dd><p>Columns: x, prediction, lower, upper, n_valid, bootstrap_coverage. Insufficiently supported bounds are NaN. Queries are never dropped.</p></dd>
+</dl>
+
+#### Raises
+
+<dl class="api-fields">
+<dt><code class="api-field-name">sklearn.exceptions.NotFittedError</code></dt><dd><p>If no successful fit is available.</p></dd>
+<dt><code class="api-field-name">ValueError</code></dt><dd><p>For invalid options, fewer than two training rows, invalid group/block inputs, or errors from the estimator&#x27;s strict fit/prediction policies.</p></dd>
+</dl>
+
+#### Notes
+
+These are curve intervals, not prediction intervals or simultaneous bands.
+IID draws assume independent random-design rows. Group and block draws require
+appropriate independent groups or ordered dependence. Smoothing settings are
+held fixed; bin boundaries are relearned. Selection uncertainty and smoothing
+bias are not corrected. Memory includes n_resamples * n_queries draw values.
+A draw with no positive observation weight counts as unsupported. Other fit
+errors propagate. Explicit neighbor-only algorithms can reject unsorted draws.
+
+
+</div>
+
+<span id="rgram.base.BaseUtils.regression_diagnostics"></span>
+
+### regression_diagnostics {.api-method-title}
+
+<div class="api-method-body" markdown="1">
+
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/base.py#L568">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module"></span><span class="api-name">regression_diagnostics</span>(X, y)</code></pre></div>
+
+
+Inspect observed values, fitted values, and residuals in input order.
+
+#### Parameters
+
+<dl class="api-fields">
+<dt><code class="api-field-name">X</code> <span class="api-field-type">array-like of shape (n_samples,) or (n_samples, 1)</span></dt><dd><p>One evaluation feature. Named inputs must match the fitted feature.</p></dd>
+<dt><code class="api-field-name">y</code> <span class="api-field-type">array-like of shape (n_samples,) or (n_samples, 1)</span></dt><dd><p>Observed response, aligned with x. May be training or held-out data.</p></dd>
+</dl>
+
+#### Returns
+
+<dl class="api-fields">
+<dt><code class="api-field-name">diagnostics</code> <span class="api-field-type">polars.DataFrame</span></dt><dd><p>Columns: x, observed, prediction, residual (observed minus prediction), supported (finite prediction). Unsupported rows remain present.</p></dd>
+</dl>
+
+#### Raises
+
+<dl class="api-fields">
+<dt><code class="api-field-name">sklearn.exceptions.NotFittedError</code></dt><dd><p>If no successful fit is available.</p></dd>
+<dt><code class="api-field-name">ValueError</code></dt><dd><p>For invalid, misaligned inputs or strict prediction policies.</p></dd>
+</dl>
+
+
+</div>
+
+</div>
+<!-- END REFERENCE:rgram.base.BaseUtils -->
 
 ## Aggregation and resampling internals
 
@@ -82,15 +196,44 @@ count, std, var, first, and last. `Aggregation` is the union of declared names,
 native-expression functions, numeric adapters, and weighted-expression adapters.
 Public adapter classes and their calls are covered in [the aggregation reference](api/aggregation.md).
 
-```{eval-rst}
-.. autofunction:: rgram.aggregation.aggregation_expr
-   ```
+<!-- BEGIN REFERENCE:rgram.aggregation.aggregation_expr -->
+<span id="rgram.aggregation.aggregation_expr"></span>
 
-```{eval-rst}
-.. automodule:: rgram.uncertainty
-   :members:
-   :private-members:
-   ```
+## rgram.aggregation.aggregation_expr
+
+<div class="api-signature"><a class="api-source" href="https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/aggregation.py#L276">[source]</a><pre><code><span class="api-keyword"></span><span class="api-module">rgram.aggregation.</span><span class="api-name">aggregation_expr</span>(
+    aggregation,
+    values,
+    weights=None,
+)</code></pre></div>
+
+
+<div class="api-class-body" markdown="1">
+
+Resolve a named/native reduction into a Polars expression.
+
+This is an implementation helper; users should configure Regressogram.agg.
+Numeric adapters run directly per bin and are rejected by this resolver.
+
+### Parameters
+
+<dl class="api-fields">
+<dt><code class="api-field-name">aggregation</code> <span class="api-field-type">str or callable</span></dt><dd><p>Declared native aggregation or expression adapter.</p></dd>
+<dt><code class="api-field-name">values</code> <span class="api-field-type">polars.Expr</span></dt><dd><p>Bin-response expression.</p></dd>
+<dt><code class="api-field-name">weights</code> <span class="api-field-type">polars.Expr or None, default=None</span></dt><dd><p>Observation-weight expression. Only mean/sum names or explicit weighted adapters accept weights.</p></dd>
+</dl>
+
+### Returns
+
+<dl class="api-fields">
+<dt><code class="api-field-name">expression</code> <span class="api-field-type">polars.Expr</span></dt><dd><p>One declared scalar reduction. Invalid callback types/signatures raise.</p></dd>
+</dl>
+
+
+</div>
+<!-- END REFERENCE:rgram.aggregation.aggregation_expr -->
+
+[Resampling implementation](https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/uncertainty.py).
 
 `bootstrap_interval` fixes the selected smoother bandwidth (including its
 adjustment), or the fitted bin count, before drawing replicas. Explicit bin width

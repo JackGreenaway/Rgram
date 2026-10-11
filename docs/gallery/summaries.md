@@ -8,10 +8,7 @@ the mean and median. Every twelfth response is deliberately increased by 2.8
 units; no observation is removed. The median fit also reports descriptive 10th
 and 90th response percentiles within each bin.
 
-```{image} ../_static/gallery/summaries.png
-:alt: Means, medians, and response spread: a single large plot of the example's observations or diagnostics.
-:width: 100%
-```
+![Means, medians, and response spread: a single large plot of the example's observations or diagnostics.](../_static/gallery/summaries.png)
 
 ## Choices and their impact
 
@@ -64,7 +61,7 @@ python examples/plot_relationships.py --example summaries
 python examples/plot_relationships.py --example summaries --output-dir /tmp/rgram-figures
 ```
 
-Download {download}`the complete gallery script <../../examples/plot_relationships.py>`.
+Download [the complete gallery script](https://github.com/JackGreenaway/Rgram/blob/main/examples/plot_relationships.py).
 The function below is the implementation used to generate this plot. Inline
 comments explain the modeling decisions and interpretation of diagnostic values.
 It returns a figure; the CLI handles displaying or saving it and then closes it.
@@ -72,7 +69,51 @@ The [shared helpers](../examples.md#code-structure-and-shared-helpers) supply on
 common styling and explicit Gaussian/manual-bandwidth configuration. Run the
 complete downloaded script using the command above.
 
-```{literalinclude} ../../examples/plot_relationships.py
-:language: python
-:pyobject: summaries
+```python
+def summaries() -> Figure:
+    """Compare a bin mean, median, and descriptive quantile envelope."""
+    rng = np.random.default_rng(17)
+    X = np.linspace(0, 6, 180)
+    y = 0.4 * X + rng.normal(0, 0.22, len(X))
+    # Add extreme responses deliberately; both estimators receive every row.
+    y[::12] += 2.8  # Deliberate extreme responses, not removed during fitting.
+    query = np.linspace(0, 6, 350)
+    # Identical bin boundaries isolate the choice of response summary.
+    mean = Regressogram(n_bins=9).fit(X, y)
+    median = Regressogram(
+        n_bins=9, agg="median", ci=(quantile(0.1), quantile(0.9))
+    ).fit(X, y)
+    # ci supplies descriptive response percentiles, not a bootstrap interval.
+    # Read the named columns so the statistical meaning stays explicit.
+    diagnostic = median.predict_diagnostics(query)
+    figure, ax = _create_axes("Mean, median, and within-bin response spread")
+    _plot_observations(ax, X, y)
+    # The envelope reports within-bin response spread, not certainty of the curve.
+    ax.fill_between(
+        query,
+        diagnostic["summary_lower"].to_numpy(),
+        diagnostic["summary_upper"].to_numpy(),
+        step="mid",
+        color=COLORS[1],
+        alpha=0.15,
+        label="10th-90th response percentiles",
+    )
+    ax.step(
+        query,
+        mean.predict(query),
+        where="mid",
+        color=COLORS[0],
+        lw=2.8,
+        label="Bin mean",
+    )
+    ax.step(
+        query,
+        median.predict(query),
+        where="mid",
+        color=COLORS[1],
+        lw=2.8,
+        label="Bin median",
+    )
+    _add_legend(ax)
+    return figure
 ```

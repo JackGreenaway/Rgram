@@ -13,17 +13,13 @@ methods are included for completeness; their presence does not mean Rgram
 implements full metadata routing, especially through `CoverageSearchCV` pipelines.
 Use the explicit weight forwarding described in the [sklearn guide](../sklearn.md).
 
-```{toctree}
-:maxdepth: 2
-
-regressogram
-kernel_smoother
-coverage_search
-aggregation
-plotting
-warnings
-results
-```
+- [Regressogram](regressogram.md)
+- [Kernel Smoother](kernel_smoother.md)
+- [Coverage Search](coverage_search.md)
+- [Aggregation](aggregation.md)
+- [Plotting](plotting.md)
+- [Warnings](warnings.md)
+- [Results](results.md)
 
 ## Public interface
 
@@ -32,9 +28,9 @@ results
 | [Regressogram](regressogram.md) | Binned response summaries. |
 | [KernelSmoother](kernel_smoother.md) | Local-constant and local-linear kernel regression. |
 | [CoverageSearchCV](coverage_search.md) | Validation MSE search requiring explicit prediction coverage. |
-| {py:func}`rgram.array_aggregation` | Numeric per-bin scalar callback adapter. |
-| {py:func}`rgram.weighted_aggregation` | Native Polars weighted callback adapter. |
-| {py:func}`rgram.quantile` | Explicit unweighted quantile reducer. |
+| [rgram.array_aggregation](aggregation.md#rgram.array_aggregation) | Numeric per-bin scalar callback adapter. |
+| [rgram.weighted_aggregation](aggregation.md#rgram.weighted_aggregation) | Native Polars weighted callback adapter. |
+| [rgram.quantile](aggregation.md#rgram.quantile) | Explicit unweighted quantile reducer. |
 | [plot_diagnostics](plotting.md) | Optional residual and observed-versus-predicted figure. |
 | [Warning categories](warnings.md) | Filter support, ordering, extrapolation, binning, and numerical advisories. |
 

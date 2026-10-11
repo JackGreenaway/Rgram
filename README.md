@@ -2,7 +2,7 @@
 
 Rgram is designed for exploring relationships between one numeric feature and one numeric response at a time. Its regressograms and kernel smoothers help reveal nonlinear patterns, summarize how a response changes across a feature, and compare relationships across subgroups. A scikit-learn-style estimator API makes these exploratory models familiar to fit, inspect, and use in pipelines. It accepts numeric arrays or selected pandas/Polars columns, preserves observation and prediction order, and makes data handling, aggregation, support and uncertainty explicit.
 
-The complete documentation site is built from [docs/index.md](docs/index.md), with a user guide, theory, examples, and a searchable API reference. [Build and GitHub Pages publishing instructions](docs/development.md) are included.
+The [GitHub Pages documentation](https://jackgreenaway.github.io/Rgram/) is built from [docs/index.md](docs/index.md) using the same MkDocs theme and generated reference formatting as polars-learn, with a user guide, theory, examples, and a searchable API reference. [Build and GitHub Pages publishing instructions](docs/development.md) are included.
 
 This README describes the current working tree. The [advanced guide](docs/advanced.md) explains numerical and statistical details, and the [scikit-learn usage guide](docs/sklearn.md) includes prediction pipelines, cross-validation, weighted fitting, exploratory analysis, and compatibility limits.
 

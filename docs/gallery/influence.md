@@ -7,21 +7,18 @@ query at feature value 3. Both smoothers use bandwidth 0.6 and the same feature
 locations and responses. One gives all rows equal observation weight; the other
 gives rows above the query three times as much observation weight.
 
-```{image} ../_static/gallery/influence.png
-:alt: Inspecting observation influence: a single large plot of the example's observations or diagnostics.
-:width: 100%
-```
+![Inspecting observation influence: a single large plot of the example's observations or diagnostics.](../_static/gallery/influence.png)
 
 ## Choices and their impact
 
-| Item | What is being reviewed | Impact and interpretation |
-|---|---|---|
-| Horizontal axis | Original training feature locations | Each plotted value corresponds to a training row, not to a new prediction query. |
-| Vertical axis | Normalized local kernel/observation weights | Describes relative influence at this one query. Each supported curve's weights sum to one. |
-| Blue weight curve | Distance weighting with equal observation weights | Nearby rows receive more influence, with symmetric geometry in this example. |
-| Orange weight curve | Distance weighting combined with unequal observation weights | Influence shifts toward the higher-weight side; other normalized weights also change because the total is renormalized. |
-| Dashed line at 3 | The location being predicted | Makes it clear that both weight curves describe the same query. |
-| Effective n in the legend | Concentration of normalized positive weights | Gives an equivalent equal-weight count for concentration, not confidence, sample-size assurance, or regression degrees of freedom. |
+| Item                      | What is being reviewed                                       | Impact and interpretation                                                                                                          |
+| ------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Horizontal axis           | Original training feature locations                          | Each plotted value corresponds to a training row, not to a new prediction query.                                                   |
+| Vertical axis             | Normalized local kernel/observation weights                  | Describes relative influence at this one query. Each supported curve's weights sum to one.                                         |
+| Blue weight curve         | Distance weighting with equal observation weights            | Nearby rows receive more influence, with symmetric geometry in this example.                                                       |
+| Orange weight curve       | Distance weighting combined with unequal observation weights | Influence shifts toward the higher-weight side; other normalized weights also change because the total is renormalized.            |
+| Dashed line at 3          | The location being predicted                                 | Makes it clear that both weight curves describe the same query.                                                                    |
+| Effective n in the legend | Concentration of normalized positive weights                 | Gives an equivalent equal-weight count for concentration, not confidence, sample-size assurance, or regression degrees of freedom. |
 
 ## Interpreting the plot
 
@@ -64,7 +61,7 @@ python examples/plot_relationships.py --example influence
 python examples/plot_relationships.py --example influence --output-dir /tmp/rgram-figures
 ```
 
-Download {download}`the complete gallery script <../../examples/plot_relationships.py>`.
+Download [the complete gallery script](https://github.com/JackGreenaway/Rgram/blob/main/examples/plot_relationships.py).
 The function below is the implementation used to generate this plot. Inline
 comments explain the modeling decisions and interpretation of diagnostic values.
 It returns a figure; the CLI handles displaying or saving it and then closes it.
@@ -72,7 +69,39 @@ The [shared helpers](../examples.md#code-structure-and-shared-helpers) supply on
 common styling and explicit Gaussian/manual-bandwidth configuration. Run the
 complete downloaded script using the command above.
 
-```{literalinclude} ../../examples/plot_relationships.py
-:language: python
-:pyobject: influence
+```python
+def influence() -> Figure:
+    """Inspect which original training rows contribute to a selected query."""
+    X = np.linspace(0, 6, 100)
+    y = np.sin(X)
+    # Inspect a single query: get_weights materializes a query-by-training matrix.
+    query = 3.0
+    observation_weights = np.ones(len(X))
+    # Reweight observations on one side without changing their feature locations.
+    observation_weights[X > query] = 3.0
+    unweighted = _gaussian_smoother(0.6).fit(X, y)
+    weighted = _gaussian_smoother(0.6).fit(X, y, sample_weight=observation_weights)
+    figure, ax = _create_axes(
+        "Observation weights change local influence", ylabel="Normalized kernel weight"
+    )
+    for model, label, color in zip(
+        (unweighted, weighted),
+        ("Equal observation weights", "Triple weight above query"),
+        COLORS,
+    ):
+        # Kernel weights are nonnegative and normalized. With local-constant
+        # fitting they also give the coefficients used to combine responses.
+        values = model.get_weights([query], kind="kernel")[0]
+        # This describes weight concentration, not confidence or degrees of freedom.
+        effective_n = model.predict_diagnostics([query])["effective_n"][0]
+        ax.plot(
+            X,
+            values,
+            color=color,
+            lw=3,
+            label=f"{label} (effective n ≈ {effective_n:.0f})",
+        )
+    ax.axvline(query, color="#334155", linestyle="--", lw=2, label="Query = 3")
+    _add_legend(ax)
+    return figure
 ```

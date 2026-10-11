@@ -8,19 +8,16 @@ The examples use reproducible synthetic data, so some plots can show the known
 generating relationship. Real datasets usually do not supply that ground truth.
 See [theory and suitability](theory.md) before interpreting a fitted curve.
 
-```{toctree}
-:maxdepth: 1
+## Start with your analysis question
 
-gallery/bins
-gallery/bandwidth
-gallery/subgroups
-gallery/boundary
-gallery/summaries
-gallery/influence
-gallery/intervals
-gallery/support
-gallery/residuals
-```
+- **A noisy curve needs a summary:** compare [bin counts](gallery/bins.md) or [bandwidths](gallery/bandwidth.md).
+- **The mean may hide the response distribution:** compare [response summaries](gallery/summaries.md).
+- **Selected groups may behave differently:** fit [subgroup curves](gallery/subgroups.md) and inspect their support.
+- **A fitted value needs explaining:** review [observation influence](gallery/influence.md) or [missing support](gallery/support.md).
+- **You need to assess the fit:** inspect [residuals](gallery/residuals.md), [boundary behavior](gallery/boundary.md), or [curve intervals](gallery/intervals.md).
+
+Use the same sequence on each page: identify the question, review the choices,
+read the plot, run the example, then decide what to change in your own analysis.
 
 ## What each example examines
 
@@ -56,7 +53,7 @@ To reproduce all documentation figures without a desktop:
 python examples/plot_relationships.py --output-dir docs/_static/gallery
 ```
 
-Download {download}`the complete gallery script <../examples/plot_relationships.py>`.
+Download [the complete gallery script](https://github.com/JackGreenaway/Rgram/blob/main/examples/plot_relationships.py).
 Figures are generated from the same functions shown on the example pages.
 
 ## Interactive kernel explorer
@@ -70,7 +67,7 @@ constant/linear fitting, binning, and aggregation. It displays local influence
 weights, support counts, effective sample size, and fallback flags. Bootstrap
 intervals are calculated only after pressing the interval button. It requires a
 desktop backend; GitHub Pages cannot run Python widgets. Download
-{download}`the explorer script <../examples/kernel_explorer.py>` and run it locally.
+[the explorer script](https://github.com/JackGreenaway/Rgram/blob/main/examples/kernel_explorer.py) and run it locally.
 
 ## Exact neighbor and brute-force paths
 
@@ -82,7 +79,7 @@ This script supplies already sorted features and a compact tricube kernel, then
 times the automatic support-window path against bounded brute-force prediction.
 It verifies numerical agreement. Results depend on hardware, sample size,
 query count, and bandwidth; they are not a universal speed claim. Download
-{download}`the benchmark script <../examples/benchmark_neighbors.py>`.
+[the benchmark script](https://github.com/JackGreenaway/Rgram/blob/main/examples/benchmark_neighbors.py).
 
 ## Pipelines, selection, and weighted fitting
 
@@ -105,9 +102,12 @@ The shared helpers keep presentation consistent rather than concealing analysis:
 responses; `_add_legend` labels comparisons. The model helper below explicitly
 selects a Gaussian kernel and a manual bandwidth measured in feature units:
 
-```{literalinclude} ../examples/plot_relationships.py
-:language: python
-:pyobject: _gaussian_smoother
+```python
+def _gaussian_smoother(bandwidth: float, **kwargs) -> KernelSmoother:
+    """Keep kernel and bandwidth units explicit; kwargs select other model options."""
+    return KernelSmoother(
+        kernel="gaussian", bandwidth="manual", bandwidth_value=bandwidth, **kwargs
+    )
 ```
 
 Each example fixes a random seed when generating noisy data and holds irrelevant

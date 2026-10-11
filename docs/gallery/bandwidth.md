@@ -8,10 +8,7 @@ local-constant fit, and query grid are used throughout, while the manual bandwid
 changes. The comparison isolates smoothing rather than a change in data or model
 family.
 
-```{image} ../_static/gallery/bandwidth.png
-:alt: Choosing a bandwidth: a single large plot of the example's observations or diagnostics.
-:width: 100%
-```
+![Choosing a bandwidth: a single large plot of the example's observations or diagnostics.](../_static/gallery/bandwidth.png)
 
 ## Choices and their impact
 
@@ -65,7 +62,7 @@ python examples/plot_relationships.py --example bandwidth
 python examples/plot_relationships.py --example bandwidth --output-dir /tmp/rgram-figures
 ```
 
-Download {download}`the complete gallery script <../../examples/plot_relationships.py>`.
+Download [the complete gallery script](https://github.com/JackGreenaway/Rgram/blob/main/examples/plot_relationships.py).
 The function below is the implementation used to generate this plot. Inline
 comments explain the modeling decisions and interpretation of diagnostic values.
 It returns a figure; the CLI handles displaying or saving it and then closes it.
@@ -73,7 +70,24 @@ The [shared helpers](../examples.md#code-structure-and-shared-helpers) supply on
 common styling and explicit Gaussian/manual-bandwidth configuration. Run the
 complete downloaded script using the command above.
 
-```{literalinclude} ../../examples/plot_relationships.py
-:language: python
-:pyobject: bandwidth
+```python
+def bandwidth() -> Figure:
+    """Compare three smoothing scales, with the generating curve visible."""
+    # Reuse identical observations for each smoothing scale.
+    rng = np.random.default_rng(42)
+    X = np.linspace(0, 6, 150)
+    y = np.sin(X) + rng.normal(0, 0.2, len(X))
+    query = np.linspace(0, 6, 350)
+    figure, ax = _create_axes("Bandwidth controls detail and stability")
+    _plot_observations(ax, X, y)
+    ax.plot(query, np.sin(query), "--", color="#334155", lw=2, label="Generating mean")
+    # Gaussian bandwidth is a feature scale, not a hard support cutoff.
+    # Hold the kernel and query grid fixed to isolate the effect of bandwidth.
+    for value, color in zip((0.12, 0.45, 1.2), COLORS):
+        model = _gaussian_smoother(value).fit(X, y)
+        ax.plot(
+            query, model.predict(query), lw=2.8, color=color, label=f"Bandwidth {value}"
+        )
+    _add_legend(ax)
+    return figure
 ```

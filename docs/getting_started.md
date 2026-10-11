@@ -1,5 +1,10 @@
 # Getting started
 
+Start with a concrete question: **how does the typical response change across
+one numeric feature?** This walkthrough fits the same observations with bins and
+a smooth curve, shows how to inspect and plot the results, and explains which
+choice to revisit next. No cross-validation runs unless you request it.
+
 ## API stability
 
 Rgram has an **unstable API**. Parameters, methods, and result schemas may change
@@ -26,6 +31,11 @@ python -m pip install -e '.[plot]'
 
 ## Your first feature-response curve
 
+The synthetic response below has a curved signal plus noise. A regressogram
+summarizes six intervals; a Gaussian smoother pools nearby observations using a
+bandwidth of 0.4 feature units. Keeping the observations fixed makes the two
+summaries easier to compare.
+
 ```python
 import numpy as np
 from rgram import KernelSmoother, Regressogram
@@ -49,6 +59,39 @@ Both models describe one feature at a time. `fit` returns the model, and
 order. Diagnostics return Polars DataFrames. Cross-validation does not run in
 this example. Unsorted inputs are accepted with an advisory warning and retain
 their original order.
+
+### Read the result
+
+- `binned.bins_` contains the fitted intervals, counts, and response summaries.
+- `smooth.predict_diagnostics(query)` describes predictions and support at the query locations.
+- `smooth.regression_diagnostics(X, y)` compares observations with fitted values.
+
+A query grid controls where you evaluate the curve; it does not add training
+observations. Compare a smaller and a larger bandwidth before interpreting small
+wiggles as a persistent pattern. See the [bandwidth example](gallery/bandwidth.md).
+
+### Plot the comparison
+
+With the plotting extra installed, reuse the fitted models above:
+
+```python
+import matplotlib.pyplot as plt
+
+fig, ax = plt.subplots()
+ax.scatter(X[:, 0], y, alpha=0.5, label="Observed responses")
+ax.step(query[:, 0], binned.predict(query), where="mid", label="Bin summaries")
+ax.plot(query[:, 0], smooth.predict(query), label="Smooth local mean")
+ax.set(xlabel="Feature", ylabel="Response")
+ax.legend()
+plt.show()
+plt.close(fig)
+```
+
+The dots show response variation; the lines summarize that variation at different
+scales. This is a descriptive fit on all rows. Use held-out data to measure
+prediction performance rather than treating training residuals as that measure.
+
+### Start from named columns
 
 For named Polars columns:
 

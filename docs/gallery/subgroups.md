@@ -8,10 +8,7 @@ range and are fitted with identical smoothing settings. Group B's generating
 mean has a known 0.8 response-unit offset; that construction makes a comparison
 easy to interpret without claiming a real-world group effect.
 
-```{image} ../_static/gallery/subgroups.png
-:alt: Comparing subgroups: a single large plot of the example's observations or diagnostics.
-:width: 100%
-```
+![Comparing subgroups: a single large plot of the example's observations or diagnostics.](../_static/gallery/subgroups.png)
 
 ## Choices and their impact
 
@@ -62,7 +59,7 @@ python examples/plot_relationships.py --example subgroups
 python examples/plot_relationships.py --example subgroups --output-dir /tmp/rgram-figures
 ```
 
-Download {download}`the complete gallery script <../../examples/plot_relationships.py>`.
+Download [the complete gallery script](https://github.com/JackGreenaway/Rgram/blob/main/examples/plot_relationships.py).
 The function below is the implementation used to generate this plot. Inline
 comments explain the modeling decisions and interpretation of diagnostic values.
 It returns a figure; the CLI handles displaying or saving it and then closes it.
@@ -70,7 +67,23 @@ The [shared helpers](../examples.md#code-structure-and-shared-helpers) supply on
 common styling and explicit Gaussian/manual-bandwidth configuration. Run the
 complete downloaded script using the command above.
 
-```{literalinclude} ../../examples/plot_relationships.py
-:language: python
-:pyobject: subgroups
+```python
+def subgroups() -> Figure:
+    """Fit explicitly selected groups with a common bandwidth and query range."""
+    rng = np.random.default_rng(12)
+    X = np.linspace(0, 6, 120)
+    # Both groups occupy the same range, making their curves comparable here.
+    query = np.linspace(0, 6, 350)
+    figure, ax = _create_axes("Compare observed relationships across groups")
+    # Generate each subgroup explicitly; the offset is known in this simulation.
+    for group, offset, color in zip(("A", "B"), (0.0, 0.8), COLORS):
+        y = np.sin(X) + offset + rng.normal(0, 0.2, len(X))
+        # Fit only this group, using common settings rather than automatic
+        # group-specific bandwidths. This does not adjust for other variables.
+        model = _gaussian_smoother(0.4).fit(X, y)
+        # Keep each group's raw spread visible behind its mean curve.
+        ax.scatter(X, y, color=color, alpha=0.23, s=28, edgecolors="none")
+        ax.plot(query, model.predict(query), color=color, lw=3, label=f"Group {group}")
+    _add_legend(ax)
+    return figure
 ```

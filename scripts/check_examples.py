@@ -19,7 +19,16 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def main():
-    pages = ["getting_started.md", "sklearn.md", "examples.md", "api/warnings.md"]
+    pages = [
+        "index.md",
+        "getting_started.md",
+        "sklearn.md",
+        "examples.md",
+        "api/regressogram.md",
+        "api/kernel_smoother.md",
+        "api/coverage_search.md",
+        "api/warnings.md",
+    ]
     blocks = 0
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")

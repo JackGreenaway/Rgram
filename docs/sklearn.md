@@ -183,7 +183,8 @@ generic estimator checks pass: many checks assume multivariate input. See the
 assumptions, and [sklearn's estimator conventions](https://scikit-learn.org/stable/developers/develop.html)
 for the underlying API.
 
-(metadata_routing)=
+<span id="metadata_routing"></span>
+
 ## Metadata routing compatibility
 
 Inherited scikit-learn metadata-request methods are available and documented in
@@ -194,7 +195,8 @@ does not forward weights through nested pipeline steps. See
 [scikit-learn's metadata routing guide](https://scikit-learn.org/stable/metadata_routing.html)
 for the upstream request mechanism.
 
-(r2_score)=
+<span id="r2_score"></span>
+
 ## R² scoring
 
 The inherited `score(X, y, sample_weight=None)` evaluates the coefficient of
@@ -217,12 +219,8 @@ negative pooled validation MSE.
 
 ## Glossary
 
-```{eval-rst}
-.. glossary::
-
-   meta-estimator
+meta-estimator
       An estimator that wraps or combines other estimators. Examples include
       scikit-learn's Pipeline and GridSearchCV, and Rgram's CoverageSearchCV.
       Wrapping a model does not automatically route every fitting argument;
       use the explicit weight forwarding described above.
-```

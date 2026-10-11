@@ -28,26 +28,103 @@ scikit-learn's conventions, and are not suppressed by filtering `RgramWarning`.
 Validation errors and strict support/extrapolation errors remain active. Python
 can also escalate warnings to exceptions with `filterwarnings("error", ...)`.
 
-```{eval-rst}
-.. autoexception:: rgram.RgramWarning
-```
-```{eval-rst}
-.. autoexception:: rgram.UnsortedInputWarning
-```
-```{eval-rst}
-.. autoexception:: rgram.SupportWarning
-```
-```{eval-rst}
-.. autoexception:: rgram.NumericalWarning
-```
-```{eval-rst}
-.. autoexception:: rgram.BinningWarning
-```
-```{eval-rst}
-.. autoexception:: rgram.ExtrapolationWarning
-```
-```{eval-rst}
-.. autoexception:: rgram.DataHandlingWarning
-```
+<!-- BEGIN REFERENCE:rgram.RgramWarning -->
+<span id="rgram.RgramWarning"></span>
 
-Implementation source: {download}`warnings.py <../../src/rgram/warnings.py>`.
+## rgram.RgramWarning
+
+
+
+<div class="api-class-body" markdown="1">
+
+Base category; filter this to silence all rgram advisory warnings.
+
+
+</div>
+<!-- END REFERENCE:rgram.RgramWarning -->
+<!-- BEGIN REFERENCE:rgram.UnsortedInputWarning -->
+<span id="rgram.UnsortedInputWarning"></span>
+
+## rgram.UnsortedInputWarning
+
+
+
+<div class="api-class-body" markdown="1">
+
+Input order is valid for estimation but may matter when drawing lines.
+
+
+</div>
+<!-- END REFERENCE:rgram.UnsortedInputWarning -->
+<!-- BEGIN REFERENCE:rgram.SupportWarning -->
+<span id="rgram.SupportWarning"></span>
+
+## rgram.SupportWarning
+
+
+
+<div class="api-class-body" markdown="1">
+
+Predictions or bootstrap intervals have insufficient support.
+
+
+</div>
+<!-- END REFERENCE:rgram.SupportWarning -->
+<!-- BEGIN REFERENCE:rgram.NumericalWarning -->
+<span id="rgram.NumericalWarning"></span>
+
+## rgram.NumericalWarning
+
+
+
+<div class="api-class-body" markdown="1">
+
+A local fit required an explicit numerical fallback.
+
+
+</div>
+<!-- END REFERENCE:rgram.NumericalWarning -->
+<!-- BEGIN REFERENCE:rgram.BinningWarning -->
+<span id="rgram.BinningWarning"></span>
+
+## rgram.BinningWarning
+
+
+
+<div class="api-class-body" markdown="1">
+
+An automatic bin count was bounded to avoid excessive resolution.
+
+
+</div>
+<!-- END REFERENCE:rgram.BinningWarning -->
+<!-- BEGIN REFERENCE:rgram.ExtrapolationWarning -->
+<span id="rgram.ExtrapolationWarning"></span>
+
+## rgram.ExtrapolationWarning
+
+
+
+<div class="api-class-body" markdown="1">
+
+A prediction query lies outside the fitted training range.
+
+
+</div>
+<!-- END REFERENCE:rgram.ExtrapolationWarning -->
+<!-- BEGIN REFERENCE:rgram.DataHandlingWarning -->
+<span id="rgram.DataHandlingWarning"></span>
+
+## rgram.DataHandlingWarning
+
+
+
+<div class="api-class-body" markdown="1">
+
+A numerical rule used a documented fallback or changed resolution.
+
+
+</div>
+<!-- END REFERENCE:rgram.DataHandlingWarning -->
+
+Implementation source: [warnings.py](https://github.com/JackGreenaway/Rgram/blob/main/src/rgram/warnings.py).

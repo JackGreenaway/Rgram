@@ -7,10 +7,7 @@ ends of an observed feature range. The generating mean is a straight line, so
 edge behavior is easier to distinguish from unknown curvature. Both fits use
 the same data, Gaussian kernel, bandwidth 0.22, and evaluation locations.
 
-```{image} ../_static/gallery/boundary.png
-:alt: Local-linear boundary behavior: a single large plot of the example's observations or diagnostics.
-:width: 100%
-```
+![Local-linear boundary behavior: a single large plot of the example's observations or diagnostics.](../_static/gallery/boundary.png)
 
 ## Choices and their impact
 
@@ -62,7 +59,7 @@ python examples/plot_relationships.py --example boundary
 python examples/plot_relationships.py --example boundary --output-dir /tmp/rgram-figures
 ```
 
-Download {download}`the complete gallery script <../../examples/plot_relationships.py>`.
+Download [the complete gallery script](https://github.com/JackGreenaway/Rgram/blob/main/examples/plot_relationships.py).
 The function below is the implementation used to generate this plot. Inline
 comments explain the modeling decisions and interpretation of diagnostic values.
 It returns a figure; the CLI handles displaying or saving it and then closes it.
@@ -70,7 +67,30 @@ The [shared helpers](../examples.md#code-structure-and-shared-helpers) supply on
 common styling and explicit Gaussian/manual-bandwidth configuration. Run the
 complete downloaded script using the command above.
 
-```{literalinclude} ../../examples/plot_relationships.py
-:language: python
-:pyobject: boundary
+```python
+def boundary() -> Figure:
+    """Show why a local slope can help near the observed feature boundaries."""
+    rng = np.random.default_rng(8)
+    X = np.linspace(0, 1, 120)
+    # A linear generating mean makes edge bias easier to distinguish from curvature.
+    y = 1 + 2 * X + rng.normal(0, 0.1, len(X))
+    query = np.linspace(0, 1, 250)
+    figure, ax = _create_axes("Local-linear regression near a boundary")
+    _plot_observations(ax, X, y)
+    ax.plot(query, 1 + 2 * query, "--", color="#334155", lw=2, label="Generating mean")
+    # Change only the local fitting order, keeping kernel and bandwidth equal.
+    for regression, color in zip(("local_constant", "local_linear"), COLORS):
+        model = _gaussian_smoother(0.22, regression=regression).fit(X, y)
+        ax.plot(
+            query,
+            model.predict(query),
+            color=color,
+            lw=3,
+            label=regression.replace("_", " ").capitalize(),
+        )
+    # These bands mark regions with asymmetric neighborhoods, not confidence bounds.
+    ax.axvspan(0, 0.12, color="#dce3ec", alpha=0.55)
+    ax.axvspan(0.88, 1, color="#dce3ec", alpha=0.55)
+    _add_legend(ax)
+    return figure
 ```
