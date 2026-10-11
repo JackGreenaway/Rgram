@@ -22,6 +22,49 @@ inherited scikit-learn docstrings and rendering dependencies differ between
 Python versions. Runtime tests can also run on Python 3.9 and 3.12. No additional
 documentation framework or runtime dependency is required.
 
+## Writing documentation
+
+Documentation pages are Markdown files in `docs/`. Start with the reader's
+question, explain the relevant behavior, and show a small reproducible example.
+Use plain language and explain statistical assumptions, parameter tradeoffs, and
+limitations alongside the result.
+
+Choose the location that matches what you are documenting:
+
+- **Getting started and user guide:** installation, concepts, interpretation, and
+  common tasks. Extend an existing page when the topic fits; add a new page to
+  the appropriate group in `mkdocs.yml` when it needs its own navigation entry.
+- **Examples gallery:** complete examples that answer a practical question.
+  Follow the existing gallery pages: state what is being compared, explain the
+  choices and plot, describe when it is useful, and suggest what to try next.
+  Edit example functions in `examples/plot_relationships.py`, then regenerate
+  gallery code, downloads, and images as described below.
+- **API reference:** exact signatures, parameters, return values, fitted
+  attributes, warnings, and short doctests. Edit NumPy-style docstrings in
+  `src/rgram/` and regenerate the reference; do not edit content between
+  `BEGIN REFERENCE` and `END REFERENCE` markers by hand. Explanatory Markdown
+  outside those blocks can be edited directly.
+- **Development and implementation:** contributor workflows and internal design.
+  Keep public behavior in the guide or reference and link to it where needed.
+
+Use one `#` title per page and `##` headings for its main sections. Put API names,
+parameter names, and file paths in backticks. Link to other pages using relative
+Markdown paths, such as `[result schemas](api/results.md)`, and give images
+descriptive alt text. Use the existing MathJax syntax for equations.
+
+Fence runnable snippets with `python`, shell commands with `bash`, and doctests
+with `pycon`. Include imports and deterministic sample data; Python blocks on the
+same page share a namespace during validation, but each page starts fresh. If you
+show printed output, place a `text` block immediately after its Python block so
+the example checker can compare it. Avoid network access or interactive input in
+examples because validation runs headlessly.
+
+Before submitting a documentation change, run the checks in
+[Build and validate](#build-and-validate), regenerating references or gallery
+assets when their sources changed. Preview the site with `mkdocs serve` and check
+the edited page's navigation, code formatting, equations, and images. Commit the
+Markdown and any regenerated assets together.
+
 ## Build and validate
 
 ```bash
