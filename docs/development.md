@@ -24,40 +24,50 @@ documentation framework or runtime dependency is required.
 
 ## Writing documentation
 
-Documentation pages are Markdown files in `docs/`. Start with the reader's
-question, explain the relevant behavior, and show a small reproducible example.
-Use plain language and explain statistical assumptions, parameter tradeoffs, and
-limitations alongside the result.
+Documentation pages are Markdown files in `docs/`. Keep the same division used
+by scikit-learn: the **user guide** teaches concepts and practical choices, the
+**API reference** specifies exact object behavior, and the **examples gallery**
+shows complete workflows. A reader should be able to move from an explanation
+to a runnable example and then to the exact API contract without finding the
+same long explanation copied in several places. See scikit-learn's
+[documentation guidance](https://scikit-learn.org/stable/developers/contributing.html#documentation)
+and [user guide](https://scikit-learn.org/stable/user_guide.html) for the model.
 
-Choose the location that matches what you are documenting:
+| Page type | Organize the explanation this way | Source of truth |
+| --- | --- | --- |
+| Getting started | State the task, show the shortest complete fit/predict workflow, explain the output, then link to the next relevant guide. | `docs/getting_started.md` |
+| User guide | Begin with the question or choice; explain the idea and assumptions; show a focused example; interpret its output; describe limits and alternatives. Link exact parameters to the API and link longer workflows to the gallery. | `docs/*.md` |
+| Example gallery | Give the practical question and data context; state what is held fixed and what changes; show the figure near the explanation; provide complete runnable code on the page; explain how to read it, when to use the approach, its limits, and a follow-up. | `examples/plot_relationships.py` and `examples/held_out_prediction.py` |
+| API reference | Lead with a concise purpose statement; document every parameter, return value, fitted attribute, warning, and relevant exception; keep examples short and executable. | NumPy-style docstrings in `src/rgram/` |
+| Development and implementation | Explain contributor actions and internal design. Link public behavior back to the guide or API instead of making this the only description of a user-facing feature. | `docs/development.md` and `docs/internals.md` |
 
-- **Getting started and user guide:** installation, concepts, interpretation, and
-  common tasks. Extend an existing page when the topic fits; add a new page to
-  the appropriate group in `mkdocs.yml` when it needs its own navigation entry.
-- **Examples gallery:** complete examples that answer a practical question.
-  Follow the existing gallery pages: state what is being compared, explain the
-  choices and plot, describe when it is useful, and suggest what to try next.
-  Edit example functions in `examples/plot_relationships.py`, then regenerate
-  gallery code, downloads, and images as described below.
-- **API reference:** exact signatures, parameters, return values, fitted
-  attributes, warnings, and short doctests. Edit NumPy-style docstrings in
-  `src/rgram/` and regenerate the reference; do not edit content between
-  `BEGIN REFERENCE` and `END REFERENCE` markers by hand. Explanatory Markdown
-  outside those blocks can be edited directly.
-- **Development and implementation:** contributor workflows and internal design.
-  Keep public behavior in the guide or reference and link to it where needed.
+Keep pages focused on one topic and use one `#` title per page. Use `##` for
+main sections and `###` only when a section needs real subdivisions. Prefer
+question-led headings and connected prose over a sequence of parameter tables;
+use a table when readers need to compare choices or scan a contract. Put API
+names, parameter names, and file paths in backticks. Link related pages with
+relative Markdown paths, and link public API names to their reference pages.
+Explain statistical assumptions, units, tradeoffs, and limits beside the
+recommendation or result they qualify. Use admonitions only for information a
+reader should notice before acting, and give every figure useful alt text.
 
-Use one `#` title per page and `##` headings for its main sections. Put API names,
-parameter names, and file paths in backticks. Link to other pages using relative
-Markdown paths, such as `[result schemas](api/results.md)`, and give images
-descriptive alt text. Use the existing MathJax syntax for equations.
+The site keeps scikit-learn's familiar three-part layout: topic navigation at
+the left, the page content in the center, and section links at the right. The
+top navigation stays limited to the main documentation areas. Preserve this
+hierarchy when adding pages: add the file to the appropriate group in
+`mkdocs.yml`, use existing components such as `.docs-gallery` for collections
+of examples, and let figures scale within the content column. Avoid page-specific
+layout or styling when a shared component can express the same structure.
 
 Fence runnable snippets with `python`, shell commands with `bash`, and doctests
-with `pycon`. Include imports and deterministic sample data; Python blocks on the
-same page share a namespace during validation, but each page starts fresh. If you
-show printed output, place a `text` block immediately after its Python block so
-the example checker can compare it. Avoid network access or interactive input in
-examples because validation runs headlessly.
+with `pycon`. Keep examples focused on the behavior being explained, but include
+the imports and deterministic data needed to run them. Python blocks on one page
+share a namespace during validation; each page starts fresh. If output is shown,
+put a `text` block immediately after its Python block so the checker can compare
+it. Avoid network access and interactive input because examples run headlessly.
+Edit gallery functions in `examples/plot_relationships.py`, then regenerate the
+page code, downloads, and figures. Do not hand-edit generated gallery blocks or
+content between `BEGIN REFERENCE` and `END REFERENCE` markers.
 
 Before submitting a documentation change, run the checks in
 [Build and validate](#build-and-validate), regenerating references or gallery

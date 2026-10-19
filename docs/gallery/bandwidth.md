@@ -8,7 +8,7 @@ local-constant fit, and query grid are used throughout, while the manual bandwid
 changes. The comparison isolates smoothing rather than a change in data or model
 family.
 
-![Choosing a bandwidth: a single large plot of the example's observations or diagnostics.](../_static/gallery/bandwidth.png)
+![Bandwidth comparison showing raw observations, the synthetic generating mean, and Gaussian smoother curves at three bandwidths.](../_static/gallery/bandwidth.png)
 
 ## Choices and their impact
 

@@ -8,7 +8,7 @@ receive the same 150 observations and use the same mean aggregation; only the
 number of quantile bins changes. The feature coordinates are evenly spaced here,
 so quantile cells are approximately equal in width as well as occupancy.
 
-![Choosing a bin count: a single large plot of the example's observations or diagnostics.](../_static/gallery/bins.png)
+![Bin-count comparison showing raw observations, the synthetic generating mean, and regressogram summaries with 6 and 18 bins.](../_static/gallery/bins.png)
 
 ## Choices and their impact
 

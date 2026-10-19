@@ -8,7 +8,7 @@ sorted before independent response noise is generated. A Gaussian local-constant
 fit uses bandwidth 0.4. Paired IID bootstrap resampling refits the model and
 evaluates bounds at 100 locations in the original observed feature range.
 
-![Pointwise bootstrap intervals: a single large plot of the example's observations or diagnostics.](../_static/gallery/intervals.png)
+![Fitted local mean with pointwise bootstrap confidence bounds and the known synthetic generating mean.](../_static/gallery/intervals.png)
 
 ## Choices and their impact
 

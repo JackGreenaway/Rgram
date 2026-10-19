@@ -8,7 +8,7 @@ the mean and median. Every twelfth response is deliberately increased by 2.8
 units; no observation is removed. The median fit also reports descriptive 10th
 and 90th response percentiles within each bin.
 
-![Means, medians, and response spread: a single large plot of the example's observations or diagnostics.](../_static/gallery/summaries.png)
+![Regressogram comparison of bin means, medians, and within-bin 10th to 90th percentile response spread.](../_static/gallery/summaries.png)
 
 ## Choices and their impact
 

@@ -8,7 +8,7 @@ range and are fitted with identical smoothing settings. Group B's generating
 mean has a known 0.8 response-unit offset; that construction makes a comparison
 easy to interpret without claiming a real-world group effect.
 
-![Comparing subgroups: a single large plot of the example's observations or diagnostics.](../_static/gallery/subgroups.png)
+![Subgroup comparison showing observations and separate local mean curves for each selected group.](../_static/gallery/subgroups.png)
 
 ## Choices and their impact
 

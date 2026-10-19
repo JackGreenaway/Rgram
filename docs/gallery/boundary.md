@@ -7,7 +7,7 @@ ends of an observed feature range. The generating mean is a straight line, so
 edge behavior is easier to distinguish from unknown curvature. Both fits use
 the same data, Gaussian kernel, bandwidth 0.22, and evaluation locations.
 
-![Local-linear boundary behavior: a single large plot of the example's observations or diagnostics.](../_static/gallery/boundary.png)
+![Boundary comparison of local-constant and local-linear curves against the known linear signal near the feature range edge.](../_static/gallery/boundary.png)
 
 ## Choices and their impact
 

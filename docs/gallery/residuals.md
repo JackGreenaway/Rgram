@@ -7,7 +7,7 @@ Gaussian bandwidth of 1.4 is applied to a noisy sine relationship. Residuals are
 evaluated at the original training features and plotted individually, with no
 extra smoothing of the residuals.
 
-![Inspecting residual structure: a single large plot of the example's observations or diagnostics.](../_static/gallery/residuals.png)
+![Residual plot showing observed minus predicted responses across the feature range, including the zero reference line.](../_static/gallery/residuals.png)
 
 ## Choices and their impact
 

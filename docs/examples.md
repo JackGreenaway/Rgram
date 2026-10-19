@@ -28,7 +28,7 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 <div class="docs-gallery-card" markdown="1">
 
-[![Bin count: preview of the fitted relationship or diagnostic.](_static/gallery/bins.png)](gallery/bins.md)
+[![Bin-count comparison showing raw observations, the synthetic generating mean, and regressogram summaries with 6 and 18 bins.](_static/gallery/bins.png)](gallery/bins.md)
 
 [Bin count](gallery/bins.md)
 
@@ -36,7 +36,7 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 <div class="docs-gallery-card" markdown="1">
 
-[![Bandwidth: preview of the fitted relationship or diagnostic.](_static/gallery/bandwidth.png)](gallery/bandwidth.md)
+[![Bandwidth comparison showing raw observations, the synthetic generating mean, and Gaussian smoother curves at three bandwidths.](_static/gallery/bandwidth.png)](gallery/bandwidth.md)
 
 [Bandwidth](gallery/bandwidth.md)
 
@@ -44,7 +44,7 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 <div class="docs-gallery-card" markdown="1">
 
-[![Subgroup curves: preview of the fitted relationship or diagnostic.](_static/gallery/subgroups.png)](gallery/subgroups.md)
+[![Subgroup comparison showing observations and separate local mean curves for each selected group.](_static/gallery/subgroups.png)](gallery/subgroups.md)
 
 [Subgroup curves](gallery/subgroups.md)
 
@@ -52,7 +52,7 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 <div class="docs-gallery-card" markdown="1">
 
-[![Boundary behavior: preview of the fitted relationship or diagnostic.](_static/gallery/boundary.png)](gallery/boundary.md)
+[![Boundary comparison of local-constant and local-linear curves against the known linear signal near the feature range edge.](_static/gallery/boundary.png)](gallery/boundary.md)
 
 [Boundary behavior](gallery/boundary.md)
 
@@ -60,7 +60,7 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 <div class="docs-gallery-card" markdown="1">
 
-[![Response summaries: preview of the fitted relationship or diagnostic.](_static/gallery/summaries.png)](gallery/summaries.md)
+[![Regressogram comparison of bin means, medians, and within-bin 10th to 90th percentile response spread.](_static/gallery/summaries.png)](gallery/summaries.md)
 
 [Response summaries](gallery/summaries.md)
 
@@ -68,7 +68,7 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 <div class="docs-gallery-card" markdown="1">
 
-[![Observation influence: preview of the fitted relationship or diagnostic.](_static/gallery/influence.png)](gallery/influence.md)
+[![Kernel influence plot showing how each training observation contributes to a prediction at the marked query value.](_static/gallery/influence.png)](gallery/influence.md)
 
 [Observation influence](gallery/influence.md)
 
@@ -76,7 +76,7 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 <div class="docs-gallery-card" markdown="1">
 
-[![Bootstrap intervals: preview of the fitted relationship or diagnostic.](_static/gallery/intervals.png)](gallery/intervals.md)
+[![Fitted local mean with pointwise bootstrap confidence bounds and the known synthetic generating mean.](_static/gallery/intervals.png)](gallery/intervals.md)
 
 [Bootstrap intervals](gallery/intervals.md)
 
@@ -84,7 +84,7 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 <div class="docs-gallery-card" markdown="1">
 
-[![Prediction support: preview of the fitted relationship or diagnostic.](_static/gallery/support.png)](gallery/support.md)
+[![Kernel smoother predictions around a gap in the observed feature values, highlighting unsupported query locations.](_static/gallery/support.png)](gallery/support.md)
 
 [Prediction support](gallery/support.md)
 
@@ -92,7 +92,7 @@ read the plot, run the example, then decide what to change in your own analysis.
 
 <div class="docs-gallery-card" markdown="1">
 
-[![Residuals: preview of the fitted relationship or diagnostic.](_static/gallery/residuals.png)](gallery/residuals.md)
+[![Residual plot showing observed minus predicted responses across the feature range, including the zero reference line.](_static/gallery/residuals.png)](gallery/residuals.md)
 
 [Residuals](gallery/residuals.md)
 

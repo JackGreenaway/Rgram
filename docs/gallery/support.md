@@ -7,7 +7,7 @@ any estimate. Training features occupy 0-2 and 4-6, leaving a deliberate gap.
 An Epanechnikov kernel with bandwidth 0.35 has compact support, so it cannot reach
 training observations from the middle of that gap.
 
-![Recognizing unsupported queries: a single large plot of the example's observations or diagnostics.](../_static/gallery/support.png)
+![Kernel smoother predictions around a gap in the observed feature values, highlighting unsupported query locations.](../_static/gallery/support.png)
 
 ## Choices and their impact
 

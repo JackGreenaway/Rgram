@@ -7,7 +7,7 @@ query at feature value 3. Both smoothers use bandwidth 0.6 and the same feature
 locations and responses. One gives all rows equal observation weight; the other
 gives rows above the query three times as much observation weight.
 
-![Inspecting observation influence: a single large plot of the example's observations or diagnostics.](../_static/gallery/influence.png)
+![Kernel influence plot showing how each training observation contributes to a prediction at the marked query value.](../_static/gallery/influence.png)
 
 ## Choices and their impact
 
