@@ -95,6 +95,24 @@ polars_weighted = Regressogram(
 
 A weighted adapter used without `sample_weight` receives unit weights. An all-zero-weight bin has no weighted mean and follows the unsupported policy. Its weighted sum is zero by definition. Bin selection rules and automatic kernel bandwidth rules use all feature rows without observation weighting; weighted feature quantiles are not implicitly substituted.
 
+For `KernelSmoother`, observation weights multiply the kernel weights at each query. This small uniform-kernel example makes the effect visible: the centre observation receives three times the influence of either neighbor.
+
+```python
+from rgram import KernelSmoother
+
+weighted_curve = KernelSmoother(
+    kernel="uniform", bandwidth="manual", bandwidth_value=2.0,
+).fit(
+    [0.0, 1.0, 2.0], [0.0, 10.0, 0.0], sample_weight=[1.0, 3.0, 1.0],
+)
+prediction = weighted_curve.predict([1.0])
+influence = weighted_curve.get_weights([1.0], kind="kernel")
+assert np.allclose(prediction, [6.0])
+assert np.allclose(influence, [[0.2, 0.6, 0.2]])
+```
+
+`get_weights(kind="kernel")` reports the normalized combined kernel and observation weights. The snapshot in `sample_weight_` remains `[1, 3, 1]`; prediction and weight inspection do not alter it. In a local-linear fit, prediction coefficients can be negative, so use `kind="prediction"` to inspect those coefficients separately.
+
 ## Choosing bins
 
 `binning="dist"` uses equal-frequency quantile cells. `binning="width"` uses equal-width cells. `binning="int"` groups by truncating the feature toward zero, and `binning="none"` groups identical feature values. Those are explicit grouping choices; none modifies the stored feature values.
